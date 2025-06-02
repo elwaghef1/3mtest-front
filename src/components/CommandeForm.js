@@ -399,6 +399,52 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
     generateBonDeCommandePDF(initialCommande);
   };
 
+  // Fonction pour obtenir les informations de stock disponible
+  const getStockInfo = (articleId, depotId) => {
+    if (!articleId || !depotId) return null;
+    
+    const stock = stocks.find(s => 
+      s.article && s.depot && 
+      s.article._id === articleId && 
+      s.depot._id === depotId
+    );
+    
+    return {
+      disponible: stock ? stock.quantiteCommercialisableKg : 0,
+      stockFound: !!stock
+    };
+  };
+
+  // Fonction pour calculer et afficher le statut de stock d'un item
+  const getStockStatus = (item, index) => {
+    const stockInfo = getStockInfo(item.article, item.depot);
+    if (!stockInfo || !item.quantiteKg) return null;
+    
+    const qtyRequested = parseFloat(item.quantiteKg) || 0;
+    const qtyAvailable = stockInfo.disponible;
+    
+    if (qtyAvailable >= qtyRequested) {
+      return {
+        type: 'success',
+        message: `✅ Stock suffisant (${qtyAvailable} Kg disponibles)`,
+        color: 'text-green-600 bg-green-50'
+      };
+    } else if (qtyAvailable > 0) {
+      const missing = qtyRequested - qtyAvailable;
+      return {
+        type: 'warning', 
+        message: `⚠️ Stock partiel: ${qtyAvailable} Kg disponibles, ${missing} Kg manquants`,
+        color: 'text-orange-600 bg-orange-50'
+      };
+    } else {
+      return {
+        type: 'error',
+        message: `❌ Stock indisponible (${qtyRequested} Kg demandés)`,
+        color: 'text-red-600 bg-red-50'
+      };
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto my-8 p-6 bg-white rounded-lg shadow-lg">
       <h2 className="text-3xl font-extrabold text-center text-blue-700 mb-8">
@@ -418,11 +464,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
             <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
             </svg>
-            <div>
-              <strong>Attention :</strong> Cette commande a le statut "LIVREE". 
-              Toute modification pourrait affecter les livraisons déjà effectuées. 
-              Procédez avec prudence.
-            </div>
           </div>
         </div>
       )}
@@ -675,18 +716,47 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
                   )}
                 </div>
               </div>
+              {/* Indicateur de stock */}
+              {item.article && item.depot && item.quantiteKg && !articlesModifiables && (() => {
+                const status = getStockStatus(item, index);
+                return status ? (
+                  <div className={`mt-3 p-3 rounded-lg border ${status.color}`}>
+                    <div className="text-sm font-medium">{status.message}</div>
+                    {/* Affichage des quantités manquantes si présentes */}
+                    {item.quantiteManquante > 0 && (
+                      <div className="text-xs mt-1">
+                        Quantité allouée: {item.quantiteAllouee || 0} Kg | 
+                        Quantité manquante: {item.quantiteManquante} Kg |
+                        Statut: {item.statutStock}
+                      </div>
+                    )}
+                  </div>
+                ) : null;
+              })()}
+
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                 <div className="flex flex-col">
                   <label className="mb-1 text-sm font-medium text-gray-700">Quantité (Kg) *</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="0"
-                    className={getInputClass(item.quantiteKg, !articlesModifiables ? 'bg-gray-200' : '')}
-                    value={item.quantiteKg}
-                    onChange={(e) => updateItem(index, 'quantiteKg', e.target.value)}
-                    disabled={!articlesModifiables}
-                  />
+                  <div className="relative">
+                    <input
+                      type="number"
+                      required
+                      placeholder="0"
+                      className={getInputClass(item.quantiteKg, !articlesModifiables ? 'bg-gray-200' : '')}
+                      value={item.quantiteKg}
+                      onChange={(e) => updateItem(index, 'quantiteKg', e.target.value)}
+                      disabled={!articlesModifiables}
+                    />
+                    {/* Indicateur de stock en temps réel pour la création */}
+                    {articlesModifiables && item.article && item.depot && item.quantiteKg && (() => {
+                      const status = getStockStatus(item, index);
+                      return status && status.type !== 'success' ? (
+                        <div className="absolute -bottom-6 left-0 text-xs text-orange-600">
+                          {status.type === 'warning' ? '⚠️ Stock partiel' : '❌ Stock indisponible'}
+                        </div>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
                 <div className="flex flex-col">
                   <label className="mb-1 text-sm font-medium text-gray-700">Prix Unitaire *</label>
@@ -741,6 +811,14 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
                   </div>
                 </div>
               )}
+              {/* Indicateurs de stock */}
+              <div className="mt-4">
+                {getStockStatus(item, index) && (
+                  <div className={`p-2 rounded ${getStockStatus(item, index).color} text-sm`}>
+                    {getStockStatus(item, index).message}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
           {articlesModifiables && (
@@ -1116,6 +1194,56 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
               </Button>
             </>
           )}
+        </div>
+      )}
+
+      {/* Section Résumé des Quantités Manquantes - uniquement en modification */}
+      {initialCommande && formData.statutBonDeCommande === 'AVEC_QUANTITES_MANQUANTES' && (
+        <div className="p-4 border border-orange-300 rounded-lg bg-orange-50 shadow-sm">
+          <h3 className="text-xl font-semibold text-orange-800 mb-4 border-b border-orange-200 pb-2">
+            ⚠️ Quantités Manquantes
+          </h3>
+          <div className="space-y-3">
+            {items.filter(item => item.quantiteManquante > 0).map((item, index) => {
+              const article = articles.find(a => a._id === item.article);
+              const depot = depots.find(d => d._id === item.depot);
+              return (
+                <div key={index} className="bg-white p-3 rounded border border-orange-200">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                    <div>
+                      <span className="font-medium">Article:</span><br/>
+                      {article?.intitule || 'Article inconnu'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Dépôt:</span><br/>
+                      {depot?.intitule || 'Dépôt inconnu'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Quantités:</span><br/>
+                      Demandée: {item.quantiteKg} Kg<br/>
+                      Allouée: {item.quantiteAllouee || 0} Kg<br/>
+                      <span className="text-orange-600 font-medium">Manquante: {item.quantiteManquante} Kg</span>
+                    </div>
+                    <div>
+                      <span className="font-medium">Statut:</span><br/>
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        item.statutStock === 'DISPONIBLE' ? 'bg-green-100 text-green-800' :
+                        item.statutStock === 'PARTIEL' ? 'bg-orange-100 text-orange-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {item.statutStock}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
+              <p className="text-sm text-blue-800">
+                💡 <strong>Information:</strong> Vous serez automatiquement notifié lorsque les articles manquants seront disponibles en stock.
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>

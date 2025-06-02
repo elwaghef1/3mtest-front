@@ -25,6 +25,8 @@ import SortieList from './components/SortieList.js';
 import ApresLivraisonList from './components/ApresLivraisonList.js';
 import LotList from './components/LotList.js';
 import BankAccountList from './components/BankAccountList.js';
+import QuantiteManquanteList from './components/QuantiteManquanteList.js';
+import QuantiteManquanteDashboard from './components/QuantiteManquanteDashboard.js';
 
 function App() {
   return (
@@ -122,6 +124,24 @@ function App() {
               element={
                 <PrivateRoute>
                   <StockList />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/quantites-manquantes"
+              element={
+                <PrivateRoute>
+                  <QuantiteManquanteList />
+                </PrivateRoute>
+              }
+            />
+
+            <Route
+              path="/quantites-manquantes/dashboard"
+              element={
+                <PrivateRoute>
+                  <QuantiteManquanteDashboard />
                 </PrivateRoute>
               }
             />

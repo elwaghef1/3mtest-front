@@ -334,12 +334,50 @@ const CommandeList = () => {
         color: 'bg-orange-600 text-white',
         label: 'En attente de stock',
       },
+      AVEC_QUANTITES_MANQUANTES: {
+        color: 'bg-amber-600 text-white',
+        label: 'Quantités manquantes',
+      },
+      PARTIELLEMENT_LIVREE: {
+        color: 'bg-purple-600 text-white',
+        label: 'Partiellement livrée',
+      },
+      INCOMPLET: {
+        color: 'bg-red-600 text-white',
+        label: 'Incomplet',
+      },
     };
     const { color, label } = config[statut] || { color: 'bg-gray-600 text-white', label: statut || 'Inconnu' };
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${color}`}>
         {label}
       </span>
+    );
+  };
+
+  // Fonction pour calculer et afficher les indicateurs de quantités manquantes
+  const getQuantitesManquantesIndicator = (commande) => {
+    if (!commande.items || commande.items.length === 0) return null;
+    
+    const itemsAvecQuantitesManquantes = commande.items.filter(item => 
+      item.quantiteManquante && item.quantiteManquante > 0
+    );
+    
+    if (itemsAvecQuantitesManquantes.length === 0) return null;
+    
+    const totalManquant = itemsAvecQuantitesManquantes.reduce((total, item) => 
+      total + (item.quantiteManquante || 0), 0
+    );
+    
+    return (
+      <div className="flex items-center space-x-2 mt-1">
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+          ⚠️ {itemsAvecQuantitesManquantes.length} article(s) manquant(s)
+        </span>
+        <span className="text-xs text-gray-600">
+          Total manquant: {totalManquant.toFixed(2)} Kg
+        </span>
+      </div>
     );
   };
 
@@ -763,8 +801,9 @@ const CommandeList = () => {
                         <h3 className="font-medium text-gray-900">{commande.reference}</h3>
                         <p className="text-sm text-gray-600">{commande.client?.raisonSociale}</p>
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex flex-col space-y-2">
                         {getStatusBadge(commande.statutBonDeCommande)}
+                        {getQuantitesManquantesIndicator(commande)}
                       </div>
                     </div>
                     
@@ -888,7 +927,10 @@ const CommandeList = () => {
                         <div className="truncate">{commande.depot?.intitule || '—'}</div>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap">
-                        {getStatusBadge(commande.statutBonDeCommande)}
+                        <div className="space-y-1">
+                          {getStatusBadge(commande.statutBonDeCommande)}
+                          {getQuantitesManquantesIndicator(commande)}
+                        </div>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap">
                         {getPaymentBadge(commande.statutDePaiement)}

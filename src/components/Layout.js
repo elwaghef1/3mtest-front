@@ -18,7 +18,9 @@ import {
   Bars3Icon,
   CogIcon,
   ArrowDownTrayIcon, // Ajout de l'icône pour Sorties
+  ExclamationTriangleIcon, // Ajout de l'icône pour Quantités Manquantes
 } from '@heroicons/react/24/outline';
+import NotificationCenter from './NotificationCenter';
 
 const Layout = () => {
   const { logout, hasFilledSchoolInfo, isAuthenticated } = useContext(AuthContext);
@@ -45,6 +47,7 @@ const Layout = () => {
     { title: 'Etats de stock', icon: ChartBarIcon, link: '/dashboard' },
     { title: 'Clients', icon: UserGroupIcon, link: '/clients' },
     { title: 'Commandes', icon: ClipboardDocumentCheckIcon, link: '/commandes' },
+    { title: 'Quantités Manquantes', icon: ExclamationTriangleIcon, link: '/quantites-manquantes' },
     { title: 'Plan avant chargement', icon: TruckIcon, link: '/plan-chargement' },
     { title: 'Plan après chargement', icon: TruckIcon, link: '/apres-livraison' },
     { title: 'Dépôts', icon: BuildingStorefrontIcon, link: '/depots' },
@@ -117,6 +120,7 @@ const Layout = () => {
               OCEAN DELICE
             </h1>
             <div className="flex items-center space-x-2">
+              <NotificationCenter />
               {/* Boutons de changement de langue */}
               {/* <button onClick={() => changeLanguage('fr')} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md text-sm font-medium hover:bg-indigo-200">FR</button> */}
               {/* <button onClick={() => changeLanguage('ar')} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md text-sm font-medium hover:bg-indigo-200">AR</button> */}
