@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Search, Package, AlertCircle, CheckCircle, History } from 'lucide-react';
+import { Search, Package, AlertCircle, CheckCircle } from 'lucide-react';
 import Button from './Button';
 import FlashNotification from './FlashNotification';
-import LivraisonPartielleModal from './LivraisonPartielleModal';
 import sortieService from '../services/sortieService';
 
 const SortieForm = ({ onSortieCreated, onCancel }) => {
@@ -14,7 +13,6 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [notification, setNotification] = useState(null);
-  const [showLivraisonModal, setShowLivraisonModal] = useState(false);
 
   const handleSearchCommande = async () => {
     if (!searchRef.trim()) {
@@ -246,6 +244,14 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
     setSelectedItems(updatedItems);
   };
 
+  const handleLivrerTout = () => {
+    const updatedItems = selectedItems.map(item => ({
+      ...item,
+      quantiteKg: item.quantiteMax
+    }));
+    setSelectedItems(updatedItems);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -259,24 +265,47 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
       return;
     }
 
-    const sortieData = {
-      commande: commande._id,
-      items: itemsToDeliver.map(item => ({
-        article: item.article,
-        depot: item.depot,
-        quantiteKg: item.quantiteKg
-      })),
-      typeLivraison,
-      notes
-    };
-
     setLoading(true);
     try {
-      const result = await sortieService.createSortie(sortieData);
-      setNotification({
-        type: 'success',
-        message: result.message || 'Sortie créée avec succès!'
-      });
+      let result;
+      
+      if (typeLivraison === 'PARTIELLE') {
+        // Pour les livraisons partielles, utiliser l'endpoint dédié qui crée automatiquement
+        // une nouvelle commande dérivée avec statut "LIVREE" et une sortie correspondante
+        const livraisonData = {
+          itemsALivrer: itemsToDeliver.map(item => ({
+            itemId: item._id,
+            quantiteLivree: item.quantiteKg
+          })),
+          notes
+        };
+        
+        result = await sortieService.createLivraisonPartielle(commande._id, livraisonData);
+        
+        setNotification({
+          type: 'success',
+          message: `Livraison partielle créée avec succès! Référence: ${result.resume?.referenceLivraison || 'N/A'}`
+        });
+      } else {
+        // Pour les livraisons complètes, utiliser le flux existant
+        const sortieData = {
+          commande: commande._id,
+          items: itemsToDeliver.map(item => ({
+            article: item.article,
+            depot: item.depot,
+            quantiteKg: item.quantiteKg
+          })),
+          typeLivraison,
+          notes
+        };
+        
+        result = await sortieService.createSortie(sortieData);
+        
+        setNotification({
+          type: 'success',
+          message: result.message || 'Sortie créée avec succès!'
+        });
+      }
       
       // Réinitialiser le formulaire
       setSearchRef('');
@@ -285,7 +314,7 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
       setNotes('');
       
       if (onSortieCreated) {
-        onSortieCreated(result.sortie);
+        onSortieCreated(result.sortie || result);
       }
     } catch (error) {
       setNotification({
@@ -305,7 +334,7 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6 bg-white shadow-lg rounded-lg">
+    <div className="max-w-6xl mx-auto p-6 bg-white shadow-lg rounded-lg">
       {notification && (
         <FlashNotification
           type={notification.type}
@@ -358,18 +387,7 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
                 <p><strong>Référence:</strong> {commande.reference}</p>
                 <p><strong>Client:</strong> {commande.client?.nom}</p>
                 {commande.nombreLivraisonsExistantes > 0 && (
-                  <div>
-                    <p><strong>Livraisons précédentes:</strong> {commande.nombreLivraisonsExistantes}</p>
-                    <Button
-                      onClick={() => setShowLivraisonModal(true)}
-                      variant="outline"
-                      size="sm"
-                      leftIcon={<History size={16} />}
-                      className="mt-2"
-                    >
-                      Voir l'historique
-                    </Button>
-                  </div>
+                  <p><strong>Livraisons précédentes:</strong> {commande.nombreLivraisonsExistantes}</p>
                 )}
               </div>
               <div>
@@ -418,40 +436,79 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
             {typeLivraison === 'PARTIELLE' && (
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <strong>Livraison partielle sélectionnée :</strong> Utilisez l'interface avancée de livraison partielle 
-                  qui vous permet de sélectionner précisément les quantités à livrer pour chaque article.
+                  <strong>Livraison partielle sélectionnée :</strong> Modifiez les quantités des articles ci-dessous selon vos besoins.
+                  Les stocks disponibles et quantités restantes sont calculés automatiquement.
                 </p>
-                <Button
-                  onClick={() => setShowLivraisonModal(true)}
-                  variant="primary"
-                  size="sm"
-                  className="mt-2"
-                  leftIcon={<Package size={16} />}
-                >
-                  Ouvrir l'interface de livraison partielle
-                </Button>
               </div>
             )}
           </div>
 
-          {/* Interface pour livraison complète seulement */}
-          {typeLivraison === 'COMPLETE' && (
+          {/* Interface pour livraison complète et partielle */}
+          {(typeLivraison === 'COMPLETE' || typeLivraison === 'PARTIELLE') && (
             <>
               {/* Liste des articles */}
               <div className="mb-4">
                 <h4 className="font-semibold text-gray-700 mb-2">
                   3. Sélectionner les articles à livrer
+                  {typeLivraison === 'PARTIELLE' && (
+                    <span className="text-sm text-blue-600 ml-2">
+                      (Livraison partielle - modifiez les quantités selon vos besoins)
+                    </span>
+                  )}
                 </h4>
+
+                {/* Résumé des calculs et bouton "Livrer tout" pour livraison partielle */}
+                {typeLivraison === 'PARTIELLE' && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <p className="text-sm text-blue-600 font-medium">Total à livrer</p>
+                      <p className="text-xl font-bold text-blue-800">
+                        {getTotalQuantite().toFixed(2)} kg
+                      </p>
+                      <p className="text-sm text-green-600">
+                        {getTotalValue().toFixed(2)} €
+                      </p>
+                    </div>
+                    <div className="bg-green-50 p-4 rounded-lg">
+                      <p className="text-sm text-green-600 font-medium">Total disponible</p>
+                      <p className="text-xl font-bold text-green-800">
+                        {selectedItems.reduce((sum, item) => sum + (item.quantiteMax || 0), 0).toFixed(2)} kg
+                      </p>
+                      <p className="text-sm text-green-600">
+                        {selectedItems.reduce((sum, item) => sum + ((item.quantiteMax || 0) * (item.prixUnitaire || 0)), 0).toFixed(2)} €
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <p className="text-sm text-gray-600 font-medium">Total commandé</p>
+                      <p className="text-xl font-bold text-gray-800">
+                        {selectedItems.reduce((sum, item) => sum + (item.quantiteOriginale || 0), 0).toFixed(2)} kg
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {selectedItems.reduce((sum, item) => sum + ((item.quantiteOriginale || 0) * (item.prixUnitaire || 0)), 0).toFixed(2)} €
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <Button
+                        variant="info"
+                        size="sm"
+                        onClick={handleLivrerTout}
+                        className="w-full"
+                        leftIcon={<CheckCircle size={16} />}
+                      >
+                        Livrer tout le possible
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <div className="overflow-x-auto">
                   <table className="min-w-full bg-white border border-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-2 border text-left">Article</th>
-                        <th className="px-4 py-2 border text-left">Dépôt</th>
-                        <th className="px-4 py-2 border text-center">Qté originale</th>
-                        <th className="px-4 py-2 border text-center">Déjà livrée</th>
-                        <th className="px-4 py-2 border text-center">Qté restante</th>
-                        <th className="px-4 py-2 border text-center">Qté à livrer</th>
+                        <th className="px-4 py-2 border text-left">Article & Dépôt</th>
+                        <th className="px-4 py-2 border text-center">Commandé</th>
+                        <th className="px-4 py-2 border text-center">Déjà livré</th>
+                        <th className="px-4 py-2 border text-center">Disponible</th>
+                        <th className="px-4 py-2 border text-center">À livrer</th>
                         <th className="px-4 py-2 border text-center">Prix unitaire</th>
                         <th className="px-4 py-2 border text-center">Total</th>
                         <th className="px-4 py-2 border text-center">Action</th>
@@ -460,11 +517,29 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
                     <tbody>
                       {selectedItems.map((item, index) => (
                         <tr key={`${item.article}-${item.depot}`} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 border">{item.articleNom}</td>
-                          <td className="px-4 py-2 border">{item.depotNom}</td>
-                          <td className="px-4 py-2 border text-center">{item.quantiteOriginale?.toFixed(2)} kg</td>
-                          <td className="px-4 py-2 border text-center">{item.quantiteLivree?.toFixed(2)} kg</td>
-                          <td className="px-4 py-2 border text-center font-semibold text-blue-600">{item.quantiteMax?.toFixed(2)} kg</td>
+                          <td className="px-4 py-2 border">
+                            <div>
+                              <p className="font-medium text-gray-900">{item.articleNom}</p>
+                              <p className="text-sm text-gray-600">Dépôt: {item.depotNom}</p>
+                              {typeLivraison === 'PARTIELLE' && (
+                                <p className="text-xs text-green-600 font-medium">
+                                  Reste: {item.quantiteMax?.toFixed(2)} kg disponible
+                                </p>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-2 border text-center">
+                            <p className="font-medium">{item.quantiteOriginale?.toFixed(2)} kg</p>
+                            <p className="text-sm text-gray-600">
+                              {(item.quantiteOriginale * item.prixUnitaire).toFixed(2)} €
+                            </p>
+                          </td>
+                          <td className="px-4 py-2 border text-center">
+                            <p className="text-sm">{item.quantiteLivree?.toFixed(2)} kg</p>
+                          </td>
+                          <td className="px-4 py-2 border text-center">
+                            <p className="font-semibold text-green-600">{item.quantiteMax?.toFixed(2)} kg</p>
+                          </td>
                           <td className="px-4 py-2 border text-center">
                             <input
                               type="number"
@@ -473,12 +548,15 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
                               step="0.1"
                               value={item.quantiteKg}
                               onChange={(e) => handleQuantiteChange(index, parseFloat(e.target.value) || 0)}
-                              className="w-20 px-2 py-1 border rounded text-center"
+                              className="w-20 px-2 py-1 border rounded text-center focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="0.00"
                             />
                           </td>
                           <td className="px-4 py-2 border text-center">{item.prixUnitaire?.toFixed(2)} €</td>
                           <td className="px-4 py-2 border text-center">
-                            {(item.quantiteKg * item.prixUnitaire).toFixed(2)} €
+                            <p className="font-medium text-green-600">
+                              {(item.quantiteKg * item.prixUnitaire).toFixed(2)} €
+                            </p>
                           </td>
                           <td className="px-4 py-2 border text-center">
                             <Button
@@ -524,8 +602,8 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
             </>
           )}
 
-          {/* Actions - seulement pour livraison complète */}
-          {typeLivraison === 'COMPLETE' && (
+          {/* Actions - pour livraison complète et partielle */}
+          {(typeLivraison === 'COMPLETE' || typeLivraison === 'PARTIELLE') && (
             <div className="flex justify-end gap-3">
               <Button
                 onClick={() => {
@@ -551,52 +629,11 @@ const SortieForm = ({ onSortieCreated, onCancel }) => {
                 variant="primary"
                 disabled={getTotalQuantite() === 0}
               >
-                Créer la sortie
-              </Button>
-            </div>
-          )}
-
-          {/* Actions pour livraison partielle */}
-          {typeLivraison === 'PARTIELLE' && (
-            <div className="flex justify-end gap-3">
-              <Button
-                onClick={() => {
-                  if (onCancel) {
-                    onCancel();
-                  } else {
-                    // Réinitialiser le formulaire si pas de fonction onCancel fournie
-                    setSearchRef('');
-                    setCommande(null);
-                    setSelectedItems([]);
-                    setNotes('');
-                    setNotification(null);
-                  }
-                }}
-                variant="secondary"
-              >
-                Annuler
+                {typeLivraison === 'PARTIELLE' ? 'Créer la sortie partielle' : 'Créer la sortie'}
               </Button>
             </div>
           )}
         </div>
-      )}
-
-      {/* Modal d'historique des livraisons partielles */}
-      {showLivraisonModal && commande && (
-        <LivraisonPartielleModal
-          commande={commande}
-          onClose={() => setShowLivraisonModal(false)}
-          onLivraisonCreated={(livraison) => {
-            setShowLivraisonModal(false);
-            // Rafraîchir la commande pour mettre à jour les quantités
-            handleSearchCommande();
-            if (onSortieCreated) {
-              onSortieCreated(livraison);
-            }
-          }}
-          formatCurrency={(value) => `${(value || 0).toFixed(2)} €`}
-          formatNumber={(value) => (value || 0).toLocaleString('fr-FR')}
-        />
       )}
     </div>
   );

@@ -47,7 +47,7 @@ const Layout = () => {
     { title: 'Etats de stock', icon: ChartBarIcon, link: '/dashboard' },
     { title: 'Clients', icon: UserGroupIcon, link: '/clients' },
     { title: 'Commandes', icon: ClipboardDocumentCheckIcon, link: '/commandes' },
-    { title: 'Quantités Manquantes', icon: ExclamationTriangleIcon, link: '/quantites-manquantes' },
+    // { title: 'Quantités Manquantes', icon: ExclamationTriangleIcon, link: '/quantites-manquantes' }, // Disabled - replaced with automatic notifications
     { title: 'Plan avant chargement', icon: TruckIcon, link: '/plan-chargement' },
     { title: 'Plan après chargement', icon: TruckIcon, link: '/apres-livraison' },
     { title: 'Dépôts', icon: BuildingStorefrontIcon, link: '/depots' },
@@ -66,7 +66,7 @@ const Layout = () => {
         <div className="flex items-center justify-between h-16 bg-indigo-700 px-4">
           <div className="flex items-center">
             <ChartBarIcon className="h-8 w-8 text-white" />
-            {sidebarOpen && <h1 className="ml-2 text-xl font-bold">OCEAN DELICE</h1>}
+            {sidebarOpen && <h1 className="ml-2 text-xl font-bold">MSM SEAFOOD</h1>}
           </div>
           <Button
             onClick={toggleSidebar}
@@ -117,7 +117,7 @@ const Layout = () => {
         <header className="bg-white shadow-sm">
           <div className="flex justify-between items-center py-4 px-6">
             <h1 className="text-2xl font-semibold text-gray-900">
-              OCEAN DELICE
+              MSM SEAFOOD
             </h1>
             <div className="flex items-center space-x-2">
               <NotificationCenter />

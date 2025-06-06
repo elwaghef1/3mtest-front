@@ -128,6 +128,8 @@ function App() {
               }
             />
 
+            {/* Quantités manquantes routes disabled - replaced with automatic notifications */}
+            {/* 
             <Route
               path="/quantites-manquantes"
               element={
@@ -145,6 +147,7 @@ function App() {
                 </PrivateRoute>
               }
             />
+            */}
 
             {/* Redirection vers /dashboard par défaut */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

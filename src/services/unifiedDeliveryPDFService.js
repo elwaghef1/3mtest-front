@@ -1,285 +1,327 @@
 // Service unifié pour la génération de PDF de livraison
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import logoBase64 from '../components/logoBase64';
 
 /**
- * Service unifié pour générer tous les documents PDF de livraison en un seul fichier robuste
+ * Service pour générer un PDF unifié contenant tous les documents d'une sortie
  */
-export class UnifiedDeliveryPDFService {
+
+// Fonction principale pour générer le PDF unifié
+const generateUnifiedSortiePDF = (sortie) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const commande = sortie.commande;
   
-  constructor() {
-    this.defaultOptions = {
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-      compress: true
-    };
-  }
+  // 1. Page de garde
+  generateCoverPage(doc, sortie, commande);
+  
+  // 2. Facture
+  doc.addPage();
+  generateInvoicePage(doc, sortie, commande);
+  
+  // 3. Packing List
+  doc.addPage();
+  generatePackingListPage(doc, sortie, commande);
+  
+  // 4. Bon de Sortie
+  doc.addPage();
+  generateBonDeSortiePage(doc, sortie, commande);
+  
+  // Sauvegarder le PDF
+  doc.save(`Sortie_Complete_${sortie.reference}_${new Date().toISOString().slice(0, 10)}.pdf`);
+};
 
-  /**
-   * Génère un PDF unifié contenant tous les documents de livraison
-   */
-  generateUnifiedDeliveryPDF(commande, itemsLivres, infoLivraison, options = {}) {
-    try {
-      const doc = new jsPDF(this.defaultOptions);
-      
-      // Page 1: Bon de Sortie
-      this.addBonDeSortiePage(doc, commande, itemsLivres, infoLivraison);
-      
-      // Page 2: Facture
-      doc.addPage();
-      this.addFacturePage(doc, commande, itemsLivres, infoLivraison);
-      
-      // Page 3: Packing List
-      doc.addPage();
-      this.addPackingListPage(doc, commande, itemsLivres, infoLivraison);
-      
-      // Page 4: Résumé de livraison
-      doc.addPage();
-      this.addResumePage(doc, commande, itemsLivres, infoLivraison);
-      
-      return doc;
-    } catch (error) {
-      console.error('Erreur lors de la génération du PDF unifié:', error);
-      throw new Error(`Génération PDF échouée: ${error.message}`);
-    }
+// Page de garde
+const generateCoverPage = (doc, sortie, commande) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
+  // Logo
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'PNG', 75, 30, 60, 40);
   }
+  
+  // Titre principal
+  doc.setFontSize(24);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(41, 128, 185);
+  doc.text('DOSSIER DE SORTIE', pageWidth / 2, 100, { align: 'center' });
+  
+  // Ligne décorative
+  doc.setDrawColor(41, 128, 185);
+  doc.setLineWidth(2);
+  doc.line(50, 110, pageWidth - 50, 110);
+  
+  // Informations principales
+  doc.setFontSize(16);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Référence Sortie: ${sortie.reference}`, pageWidth / 2, 130, { align: 'center' });
+  doc.text(`Date: ${new Date(sortie.dateSortie).toLocaleDateString('fr-FR')}`, pageWidth / 2, 140, { align: 'center' });
+  
+  // Client
+  doc.setFontSize(14);
+  doc.text(`Client: ${commande?.client?.raisonSociale || 'N/A'}`, pageWidth / 2, 160, { align: 'center' });
+  doc.text(`Commande: ${commande?.reference || 'N/A'}`, pageWidth / 2, 170, { align: 'center' });
+  
+  // Type de livraison
+  const typeLivraison = sortie.typeLivraison === 'PARTIELLE' ? 'LIVRAISON PARTIELLE' : 'LIVRAISON COMPLÈTE';
+  const typeCommande = commande?.typeCommande === 'LOCALE' ? ' (COMMANDE LOCALE)' : '';
+  doc.setFontSize(12);
+  doc.setTextColor(220, 53, 69);
+  doc.text(typeLivraison + typeCommande, pageWidth / 2, 190, { align: 'center' });
+  
+  // Documents inclus
+  doc.setFontSize(12);
+  doc.setTextColor(52, 73, 94);
+  doc.text('Documents inclus:', 30, 220);
+  doc.setFontSize(11);
+  doc.text('• Facture commerciale', 40, 230);
+  doc.text('• Packing List', 40, 238);
+  doc.text('• Bon de sortie', 40, 246);
+};
 
-  /**
-   * Page 1: Bon de Sortie
-   */
-  addBonDeSortiePage(doc, commande, itemsLivres, infoLivraison) {
-    // En-tête
-    doc.setFontSize(20);
-    doc.setFont(undefined, 'bold');
-    doc.text('BON DE SORTIE', 105, 20, { align: 'center' });
-    
-    // Informations générales
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Référence: ${infoLivraison.referenceLivraison}`, 20, 40);
-    doc.text(`Date: ${new Date(infoLivraison.dateLivraison).toLocaleDateString('fr-FR')}`, 20, 50);
-    doc.text(`Commande: ${commande.reference}`, 20, 60);
-    doc.text(`Client: ${commande.client?.raisonSociale || 'N/A'}`, 20, 70);
-    
-    // Tableau des articles
-    const headers = ['Article', 'Dépôt', 'Quantité (kg)', 'Lot', 'Qualité'];
-    const rows = itemsLivres.map(item => [
-      item.article?.intitule || 'N/A',
-      item.depot?.intitule || 'N/A',
-      (item.quantiteLivree || 0).toFixed(2),
+// Page Facture
+const generateInvoicePage = (doc, sortie, commande) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
+  // En-tête
+  addHeaderWithLogo(doc, 'COMMERCIAL INVOICE');
+  
+  // Informations facture
+  doc.setFontSize(10);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Invoice No: ${sortie.reference}`, 15, 50);
+  doc.text(`Date: ${new Date(sortie.dateSortie).toLocaleDateString('fr-FR')}`, 15, 55);
+  doc.text(`Order Ref: ${commande?.reference || 'N/A'}`, 15, 60);
+  
+  // Informations client
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Bill To:', 15, 75);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(commande?.client?.raisonSociale || 'N/A', 15, 82);
+  doc.text(commande?.client?.adresse || 'N/A', 15, 87);
+  doc.text(commande?.client?.email || 'N/A', 15, 92);
+  
+  // Tableau des articles
+  const tableData = sortie.items.map((item, index) => [
+    index + 1,
+    formatArticle(item.article),
+    item.lot?.batchNumber || item.batchNumber || 'N/A',
+    `${item.quantiteKg || 0} Kg`,
+    `${item.quantiteCarton || 0}`,
+    `${formatCurrency(item.prixUnitaire || commande?.prixUnitaire || 0, commande?.currency)}`,
+    `${formatCurrency((item.quantiteKg || 0) * (item.prixUnitaire || commande?.prixUnitaire || 0), commande?.currency)}`
+  ]);
+  
+  const totalAmount = sortie.items.reduce((sum, item) => 
+    sum + ((item.quantiteKg || 0) * (item.prixUnitaire || commande?.prixUnitaire || 0)), 0
+  );
+  
+  doc.autoTable({
+    startY: 100,
+    head: [['#', 'Article', 'Batch', 'Quantity', 'Cartons', 'Unit Price', 'Total']],
+    body: tableData,
+    foot: [[
+      { content: 'TOTAL', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: formatCurrency(totalAmount, commande?.currency), styles: { fontStyle: 'bold' } }
+    ]],
+    theme: 'striped',
+    headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+    styles: { fontSize: 9 }
+  });
+  
+  // Conditions
+  const finalY = doc.lastAutoTable.finalY + 10;
+  if (commande?.conditionsDeVente) {
+    doc.setFontSize(9);
+    doc.text('Terms & Conditions:', 15, finalY);
+    const lines = doc.splitTextToSize(commande.conditionsDeVente, pageWidth - 30);
+    doc.text(lines, 15, finalY + 5);
+  }
+};
+
+// Page Packing List
+const generatePackingListPage = (doc, sortie, commande) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
+  // En-tête
+  addHeaderWithLogo(doc, 'PACKING LIST');
+  
+  // Informations
+  doc.setFontSize(10);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`Packing List No: ${sortie.reference}`, 15, 50);
+  doc.text(`Date: ${new Date(sortie.dateSortie).toLocaleDateString('fr-FR')}`, 15, 55);
+  
+  // Afficher les informations conditionnellement selon le type de commande
+  if (commande?.typeCommande !== 'LOCALE') {
+    doc.text(`Booking: ${commande?.numeroBooking || 'N/A'}`, 15, 60);
+    doc.text(`Destination: ${commande?.destination || 'N/A'}`, 15, 65);
+  } else {
+    doc.text(`Type: Commande Locale`, 15, 60);
+  }
+  
+  // Tableau détaillé
+  const tableData = sortie.items.map((item, index) => {
+    const article = item.article;
+    return [
+      index + 1,
+      article?.reference || 'N/A',
+      article?.specification || 'N/A',
+      article?.taille || 'N/A',
       item.lot?.batchNumber || 'N/A',
-      item.qualite || 'Standard'
-    ]);
-
-    doc.autoTable({
-      head: [headers],
-      body: rows,
-      startY: 85,
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [66, 139, 202] }
-    });
-
-    // Signatures
-    const finalY = doc.lastAutoTable.finalY + 20;
-    doc.text('Responsable magasin:', 20, finalY);
-    doc.text('Chauffeur:', 120, finalY);
-    doc.line(20, finalY + 15, 80, finalY + 15);
-    doc.line(120, finalY + 15, 180, finalY + 15);
-  }
-
-  /**
-   * Page 2: Facture
-   */
-  addFacturePage(doc, commande, itemsLivres, infoLivraison) {
-    // En-tête
-    doc.setFontSize(20);
-    doc.setFont(undefined, 'bold');
-    doc.text('FACTURE DE LIVRAISON', 105, 20, { align: 'center' });
-    
-    // Informations facture
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
-    doc.text(`N° Facture: ${infoLivraison.referenceLivraison}`, 20, 40);
-    doc.text(`Date: ${new Date(infoLivraison.dateLivraison).toLocaleDateString('fr-FR')}`, 20, 50);
-    
-    // Informations client
-    doc.text('FACTURER À:', 20, 70);
-    doc.setFont(undefined, 'bold');
-    doc.text(commande.client?.raisonSociale || 'Client N/A', 20, 80);
-    doc.setFont(undefined, 'normal');
-    doc.text(commande.client?.adresse || '', 20, 90);
-    
-    // Tableau détaillé avec prix
-    const headers = ['Article', 'Quantité (kg)', 'Prix unitaire', 'Total'];
-    const rows = itemsLivres.map(item => {
-      const prixUnitaire = item.prixUnitaire || 0;
-      const total = (item.quantiteLivree || 0) * prixUnitaire;
-      return [
-        item.article?.intitule || 'N/A',
-        (item.quantiteLivree || 0).toFixed(2),
-        this.formatCurrency(prixUnitaire),
-        this.formatCurrency(total)
-      ];
-    });
-
-    // Ajouter ligne de total
-    const totalGeneral = itemsLivres.reduce((sum, item) => 
-      sum + ((item.quantiteLivree || 0) * (item.prixUnitaire || 0)), 0);
-    
-    rows.push(['', '', 'TOTAL', this.formatCurrency(totalGeneral)]);
-
-    doc.autoTable({
-      head: [headers],
-      body: rows,
-      startY: 105,
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [66, 139, 202] },
-      footStyles: { fillColor: [220, 220, 220], fontStyle: 'bold' }
-    });
-  }
-
-  /**
-   * Page 3: Packing List
-   */
-  addPackingListPage(doc, commande, itemsLivres, infoLivraison) {
-    // En-tête
-    doc.setFontSize(20);
-    doc.setFont(undefined, 'bold');
-    doc.text('PACKING LIST', 105, 20, { align: 'center' });
-    
-    // Informations générales
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Référence: ${infoLivraison.referenceLivraison}`, 20, 40);
-    doc.text(`Date: ${new Date(infoLivraison.dateLivraison).toLocaleDateString('fr-FR')}`, 20, 50);
-    doc.text(`Destinataire: ${commande.client?.raisonSociale || 'N/A'}`, 20, 60);
-    
-    // Tableau détaillé pour transport
-    const headers = ['N°', 'Description', 'Quantité (kg)', 'Cartons', 'Observations'];
-    const rows = itemsLivres.map((item, index) => [
-      (index + 1).toString(),
-      `${item.article?.intitule || 'N/A'} - ${item.article?.specification || ''}`,
-      (item.quantiteLivree || 0).toFixed(2),
-      Math.ceil((item.quantiteLivree || 0) / 25).toString(), // Estimation cartons
-      item.qualite || 'Standard'
-    ]);
-
-    // Totaux
-    const totalKg = itemsLivres.reduce((sum, item) => sum + (item.quantiteLivree || 0), 0);
-    const totalCartons = itemsLivres.reduce((sum, item) => 
-      sum + Math.ceil((item.quantiteLivree || 0) / 25), 0);
-    
-    rows.push(['', 'TOTAL', totalKg.toFixed(2), totalCartons.toString(), '']);
-
-    doc.autoTable({
-      head: [headers],
-      body: rows,
-      startY: 75,
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [66, 139, 202] },
-      footStyles: { fillColor: [220, 220, 220], fontStyle: 'bold' }
-    });
-
-    // Instructions de transport
-    const finalY = doc.lastAutoTable.finalY + 20;
-    doc.setFont(undefined, 'bold');
-    doc.text('INSTRUCTIONS DE TRANSPORT:', 20, finalY);
-    doc.setFont(undefined, 'normal');
-    doc.text('- Maintenir la chaîne du froid', 20, finalY + 10);
-    doc.text('- Livraison en priorité', 20, finalY + 20);
-    doc.text('- Vérifier l\'état des cartons', 20, finalY + 30);
-  }
-
-  /**
-   * Page 4: Résumé de livraison
-   */
-  addResumePage(doc, commande, itemsLivres, infoLivraison) {
-    // En-tête
-    doc.setFontSize(20);
-    doc.setFont(undefined, 'bold');
-    doc.text('RÉSUMÉ DE LIVRAISON', 105, 20, { align: 'center' });
-    
-    // Informations de la commande originale
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text('COMMANDE ORIGINALE', 20, 45);
-    
-    doc.setFontSize(12);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Référence: ${commande.reference}`, 20, 60);
-    doc.text(`Client: ${commande.client?.raisonSociale || 'N/A'}`, 20, 70);
-    doc.text(`Date commande: ${new Date(commande.createdAt).toLocaleDateString('fr-FR')}`, 20, 80);
-
-    // Statistiques de livraison
-    doc.setFont(undefined, 'bold');
-    doc.text('STATISTIQUES DE LIVRAISON', 20, 105);
-    
-    doc.setFont(undefined, 'normal');
-    const totalCommandeKg = commande.items?.reduce((sum, item) => sum + (item.quantiteKg || 0), 0) || 0;
-    const totalLivreKg = itemsLivres.reduce((sum, item) => sum + (item.quantiteLivree || 0), 0);
-    const pourcentageLivre = totalCommandeKg > 0 ? ((totalLivreKg / totalCommandeKg) * 100).toFixed(1) : 0;
-    
-    doc.text(`Quantité totale commandée: ${totalCommandeKg.toFixed(2)} kg`, 20, 120);
-    doc.text(`Quantité livrée: ${totalLivreKg.toFixed(2)} kg`, 20, 130);
-    doc.text(`Pourcentage livré: ${pourcentageLivre}%`, 20, 140);
-    doc.text(`Articles dans cette livraison: ${itemsLivres.length}`, 20, 150);
-
-    // État de la commande
-    doc.setFont(undefined, 'bold');
-    doc.text('ÉTAT DE LA COMMANDE', 20, 175);
-    
-    doc.setFont(undefined, 'normal');
-    const statutTexte = totalLivreKg >= totalCommandeKg ? 'ENTIÈREMENT LIVRÉE' : 'PARTIELLEMENT LIVRÉE';
-    doc.text(`Statut: ${statutTexte}`, 20, 190);
-    
-    if (totalLivreKg < totalCommandeKg) {
-      const restantKg = totalCommandeKg - totalLivreKg;
-      doc.text(`Quantité restante: ${restantKg.toFixed(2)} kg`, 20, 200);
+      `${item.quantiteKg || 0}`,
+      `${item.quantiteCarton || 0}`,
+      article?.typeCarton || 'N/A',
+      item.noLot || 'N/A',
+      item.block || 'N/A'
+    ];
+  });
+  
+  doc.autoTable({
+    startY: 75,
+    head: [['#', 'Reference', 'Specification', 'Size', 'Batch', 'Weight (Kg)', 'Cartons', 'Carton Type', 'Lot No', 'Block']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 8 },
+    styles: { fontSize: 8, cellPadding: 2 },
+    columnStyles: {
+      0: { cellWidth: 10 },
+      1: { cellWidth: 25 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 15 },
+      4: { cellWidth: 20 },
+      5: { cellWidth: 20 },
+      6: { cellWidth: 15 },
+      7: { cellWidth: 20 },
+      8: { cellWidth: 15 },
+      9: { cellWidth: 15 }
     }
-
-    // Note de bas de page
-    doc.setFontSize(8);
-    doc.text(`Document généré le ${new Date().toLocaleString('fr-FR')}`, 20, 280);
+  });
+  
+  // Totaux
+  const finalY = doc.lastAutoTable.finalY + 10;
+  const totalKg = sortie.items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0);
+  const totalCartons = sortie.items.reduce((sum, item) => sum + (item.quantiteCarton || 0), 0);
+  
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Total Weight: ${totalKg} Kg`, 15, finalY);
+  doc.text(`Total Cartons: ${totalCartons}`, 15, finalY + 6);
+  
+  // Informations conteneur si disponibles
+  if (commande?.noDeConteneur) {
+    doc.text(`Container No: ${commande.noDeConteneur}`, 15, finalY + 12);
   }
-
-  /**
-   * Utilitaire pour formater les devises
-   */
-  formatCurrency(amount, currency = 'MRU') {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency: currency,
-      minimumFractionDigits: 2
-    }).format(amount || 0);
+  if (commande?.noPlomb) {
+    doc.text(`Seal No: ${commande.noPlomb}`, 15, finalY + 18);
   }
-
-  /**
-   * Génère et télécharge le PDF unifié
-   */
-  downloadUnifiedPDF(commande, itemsLivres, infoLivraison, filename = null) {
-    try {
-      const doc = this.generateUnifiedDeliveryPDF(commande, itemsLivres, infoLivraison);
-      const defaultFilename = `Livraison_Complete_${infoLivraison.referenceLivraison}_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(filename || defaultFilename);
-      
-      console.log('✅ PDF unifié généré et téléchargé avec succès');
-      return true;
-    } catch (error) {
-      console.error('❌ Erreur lors du téléchargement du PDF:', error);
-      return false;
-    }
-  }
-}
-
-// Instance singleton
-export const unifiedPDFService = new UnifiedDeliveryPDFService();
-
-// Export des fonctions pour rétro-compatibilité
-export const generateUnifiedDeliveryPDF = (commande, itemsLivres, infoLivraison) => {
-  return unifiedPDFService.generateUnifiedDeliveryPDF(commande, itemsLivres, infoLivraison);
 };
 
-export const downloadUnifiedDeliveryPDF = (commande, itemsLivres, infoLivraison, filename) => {
-  return unifiedPDFService.downloadUnifiedPDF(commande, itemsLivres, infoLivraison, filename);
+// Page Bon de Sortie
+const generateBonDeSortiePage = (doc, sortie, commande) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
+  // En-tête
+  addHeaderWithLogo(doc, 'BON DE SORTIE');
+  
+  // Informations
+  doc.setFontSize(10);
+  doc.setTextColor(52, 73, 94);
+  doc.text(`N° Bon de sortie: ${sortie.reference}`, 15, 50);
+  doc.text(`Date de sortie: ${new Date(sortie.dateSortie).toLocaleDateString('fr-FR')}`, 15, 55);
+  doc.text(`N° Camion: ${sortie.numeroCamion || 'N/A'}`, 15, 60);
+  doc.text(`Transporteur: ${sortie.transporteur || 'N/A'}`, 15, 65);
+  doc.text(`Chauffeur: ${sortie.nomChauffeur || 'N/A'}`, 15, 70);
+  
+  // Tableau
+  const tableData = sortie.items.map((item, index) => [
+    index + 1,
+    formatArticle(item.article),
+    item.lot?.batchNumber || 'N/A',
+    item.depot?.intitule || 'N/A',
+    `${item.quantiteKg || 0} Kg`,
+    `${item.quantiteCarton || 0}`,
+    item.qualite || 'N/A',
+    '____________'
+  ]);
+  
+  doc.autoTable({
+    startY: 80,
+    head: [['#', 'Article', 'Batch', 'Dépôt', 'Quantité', 'Cartons', 'Qualité', 'Visa']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [220, 53, 69], textColor: 255 },
+    styles: { fontSize: 9 }
+  });
+  
+  // Zone de signatures
+  const finalY = doc.lastAutoTable.finalY + 20;
+  doc.setFontSize(10);
+  doc.text('SIGNATURES:', 15, finalY);
+  
+  // Signature responsable
+  doc.text('Responsable Entrepôt:', 15, finalY + 15);
+  doc.line(15, finalY + 25, 80, finalY + 25);
+  doc.text('Date:', 15, finalY + 30);
+  doc.line(30, finalY + 35, 80, finalY + 35);
+  
+  // Signature transporteur
+  doc.text('Transporteur:', 110, finalY + 15);
+  doc.line(110, finalY + 25, 180, finalY + 25);
+  doc.text('Date:', 110, finalY + 30);
+  doc.line(125, finalY + 35, 180, finalY + 35);
+  
+  // Note de bas de page
+  doc.setFontSize(8);
+  doc.setTextColor(100);
+  doc.text('Document de contrôle interne - À conserver', pageWidth / 2, 280, { align: 'center' });
 };
+
+// Fonctions utilitaires
+const addHeaderWithLogo = (doc, title) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  
+  // Logo
+  if (logoBase64) {
+    doc.addImage(logoBase64, 'PNG', 15, 10, 30, 20);
+  }
+  
+  // Titre
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(41, 128, 185);
+  doc.text(title, pageWidth / 2, 25, { align: 'center' });
+  
+  // Ligne sous le titre
+  doc.setDrawColor(41, 128, 185);
+  doc.setLineWidth(0.5);
+  doc.line(15, 32, pageWidth - 15, 32);
+};
+
+const formatArticle = (article) => {
+  if (!article) return 'N/A';
+  return [
+    article.reference,
+    article.specification,
+    article.taille,
+    article.typeCarton
+  ].filter(Boolean).join(' - ');
+};
+
+const formatCurrency = (value, currency = 'EUR') => {
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+  }).format(value || 0);
+};
+
+// Export nommé pour generateUnifiedSortiePDF
+export { generateUnifiedSortiePDF };
+
+// Export nommé pour downloadUnifiedDeliveryPDF (alias)
+export const downloadUnifiedDeliveryPDF = generateUnifiedSortiePDF;
+
+export default generateUnifiedSortiePDF;

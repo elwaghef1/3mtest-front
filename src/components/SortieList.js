@@ -15,6 +15,7 @@ import CustomDateRangePicker from './CustomDateRangePicker';
 
 // PDF generators
 import { generateBonDeCommandePDF, generateInvoicePDF, generatePackingListPDF } from './pdfGenerators';
+import { generateUnifiedSortiePDF } from '../services/unifiedDeliveryPDFService';
 
 const SortieList = () => {
   const [sorties, setSorties] = useState([]);
@@ -112,10 +113,35 @@ const SortieList = () => {
   const showDetailsFor = s => { setDetailsSortie(s); setShowDetails(true); };
   const closeDetails = () => setShowDetails(false);
 
+  // Handler pour générer le PDF unifié
+  const handleGenerateUnifiedPDF = (sortie) => {
+    try {
+      generateUnifiedSortiePDF(sortie);
+    } catch (error) {
+      console.error('Erreur lors de la génération du PDF:', error);
+      alert('Erreur lors de la génération du PDF');
+    }
+  };
+
+  // Handler pour afficher les détails
+  const handleShowDetails = (sortie) => {
+    // Log pour débugger
+    console.log('Sortie sélectionnée:', sortie);
+    console.log('Commande de la sortie:', sortie.commande);
+    
+    // S'assurer que la commande est bien chargée avec toutes ses informations
+    const sortieWithFullData = {
+      ...sortie,
+      commande: sortie.commande
+    };
+    setDetailsSortie(sortieWithFullData);
+    setShowDetails(true);
+  };
+
   return (
     <div className="p-4 lg:p-6">
       {/* En-tête + bouton “Nouvelle sortie” */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+      {/* <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <h1 className="text-2xl font-bold mb-4 md:mb-0">Sorties (Commandes livrées)</h1>
         <Button
           onClick={openForm}
@@ -124,7 +150,7 @@ const SortieList = () => {
         >
           Nouvelle sortie
         </Button>
-      </div>
+      </div> */}
 
       {/* Filtres */}
       <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
@@ -259,21 +285,23 @@ const SortieList = () => {
                   </td>
                   <td className="px-4 py-3 text-center border border-gray-400">
                     <div className="flex flex-col sm:flex-row justify-center gap-2">
-                      <Button 
-                        onClick={() => showDetailsFor(s)} 
-                        variant="info"
-                        size="sm"
-                        leftIcon={<InformationCircleIcon className="h-4 w-4" />}
-                      >
-                        <span className="hidden sm:inline">Détails</span>
-                      </Button>
-                      <Button 
-                        onClick={() => generateBonDeCommandePDF(s)} 
+                      <Button
+                        onClick={() => handleGenerateUnifiedPDF(s)}
                         variant="primary"
                         size="sm"
-                        leftIcon={<PrinterIcon className="h-4 w-4" />}
+                        icon={<PrinterIcon className="h-5 w-5" />}
+                        title="Télécharger PDF complet"
                       >
-                        PDF
+                        <span className="hidden sm:inline">PDF Complet</span>
+                      </Button>
+                      <Button
+                        onClick={() => handleShowDetails(s)}
+                        variant="ghost"
+                        size="sm"
+                        icon={<InformationCircleIcon className="h-5 w-5" />}
+                        title="Voir détails"
+                      >
+                        <span className="hidden sm:inline">Détails</span>
                       </Button>
                     </div>
                   </td>
@@ -297,11 +325,13 @@ const SortieList = () => {
       {/* Modal détails */}
       {showDetails && detailsSortie && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
             <SortieDetails
               sortie={detailsSortie}
+              commande={detailsSortie.commande}
               onClose={closeDetails}
               formatCurrency={formatCurrency}
+              formatNumber={(value) => new Intl.NumberFormat('fr-FR').format(value || 0)}
             />
           </div>
         </div>
@@ -309,12 +339,12 @@ const SortieList = () => {
 
       {/* Modal nouveau formulaire */}
       {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-y-auto">
-            <SortieForm onClose={closeForm} onSortieCreated={onSortieCreated} />
-          </div>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-6xl w-full max-w-6xl overflow-y-auto">
+          <SortieForm onClose={closeForm} onSortieCreated={onSortieCreated} />
         </div>
-      )}
+      </div>
+    )}
     </div>
   );
 };

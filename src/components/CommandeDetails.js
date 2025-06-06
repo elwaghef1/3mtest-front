@@ -93,37 +93,54 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
   // Début du tableau des détails communs
   const details = [
     { label: 'Référence', value: commande.reference },
+    { label: 'Type de commande', value: commande.typeCommande === 'LOCALE' ? 'Locale' : 'Normale', badge: commande.typeCommande === 'LOCALE' ? 'bg-blue-600 text-white text-xs' : 'bg-green-600 text-white text-xs' },
     { label: 'No Bon de Commande', value: commande.noBonDeCommande },
-    { label: 'Numéro Booking', value: commande.numeroBooking },
-    { label: 'Numéro OP', value: commande.numeroOP },
+    { label: 'Numéro Booking', value: commande.typeCommande === 'LOCALE' ? 'N/A (Commande locale)' : commande.numeroBooking },
+    { label: 'Numéro OP', value: commande.typeCommande === 'LOCALE' ? 'N/A (Commande locale)' : commande.numeroOP },
     { label: 'Client', value: commande.client?.raisonSociale },
     { label: 'Statut BC', value: commande.statutBonDeCommande, badge: getStatusColor(commande.statutBonDeCommande) },
     { label: 'Statut Paiement', value: commande.statutDePaiement, badge: getStatusColor(commande.statutDePaiement) },
     { label: 'Montant Payé', value: commande.montantPaye ? `${commande.montantPaye} ${commande.currency}` : null },
     { label: 'Reliquat', value: commande.reliquat ? `${commande.reliquat} ${commande.currency}` : null },
     { label: 'Devise', value: commande.currency },
-    { label: 'Destination', value: commande.destination },
+    { label: 'Destination', value: commande.typeCommande === 'LOCALE' ? 'N/A (Commande locale)' : commande.destination },
     { label: 'Responsable de stock informé', value: commande.responsableDeStockInforme },
     { label: 'Inspecteur informé', value: commande.inspecteurInforme },
   ];
 
   // Si la commande est LIVREE, ajouter les champs spécifiques
   if (commande.statutBonDeCommande === 'LIVREE') {
+    // Ajouter les champs conteneur seulement si ce n'est pas une commande locale
+    if (commande.typeCommande !== 'LOCALE') {
+      details.push(
+        { label: 'Cargo', value: commande.cargo },
+        { label: 'Poids Carton', value: commande.poidsCarton },
+        { label: 'No Plomb', value: commande.noPlomb },
+        { label: 'Tare de Conteneur', value: commande.areDeConteneur },
+        { label: 'Numéro de Conteneur', value: commande.noDeConteneur }
+      );
+    }
+    
+    // Champs communs pour toutes les commandes livrées
     details.push(
-      { label: 'Cargo', value: commande.cargo },
-      { label: 'Poids Carton', value: commande.poidsCarton },
-      { label: 'No Plomb', value: commande.noPlomb },
-      { label: 'Tare de Conteneur', value: commande.areDeConteneur },
-      { label: 'Numéro de Conteneur', value: commande.noDeConteneur },
       { label: 'Draft HC', value: commande.draftHC, badge: getStatusColor(commande.draftHC) },
       { label: 'Facture', value: commande.facture, badge: getStatusColor(commande.facture) },
       { label: 'Packing List', value: commande.packingList, badge: getStatusColor(commande.packingList) },
       { label: 'Draft CO', value: commande.draftCO, badge: getStatusColor(commande.draftCO) },
       { label: 'VGM', value: commande.vgm, badge: getStatusColor(commande.vgm) },
-      { label: 'DHL', value: commande.dhl, badge: getStatusColor(commande.dhl) },
-      { label: 'Facture manutention', value: commande.factureManutention, badge: getStatusColor(commande.factureManutention) },
-      { label: 'Facture cargo', value: commande.factureCargo, badge: getStatusColor(commande.factureCargo) },
-      { label: 'Taxe zone franche', value: commande.taxeZoneFranche, badge: getStatusColor(commande.taxeZoneFranche) },
+      { label: 'DHL', value: commande.dhl, badge: getStatusColor(commande.dhl) }
+    );
+    
+    // Ajouter les charges locales seulement si ce n'est pas une commande locale
+    if (commande.typeCommande !== 'LOCALE') {
+      details.push(
+        { label: 'Facture manutention', value: commande.factureManutention, badge: getStatusColor(commande.factureManutention) },
+        { label: 'Facture cargo', value: commande.factureCargo, badge: getStatusColor(commande.factureCargo) },
+        { label: 'Taxe zone franche', value: commande.taxeZoneFranche, badge: getStatusColor(commande.taxeZoneFranche) }
+      );
+    }
+    
+    details.push(
       { label: 'Etiquette', value: commande.etiquette, badge: getStatusColor(commande.etiquette) },
       { label: "Déclaration d'exportation", value: commande.declaration, badge: getStatusColor(commande.declaration) }
     );

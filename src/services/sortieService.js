@@ -57,6 +57,17 @@ class SortieService {
       throw error;
     }
   }
+
+  // Créer une livraison partielle (crée automatiquement une commande dérivée + sortie)
+  async createLivraisonPartielle(commandeId, livraisonData) {
+    try {
+      const response = await api.post(`/commandes/${commandeId}/livraison-partielle`, livraisonData);
+      return response.data;
+    } catch (error) {
+      console.error('Erreur lors de la création de la livraison partielle:', error);
+      throw error;
+    }
+  }
 }
 
 export default new SortieService();

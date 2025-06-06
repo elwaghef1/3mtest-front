@@ -35,9 +35,14 @@ import { generateInvoicePDF, generatePackingListPDF } from './pdfGenerators';
 moment.locale('fr');
 
 const CommandeList = () => {
+  // États existants
   const [commandes, setCommandes] = useState([]);
-  const [filtered, setFiltered] = useState([]);
   const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editingCommande, setEditingCommande] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false); // Ajouter cet état s'il n'existe pas
+
+  const [filtered, setFiltered] = useState([]);
   const [selectedClient, setSelectedClient] = useState('');
   const [searchRef, setSearchRef] = useState('');
   // Remplacement du champ booking par numeroBooking
@@ -49,10 +54,8 @@ const CommandeList = () => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
 
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [editingCommande, setEditingCommande] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [detailsCommande, setDetailsCommande] = useState(null);
   
@@ -632,6 +635,44 @@ const CommandeList = () => {
     };
   };
 
+  const fetchCommandes = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get('/commandes');
+      // Log pour debug
+      console.log('Commandes récupérées:', res.data.map(c => ({ 
+        reference: c.reference, 
+        typeCommande: c.typeCommande 
+      })));
+      setCommandes(res.data);
+    } catch (err) {
+      console.error('Erreur lors du chargement des commandes', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditCommande = (commande) => {
+    console.log('Édition commande:', { 
+      reference: commande.reference, 
+      typeCommande: commande.typeCommande,
+      _id: commande._id 
+    });
+    setEditingCommande(commande);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setEditingCommande(null);
+    setIsModalOpen(false);
+  };
+
+  const handleCommandeCreated = () => {
+    setIsModalOpen(false);
+    setEditingCommande(null);
+    fetchCommandes();
+  };
+
   return (
     <div className="p-4 lg:p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -855,16 +896,17 @@ const CommandeList = () => {
                         >
                           Modifier
                         </Button>
-                        {/* <Button
+                        <Button
                           onClick={() => handleShowLivraisonPartielle(commande)}
                           variant="success"
                           size="md"
                           icon={<TruckIcon className="h-5 w-5" />}
-                          title="Livraison partielle"
-                          className="font-semibold"
+                          title={commande.statutBonDeCommande === 'LIVREE' ? "Commande déjà livrée" : "Livraison partielle"}
+                          className="font-semibold min-w-[90px]"
+                          disabled={commande.statutBonDeCommande === 'LIVREE'}
                         >
                           Livrer
-                        </Button> */}
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -963,16 +1005,17 @@ const CommandeList = () => {
                           >
                             Modifier
                           </Button>
-                          {/* <Button
+                          <Button
                             onClick={() => handleShowLivraisonPartielle(commande)}
                             variant="success"
                             size="md"
                             icon={<TruckIcon className="h-5 w-5" />}
-                            title="Livraison partielle"
+                            title={commande.statutBonDeCommande === 'LIVREE' ? "Commande déjà livrée" : "Livraison partielle"}
                             className="font-semibold min-w-[90px]"
+                            disabled={commande.statutBonDeCommande === 'LIVREE'}
                           >
                             Livrer
-                          </Button> */}
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -1042,4 +1085,3 @@ const CommandeList = () => {
 };
 
 export default CommandeList;
- 

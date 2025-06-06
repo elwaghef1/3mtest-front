@@ -46,6 +46,29 @@ function totalPrice(items) {
   );
 }
 
+// Fonction utilitaire pour calculer la différence tunnel totale
+function totalTunnelDifference(items) {
+  if (!items) return 0;
+  return items.reduce((sum, item) => {
+    const quantite = item.quantiteKg || 0;
+    const quantiteTunnel = item.quantiteTunnel || 0;
+    return sum + (quantite - quantiteTunnel);
+  }, 0);
+}
+
+// Fonction pour formater la différence tunnel avec couleurs
+function formatTunnelDifference(difference) {
+  if (difference === 0) {
+    return <span className="text-gray-600">0</span>;
+  }
+  
+  if (difference > 0) {
+    return <span className="text-green-600 font-medium">+{difference.toFixed(2)}</span>;
+  } else {
+    return <span className="text-red-600 font-medium">{difference.toFixed(2)}</span>;
+  }
+}
+
 function EntreeList() {
   const [entrees, setEntrees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -216,7 +239,7 @@ function EntreeList() {
 
       const doc = new jsPDF('p', 'mm', 'a4');
       doc.addImage(logoBase64, 'PNG', 10, 10, 30, 30);
-      doc.setFont('helvetica', 'bold').setFontSize(18).text('OCEAN DELICE', 45, 20);
+      doc.setFont('helvetica', 'bold').setFontSize(18).text('MSM SEAFOOD', 45, 20);
       doc.setFont('helvetica', 'normal').setFontSize(12)
         .text('RC 576', 45, 28)
         .text('Agrément Sanitaire NO 02 133', 45, 34);
@@ -272,7 +295,7 @@ function EntreeList() {
     const lineHeight = 5;
   
     doc.setFont('helvetica', 'bold').setFontSize(12)
-       .text('OCEAN DELICE', startX, y + 5);
+       .text('MSM SEAFOOD', startX, y + 5);
   
     doc.setFont('helvetica', 'normal').setFontSize(9);
     y += lineHeight; // 16
@@ -537,6 +560,7 @@ const exportToPDF = () => {
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Dépôt</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Articles</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Quantité Totale (Kg)</th>
+                <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Différence Tunnel</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Prix Total</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Coût Location</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Détails</th>
@@ -586,6 +610,9 @@ const exportToPDF = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
                       {totalQuantity(e.items)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center border border-gray-400">
+                      {formatTunnelDifference(totalTunnelDifference(e.items))}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
                       {`${totalPrice(e.items).toFixed(0)} ${e.items[0]?.monnaie || ''}`}

@@ -16,6 +16,19 @@ const isMissing = (value) => {
   return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
 };
 
+// Fonction pour formater la différence tunnel avec code couleur
+const formatTunnelDifference = (quantite, quantiteTunnel) => {
+  if (!quantite || !quantiteTunnel) return '—';
+  const difference = quantite - quantiteTunnel;
+  const sign = difference > 0 ? '+' : '';
+  const color = difference >= 0 ? 'text-green-600' : 'text-red-600';
+  return (
+    <span className={`font-semibold ${color}`}>
+      {sign}{difference.toFixed(2)}
+    </span>
+  );
+};
+
 // Composant pour afficher une cellule de détail de façon compacte avec un badge "MANQUANT" si nécessaire
 const DetailItem = ({ label, value, badge }) => (
   <div className="p-2 border rounded-lg bg-gray-50 relative">
@@ -77,6 +90,12 @@ function EntreeDetails({ entree, onClose }) {
                 Quantité (Kg)
               </th>
               <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-center">
+                Quantité Tunnel (Kg)
+              </th>
+              <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-center">
+                Différence
+              </th>
+              <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-center">
                 Prix Unitaire
               </th>
               <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-right">
@@ -95,6 +114,12 @@ function EntreeDetails({ entree, onClose }) {
                     {item.quantiteKg || '—'}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-center text-gray-700 whitespace-nowrap">
+                    {item.quantiteTunnel || '—'}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-1 text-xs text-center whitespace-nowrap">
+                    {formatTunnelDifference(item.quantiteKg, item.quantiteTunnel)}
+                  </td>
+                  <td className="border border-gray-300 px-2 py-1 text-xs text-center text-gray-700 whitespace-nowrap">
                     {item.prixUnitaire || '—'}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-right text-gray-700 whitespace-nowrap">
@@ -104,7 +129,7 @@ function EntreeDetails({ entree, onClose }) {
               ))
             ) : (
               <tr>
-                <td className="border border-gray-300 px-2 py-1 text-xs text-gray-700" colSpan="4">
+                <td className="border border-gray-300 px-2 py-1 text-xs text-gray-700" colSpan="6">
                   Aucun article renseigné.
                 </td>
               </tr>

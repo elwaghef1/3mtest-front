@@ -243,7 +243,7 @@ function TransfertList() {
     // En-tête
     doc.addImage(logoBase64, 'PNG', 10, 10, 30, 30);
     doc.setFontSize(18);
-    doc.text('OCEAN DELICE', 45, 20);
+    doc.text('MSM SEAFOOD', 45, 20);
     doc.setFontSize(12);
     doc.text('RC 576', 45, 28);
     doc.text('Agrément Sanitaire NO 02 133', 45, 34);

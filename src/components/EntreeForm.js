@@ -18,6 +18,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
     {
       article: '',
       quantiteKg: '',
+      quantiteTunnel: '',
       // Champ "qualité" supprimé
       prixUnitaire: '',
       // Par défaut, la monnaie est MRU
@@ -41,6 +42,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       const initialItems = (initialEntree.items || []).map((item) => ({
         article: item.article?._id || item.article,
         quantiteKg: item.quantiteKg,
+        quantiteTunnel: item.quantiteTunnel || '',
         prixUnitaire: item.prixUnitaire || '',
         monnaie: item.monnaie || 'MRU',
         prixLocation: item.prixLocation || '',
@@ -99,6 +101,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       {
         article: '',
         quantiteKg: '',
+        quantiteTunnel: '',
         prixUnitaire: '',
         monnaie: 'MRU',
         prixLocation: '',
@@ -124,6 +127,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         items: items.map((item) => ({
           article: item.article,
           quantiteKg: parseFloat(item.quantiteKg),
+          quantiteTunnel: item.quantiteTunnel ? parseFloat(item.quantiteTunnel) : undefined,
           prixUnitaire: parseFloat(item.prixUnitaire),
           monnaie: item.monnaie,
           // Si le champ Prix Location est vide, on n'envoie rien
@@ -221,6 +225,20 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                       handleItemChange(index, 'quantiteKg', e.target.value)
                     }
                     required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Quantité Tunnel (Kg)
+                  </label>
+                  <input
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    type="number"
+                    value={item.quantiteTunnel || ''}
+                    onChange={(e) =>
+                      handleItemChange(index, 'quantiteTunnel', e.target.value)
+                    }
+                    placeholder="Quantité tunnel optionnelle"
                   />
                 </div>
               </div>

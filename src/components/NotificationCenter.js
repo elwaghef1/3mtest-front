@@ -40,7 +40,7 @@ const NotificationCenter = () => {
         response.data.forEach(notif => {
           notification.success({
             message: 'Stock Disponible !',
-            description: `${notif.article.nom} est maintenant disponible en quantité suffisante dans ${notif.depot.nom}`,
+            description: `${notif.article?.intitule || 'Article'} est maintenant disponible en quantité suffisante dans ${notif.depot?.intitule || 'Dépôt'}`,
             duration: 5,
             onClick: () => {
               // Rediriger vers la commande concernée
@@ -169,9 +169,9 @@ const NotificationCenter = () => {
                     {item.quantiteManquante && (
                       <div style={{ marginTop: 4 }}>
                         <Text type="secondary" style={{ fontSize: '12px' }}>
-                          Commande: {item.quantiteManquante.commande?.numeroCommande} | 
-                          Article: {item.quantiteManquante.article?.nom} | 
-                          Dépôt: {item.quantiteManquante.depot?.nom}
+                          Commande: {item.quantiteManquante?.commande?.numeroCommande || 'N/A'} | 
+                          Article: {item.quantiteManquante?.article?.intitule || 'N/A'} | 
+                          Dépôt: {item.quantiteManquante?.depot?.intitule || 'N/A'}
                         </Text>
                       </div>
                     )}

@@ -61,14 +61,55 @@ const LivraisonPartielleModal = ({
     }
   }, [commande]);
 
-  const initializeLivraisonItems = () => {
-    const items = commande.items.map(item => ({
-      ...item,
-      quantiteLivree: 0,
-      quantiteRestante: item.quantiteKg,
-      pourLivraison: false
-    }));
-    setLivraisonItems(items);
+  const initializeLivraisonItems = async () => {
+    try {
+      // Récupérer l'historique des livraisons pour calculer les quantités restantes
+      const response = await axios.get(`/commandes/${commande._id}/historique-livraisons`);
+      const historiqueData = response.data;
+      
+      // Calculer les quantités déjà livrées par item
+      const quantitesLivrees = {};
+      
+      if (historiqueData.livraisons) {
+        historiqueData.livraisons.forEach(livraison => {
+          livraison.items?.forEach(sortieItem => {
+            const key = `${sortieItem.article?._id || sortieItem.article}-${sortieItem.depot?._id || sortieItem.depot}`;
+            if (!quantitesLivrees[key]) {
+              quantitesLivrees[key] = 0;
+            }
+            quantitesLivrees[key] += sortieItem.quantiteKg || 0;
+          });
+        });
+      }
+      
+      // Initialiser les items avec les vraies quantités restantes
+      const items = commande.items.map(item => {
+        const key = `${item.article._id}-${item.depot._id}`;
+        const quantiteDejaLivree = quantitesLivrees[key] || 0;
+        const quantiteRestante = Math.max(0, item.quantiteKg - quantiteDejaLivree);
+        
+        return {
+          ...item,
+          quantiteLivree: 0,
+          quantiteRestante: quantiteRestante,
+          quantiteDejaLivree: quantiteDejaLivree,
+          pourLivraison: false
+        };
+      });
+      
+      setLivraisonItems(items);
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'historique:', error);
+      // Fallback en cas d'erreur - utiliser les quantités originales
+      const items = commande.items.map(item => ({
+        ...item,
+        quantiteLivree: 0,
+        quantiteRestante: item.quantiteKg,
+        quantiteDejaLivree: 0,
+        pourLivraison: false
+      }));
+      setLivraisonItems(items);
+    }
   };
 
   const fetchStocks = async () => {
@@ -91,12 +132,14 @@ const LivraisonPartielleModal = ({
     const stockKey = `${item.article._id}-${item.depot._id}`;
     const stockDisponible = stocks[stockKey]?.quantiteCommercialisableKg || 0;
     
-    // Limiter la quantité à livrer
-    const maxQuantite = Math.min(item.quantiteKg, stockDisponible);
+    // CORRECTION: Limiter la quantité à la quantité restante ET au stock disponible
+    // La quantité restante est déjà calculée dans initializeLivraisonItems
+    const maxQuantiteRestante = item.quantiteRestante || 0;
+    const maxQuantite = Math.min(maxQuantiteRestante, stockDisponible);
     const quantiteLivree = Math.min(Math.max(0, parseFloat(quantite) || 0), maxQuantite);
     
     item.quantiteLivree = quantiteLivree;
-    item.quantiteRestante = item.quantiteKg - quantiteLivree;
+    item.quantiteRestante = (item.quantiteKg || 0) - (item.quantiteDejaLivree || 0) - quantiteLivree;
     item.pourLivraison = quantiteLivree > 0;
     
     setLivraisonItems(newItems);
@@ -311,6 +354,21 @@ const LivraisonPartielleModal = ({
         </div>
 
         <div className="p-6">
+          {/* Message explicatif pour les options de livraison */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-start">
+              <TruckIcon className="h-6 w-6 text-blue-600 mr-3 flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">Options de livraison disponibles</h3>
+                <div className="text-sm text-blue-800 space-y-2">
+                  <p><strong>• Livraison partielle :</strong> Sélectionnez les articles et ajustez les quantités à livrer selon vos besoins. Idéal pour les livraisons échelonnées.</p>
+                  <p><strong>• Livraison complète :</strong> Livrer tous les articles de la commande en une seule fois (utilisez le formulaire de sortie standard).</p>
+                  <p className="text-blue-600 font-medium">ℹ️ Vous pouvez sélectionner individuellement chaque article ci-dessous et modifier les quantités à livrer.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Résumé des calculs */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-blue-50 p-4 rounded-lg">

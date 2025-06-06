@@ -170,7 +170,7 @@ export const generatePackingListPDF = (commande) => {
   doc.text("Issuer Signature:", pageWidth - 60, finalY + 10, { align: 'center' });
   doc.line(pageWidth - 60, finalY + 12, pageWidth - marginRight, finalY + 12);
   doc.setFontSize(8);
-  doc.text("OCEAN DELICE S.A - Service Administratif et Financier", pageWidth - marginRight, finalY + 18, { align: 'center' });
+  doc.text("MSM SEAFOOD S.A - Service Administratif et Financier", pageWidth - marginRight, finalY + 18, { align: 'center' });
 
   // =============================
   // 6. Pied de page
@@ -241,9 +241,10 @@ export const generateBonDeCommandePDF = (commande) => {
   let infoBlockY2 = 35;
   doc.text(`Reference: ${commande.reference || commande.numeroLivraisonPartielle || 'N/A'}`, marginLeft, infoBlockY2);
   doc.text(`Date: ${commandeDate}`, pageWidth - marginRight, infoBlockY2, { align: 'right' });
-
   infoBlockY2 += 7;
-  doc.text(`Booking: ${commande.numeroBooking || '-'}`, pageWidth - marginRight, infoBlockY2, { align: 'right' });
+  if (commande.typeCommande !== 'LOCALE') {
+    doc.text(`Booking: ${commande.numeroBooking || '-'}`, pageWidth - marginRight, infoBlockY2, { align: 'right' });
+  }
 
   // =============================
   // 3. TABLEAU DES INFORMATIONS DE COMMANDE
@@ -258,15 +259,25 @@ export const generateBonDeCommandePDF = (commande) => {
 
   const orderInfoData = [
     { label: "Client", value: clientName },
-    { label: "Destination", value: commande.destination || '-' },
+    { label: "Type", value: commande.typeCommande === 'LOCALE' ? 'Locale' : 'Export' }
+  ];
+  
+  // Ajouter les champs conditionnels selon le type
+  if (commande.typeCommande !== 'LOCALE') {
+    orderInfoData.push(
+      { label: "Destination", value: commande.destination || '-' },
+      { label: "OP", value: commande.numeroOP || '-' }
+    );
+  }
+  
+  orderInfoData.push(
     { label: "Dépot", value: commande.depot?.intitule || '-' },
-    { label: "OP", value: commande.numeroOP || '-' },
     { label: "Cargo", value: commande.cargo || '-' },
     { label: "Conteneur N°", value: commande.noDeConteneur || '-' },
     { label: "Plomb N°", value: commande.noPlomb || '-' },
     { label: "Tare Conteneur", value: commande.areDeConteneur || '-' },
     { label: "Gross Weight", value: grossWeight }
-  ];
+  );
 
   const orderInfoHeaders = orderInfoData.map(info => info.label);
   const orderInfoValues = orderInfoData.map(info => info.value);
@@ -501,7 +512,7 @@ export const generateInvoicePDF = (commande) => {
   } else {
     const bankDetails = [
       "Bank: Banque Populaire de Mauritanie",
-      "Account Holder: OCEAN DELICE",
+      "Account Holder: MSM SEAFOOD",
       "IBAN: MR13...00270",
       "Swift Code: BPMAMRMR"
     ];
@@ -657,7 +668,7 @@ export const generateProformaInvoicePDF = (commande) => {
   } else {
     const bankDetails = [
       "Bank: Banque Populaire de Mauritanie",
-      "Account Holder: OCEAN DELICE",
+      "Account Holder: MSM SEAFOOD",
       "IBAN: MR13...00270",
       "Swift Code: BPMAMRMR"
     ];

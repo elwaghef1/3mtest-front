@@ -32,6 +32,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
   // État initial du formulaire
   const [formData, setFormData] = useState({
     reference: '',
+    typeCommande: 'NORMALE', // Nouveau champ
     numeroBooking: '',
     cargo: '',
     noBonDeCommande: '',
@@ -100,6 +101,9 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
   const isLivree = false; // Désactiver la restriction générale
   const articlesModifiables = !isCommandeLivree; // Les articles ne sont plus modifiables si commande livrée
 
+  // Ajouter cette ligne pour définir isCommandeLocale
+  const isCommandeLocale = formData.typeCommande === 'LOCALE';
+
   // Fonction utilitaire pour générer la classe d'un input/select
   const getInputClass = (value, additionalClasses = '') => {
     return `p-2 border-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -110,9 +114,11 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
   // Préremplissage en cas d'édition
   useEffect(() => {
     if (initialCommande) {
+      console.log('Initial commande typeCommande:', initialCommande.typeCommande); // Debug log
       setFormData({
         reference: initialCommande.reference || '',
-        numeroBooking: initialCommande.numeroBooking || '',
+        typeCommande: initialCommande.typeCommande || 'NORMALE',
+        numeroBooking: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroBooking || ''),
         cargo: initialCommande.cargo || '',
         noBonDeCommande: initialCommande.noBonDeCommande || '',
         client: initialCommande.client?._id || '',
@@ -121,8 +127,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         statutDePaiement: initialCommande.statutDePaiement || 'NON_PAYE',
         montantPaye: initialCommande.montantPaye || '',
         currency: initialCommande.currency || 'EUR',
-        numeroOP: initialCommande.numeroOP || '',
-        destination: initialCommande.destination || '',
+        numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
+        destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
         datePrevueDeChargement: initialCommande.datePrevueDeChargement 
           ? new Date(initialCommande.datePrevueDeChargement).toISOString().slice(0, 10)
           : '',
@@ -138,9 +144,9 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         dhl: initialCommande.dhl || 'ETABLIE',
         responsableDeStockInforme: initialCommande.responsableDeStockInforme || 'NON',
         inspecteurInforme: initialCommande.inspecteurInforme || 'NON',
-        factureManutention: initialCommande.factureManutention || 'NON_PAYE',
-        factureCargo: initialCommande.factureCargo || 'NON_PAYE',
-        taxeZoneFranche: initialCommande.taxeZoneFranche || 'NON_PAYE',
+        factureManutention: initialCommande.typeCommande === 'LOCALE' ? 'NON_PAYE' : (initialCommande.factureManutention || 'NON_PAYE'),
+        factureCargo: initialCommande.typeCommande === 'LOCALE' ? 'NON_PAYE' : (initialCommande.factureCargo || 'NON_PAYE'),
+        taxeZoneFranche: initialCommande.typeCommande === 'LOCALE' ? 'NON_PAYE' : (initialCommande.taxeZoneFranche || 'NON_PAYE'),
         etiquette: initialCommande.etiquette || 'ETABLIE',
         declaration: initialCommande.declaration || 'ETABLIE',
         prixTotal: initialCommande.prixTotal || 0,
@@ -159,7 +165,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         }))
       );
     }
-  }, [initialCommande]);
+  }, [initialCommande, defaultConditions]);
 
   // Après préremplissage, charger les lots disponibles pour chaque item
   useEffect(() => {
@@ -343,12 +349,23 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
     e.preventDefault();
     setErrorMessage('');
     setLoading(true);
+    
+    // Validation supplémentaire pour les commandes non locales
+    if (formData.typeCommande !== 'LOCALE') {
+      if (!formData.destination) {
+        setErrorMessage('La destination est obligatoire pour les commandes export');
+        setLoading(false);
+        return;
+      }
+    }
+    
     try {
       const payload = {
         ...formData,
+        typeCommande: formData.typeCommande || 'NORMALE', // Valeur par défaut explicite
         montantPaye: parseFloat(formData.montantPaye) || 0,
         prixTotal: parseFloat(formData.prixTotal) || 0,
-        bank: formData.bank, // Envoi de l'ID de la banque sélectionnée
+        bank: formData.bank,
         items: items.map(item => ({
           article: item.article,
           depot: item.depot,
@@ -360,12 +377,34 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         })),
       };
 
-      if (initialCommande) {
-        await axios.put(`/commandes/${initialCommande._id}`, payload);
-      } else {
-        console.log(payload)
-        await axios.post('/commandes', payload);
+      // Nettoyer les champs non nécessaires pour les commandes locales
+      if (payload.typeCommande === 'LOCALE') {
+        payload.numeroBooking = null;
+        payload.destination = null;
+        payload.numeroOP = null;
+        payload.factureManutention = null;
+        payload.factureCargo = null;
+        payload.taxeZoneFranche = null;
       }
+
+      console.log('Payload envoyé:', { 
+        typeCommande: payload.typeCommande,
+        reference: payload.reference,
+        isLocal: payload.typeCommande === 'LOCALE'
+      });
+
+      let response;
+      if (initialCommande) {
+        response = await axios.put(`/commandes/${initialCommande._id}`, payload);
+      } else {
+        response = await axios.post('/commandes', payload);
+      }
+      
+      console.log('Réponse du serveur:', {
+        typeCommande: response.data.typeCommande,
+        reference: response.data.reference
+      });
+      
       onCommandeCreated();
     } catch (err) {
       if (err.response && err.response.data && err.response.data.message) {
@@ -446,29 +485,49 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto my-8 p-6 bg-white rounded-lg shadow-lg">
-      <h2 className="text-3xl font-extrabold text-center text-blue-700 mb-8">
-        {initialCommande ? 'Modifier la Commande' : 'Créer une Nouvelle Commande'}
-      </h2>
-
-      {errorMessage && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
-          {errorMessage}
+    <div className="p-8 max-h-[90vh] overflow-y-auto">
+      <h2 className="text-2xl font-bold mb-6">{initialCommande ? 'Modifier la Commande' : 'Nouvelle Commande'}</h2>
+      
+      {/* Type de commande */}
+      <div className="mb-6 bg-blue-50 p-4 rounded-lg">
+        <label className="block text-sm font-bold text-gray-700 mb-2">
+          Type de commande <span className="text-red-500">*</span>
+        </label>
+        <div className="flex gap-4">
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="typeCommande"
+              value="NORMALE"
+              checked={formData.typeCommande === 'NORMALE'}
+              onChange={handleChange}
+              className="mr-2"
+              disabled={isLivree || (initialCommande && initialCommande.typeCommande === 'LOCALE')}
+            />
+            <span className="font-medium">Normale (Export)</span>
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="typeCommande"
+              value="LOCALE"
+              checked={formData.typeCommande === 'LOCALE'}
+              onChange={handleChange}
+              className="mr-2"
+              disabled={isLivree}
+            />
+            <span className="font-medium">Locale</span>
+          </label>
         </div>
-      )}
+        {isCommandeLocale && (
+          <p className="text-sm text-blue-600 mt-2">
+            ℹ️ Commande locale : Les champs d'export et charges locales sont masqués
+            {initialCommande && initialCommande.typeCommande === 'LOCALE' && ' • Ce type ne peut plus être modifié'}
+          </p>
+        )}
+      </div>
 
-      {/* Avertissement pour commandes livrées */}
-      {isCommandeLivree && (
-        <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
-          <div className="flex items-center">
-            <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"></path>
-            </svg>
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-8">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Section Informations Générales */}
         <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
           <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
@@ -489,19 +548,21 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
               </div>
             )}
 
-            {/* Numéro Booking */}
-            <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Numéro Booking</label>
-              <input
-                name="numeroBooking"
-                type="text"
-                placeholder="Saisissez le numéro booking"
-                className={getInputClass(formData.numeroBooking)}
-                value={formData.numeroBooking}
-                onChange={handleChange}
-                disabled={isLivree}
-              />
-            </div>
+            {/* Numéro Booking - Masqué pour commande locale */}
+            {!isCommandeLocale && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Numéro Booking</label>
+                <input
+                  name="numeroBooking"
+                  type="text"
+                  placeholder="Saisissez le numéro booking"
+                  className={getInputClass(formData.numeroBooking)}
+                  value={formData.numeroBooking}
+                  onChange={handleChange}
+                  disabled={isLivree}
+                />
+              </div>
+            )}
 
             <div className="flex flex-col">
               <label className="mb-1 text-sm font-medium text-gray-700">No Bon de Commande</label>
@@ -533,52 +594,44 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
               </select>
             </div>
 
-            {/* Statut Bon de Commande */}
-            {/* <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Statut Bon de Commande</label>
-              <select
-                name="statutBonDeCommande"
-                className={getInputClass(formData.statutBonDeCommande)}
-                value={formData.statutBonDeCommande}
-                onChange={handleChange}
-              >
-                <option value="EN_COURS">EN_COURS</option>
-                <option value="LIVREE">LIVREE</option>
-              </select>
-            </div> */}
+            {/* Numéro OP - Masqué pour commande locale */}
+            {!isCommandeLocale && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Numéro OP</label>
+                <input
+                  name="numeroOP"
+                  type="text"
+                  placeholder="Saisissez le numéro OP"
+                  className={getInputClass(formData.numeroOP)}
+                  value={formData.numeroOP}
+                  onChange={handleChange}
+                />
+              </div>
+            )}
 
-            {/* Numéro OP */}
-            <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Numéro OP</label>
-              <input
-                name="numeroOP"
-                type="text"
-                placeholder="Saisissez le numéro OP"
-                className={getInputClass(formData.numeroOP)}
-                value={formData.numeroOP}
-                onChange={handleChange}
-              />
-            </div>
-
-            {/* Destination */}
-            <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Destination *</label>
-              <select
-                name="destination"
-                required
-                className={getInputClass(formData.destination)}
-                value={formData.destination}
-                onChange={handleChange}
-                disabled={isLivree}
-              >
-                <option value="">-- Choisir un pays --</option>
-                {countries.map((country, idx) => (
-                  <option key={idx} value={country.label}>
-                    {country.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Destination - Masqué pour commande locale */}
+            {!isCommandeLocale && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">
+                  Destination {formData.typeCommande !== 'LOCALE' && '*'}
+                </label>
+                <select
+                  name="destination"
+                  required={formData.typeCommande !== 'LOCALE'}
+                  className={getInputClass(formData.destination)}
+                  value={formData.destination}
+                  onChange={handleChange}
+                  disabled={isLivree}
+                >
+                  <option value="">-- Choisir un pays --</option>
+                  {countries.map((country, idx) => (
+                    <option key={idx} value={country.label}>
+                      {country.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Nouveau champ Banque */}
             <div className="flex flex-col">
@@ -905,58 +958,70 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
             </div>
 
             {/* Informations Conteneur (LIVREE) */}
-            <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
-                Informations Conteneur
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">Poids Carton</label>
-                  <input
-                    name="poidsCarton"
-                    type="number"
-                    placeholder="0"
-                    className={getInputClass(formData.poidsCarton)}
-                    value={formData.poidsCarton}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">No Plomb</label>
-                  <input
-                    name="noPlomb"
-                    type="text"
-                    placeholder="Saisissez le numéro de plomb"
-                    className={getInputClass(formData.noPlomb)}
-                    value={formData.noPlomb}
-                    onChange={handleChange}
-                  />
-                </div>
+            {isCommandeLivree && !isCommandeLocale && (
+              <>
+                <h3 className="text-lg font-semibold mt-8 mb-4 text-gray-700">
+                  Informations Conteneur
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Numéro de Conteneur */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Numéro de Conteneur
+                    </label>
+                    <input
+                      type="text"
+                      name="noDeConteneur"
+                      value={formData.noDeConteneur}
+                      onChange={handleChange}
+                      className="w-full p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
 
-                <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">Numéro de Conteneur</label>
-                  <input
-                    name="noDeConteneur"
-                    type="text"
-                    placeholder="Saisissez le numéro de conteneur"
-                    className={getInputClass(formData.noDeConteneur)}
-                    value={formData.noDeConteneur}
-                    onChange={handleChange}
-                  />
+                  {/* No Plomb */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      N° Plomb
+                    </label>
+                    <input
+                      type="text"
+                      name="noPlomb"
+                      value={formData.noPlomb}
+                      onChange={handleChange}
+                      className="w-full p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Tare de Conteneur */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tare de Conteneur
+                    </label>
+                    <input
+                      type="text"
+                      name="areDeConteneur"
+                      value={formData.areDeConteneur}
+                      onChange={handleChange}
+                      className="w-full p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Poids Carton */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Poids Carton
+                    </label>
+                    <input
+                      type="number"
+                      name="poidsCarton"
+                      value={formData.poidsCarton}
+                      onChange={handleChange}
+                      className="w-full p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">Tare de Conteneur</label>
-                  <input
-                    name="areDeConteneur"
-                    type="text"
-                    placeholder="Saisissez le tare de conteneur"
-                    className={getInputClass(formData.areDeConteneur)}
-                    value={formData.areDeConteneur}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-            </div>
+              </>
+            )}
 
             {/* Champs Complémentaires (LIVREE) */}
             <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
@@ -1063,50 +1128,54 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
               </div>
             </div>
 
-            {/* Charges Locales (LIVREE) */}
-            <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
-                Charges Locales
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">Facture manutention</label>
-                  <select
-                    name="factureManutention"
-                    className={getInputClass(formData.factureManutention)}
-                    value={formData.factureManutention}
-                    onChange={handleChange}
-                  >
-                    <option value="PAYE">Payé</option>
-                    <option value="NON_PAYE">Non payé</option>
-                  </select>
+            {/* Section Charges Locales - Masquée pour commande locale */}
+            {isCommandeLivree && !isCommandeLocale && (
+              <>
+                <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
+                    Charges Locales
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="flex flex-col">
+                      <label className="mb-1 text-sm font-medium text-gray-700">Facture manutention</label>
+                      <select
+                        name="factureManutention"
+                        className={getInputClass(formData.factureManutention)}
+                        value={formData.factureManutention}
+                        onChange={handleChange}
+                      >
+                        <option value="NON_PAYE">Non payé</option>
+                        <option value="PAYE">Payé</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="mb-1 text-sm font-medium text-gray-700">Facture cargo</label>
+                      <select
+                        name="factureCargo"
+                        className={getInputClass(formData.factureCargo)}
+                        value={formData.factureCargo}
+                        onChange={handleChange}
+                      >
+                        <option value="NON_PAYE">Non payé</option>
+                        <option value="PAYE">Payé</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col">
+                      <label className="mb-1 text-sm font-medium text-gray-700">Taxe zone franche</label>
+                      <select
+                        name="taxeZoneFranche"
+                        className={getInputClass(formData.taxeZoneFranche)}
+                        value={formData.taxeZoneFranche}
+                        onChange={handleChange}
+                      >
+                        <option value="NON_PAYE">Non payé</option>
+                        <option value="PAYE">Payé</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">Facture cargo</label>
-                  <select
-                    name="factureCargo"
-                    className={getInputClass(formData.factureCargo)}
-                    value={formData.factureCargo}
-                    onChange={handleChange}
-                  >
-                    <option value="PAYE">Payé</option>
-                    <option value="NON_PAYE">Non payé</option>
-                  </select>
-                </div>
-                <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">Taxe zone franche</label>
-                  <select
-                    name="taxeZoneFranche"
-                    className={getInputClass(formData.taxeZoneFranche)}
-                    value={formData.taxeZoneFranche}
-                    onChange={handleChange}
-                  >
-                    <option value="PAYE">Payé</option>
-                    <option value="NON_PAYE">Non payé</option>
-                  </select>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </>
         )}
 

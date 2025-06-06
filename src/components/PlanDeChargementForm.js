@@ -58,10 +58,10 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
         commandeId: initialCommande._id || '',
         reference: initialCommande.reference || '',
         client: initialCommande.client?._id || '',
-        booking: initialCommande.booking || '',
+        booking: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.booking || ''),
         cargo: initialCommande.cargo || '',
-        destination: initialCommande.destination || '',
-        numeroOP: initialCommande.numeroOP || '',
+        destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
+        numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
         datePrevueDeChargement: initialCommande.datePrevueDeChargement
           ? initialCommande.datePrevueDeChargement.split('T')[0]
           : '',
