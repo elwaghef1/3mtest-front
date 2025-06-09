@@ -162,7 +162,8 @@ export default function StockList() {
     return new Intl.NumberFormat('fr-FR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
-    }).format(num);
+      useGrouping: true
+    }).format(num).replace(/\s/g, ' ');
   };
 
   const formatArticle = (a) => {
@@ -250,7 +251,7 @@ export default function StockList() {
       subheaderFontSize: 10,
       tableHeader: {
         fillColor: [41, 128, 185],
-        textColor: 'black',
+        textColor: [255, 255, 255], // Texte blanc pour les en-têtes
         fontStyle: 'bold',
         fontSize: 10,
       },
@@ -280,13 +281,13 @@ export default function StockList() {
     const totalCommercialisableCartons = totalCommercialisableKg / 20;
 
     let statsY = 35;
-    doc.text(`Disponible (Tonnes) : ${totalTonnes.toFixed(2)} T`, 14, statsY);
+    doc.text(`Disponible (Tonnes) : ${pdfNumber(totalTonnes)} T`, 14, statsY);
     statsY += 5;
-    doc.text(`Disponible (Cartons) : ${totalCartons.toFixed(2)}`, 14, statsY);
+    doc.text(`Disponible (Cartons) : ${pdfNumber(totalCartons)}`, 14, statsY);
     statsY += 5;
-    doc.text(`Commercialisable (Tonnes) : ${totalCommercialisableTonnes.toFixed(2)} T`, 14, statsY);
+    doc.text(`Commercialisable (Tonnes) : ${pdfNumber(totalCommercialisableTonnes)} T`, 14, statsY);
     statsY += 5;
-    doc.text(`Commercialisable (Cartons) : ${totalCommercialisableCartons.toFixed(2)}`, 14, statsY);
+    doc.text(`Commercialisable (Cartons) : ${pdfNumber(totalCommercialisableCartons)}`, 14, statsY);
     statsY += 5;
     doc.text(`CUMP/T (${getCurrencyLabel()}) : ${pdfNumber(globalCump)}`, 14, statsY);
 
@@ -347,9 +348,7 @@ export default function StockList() {
       };
     });
 
-    // Ajout d'un pied de tableau pour afficher la "Valeur du stock"
-    // Le pied comporte une ligne avec deux cellules : la première se positionne sur (nombre de colonnes - 1) colonnes,
-    // et la deuxième affiche la valeur avec fond rouge et texte blanc.
+    // Génération du tableau sans le pied de page
     doc.autoTable({
       startY: startY,
       columns: columns.map((col) => ({
@@ -358,19 +357,6 @@ export default function StockList() {
         ...col,
       })),
       body: rows,
-      foot: [
-        [
-          {
-            content: 'Valeur du stock :',
-            colSpan: columns.length - 1,
-            styles: { halign: 'right', fillColor: false, fontStyle: 'bold' },
-          },
-          {
-            content: `${pdfNumber(totalValueInDisplay)} ${getCurrencyLabel()}`,
-            styles: { halign: 'center', fillColor: [255, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
-          },
-        ],
-      ],
       theme: 'grid',
       headStyles: styles.tableHeader,
       bodyStyles: {
@@ -392,15 +378,67 @@ export default function StockList() {
           doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
         }
       },
+      columnStyles: {
+        quantiteKg: { halign: 'right' },
+        cartons: { halign: 'right' },
+        commercialisableKg: { halign: 'right' },
+        commercialisableCartons: { halign: 'right' },
+        cump: { halign: 'right' }
+      },
+      didDrawCell: (data) => {
+        // Formatter les valeurs numériques dans les cellules
+        if (data.section === 'body' && ['quantiteKg', 'cartons', 'commercialisableKg', 'commercialisableCartons', 'cump'].includes(data.column.dataKey)) {
+          const value = data.cell.raw;
+          data.cell.text = [pdfNumber(value)];
+        }
+      }
     });
 
+    // Obtenir la position finale du tableau
+    const finalY = doc.lastAutoTable.finalY;
+    const pageHeight = doc.internal.pageSize.getHeight();
     const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
+
+    // Ajouter le total uniquement sur la dernière page
+    doc.setPage(pageCount);
+    
+    // Vérifier s'il y a assez d'espace sur la dernière page (30mm pour le total)
+    if (finalY + 30 > pageHeight - 20) {
+      // Ajouter une nouvelle page si nécessaire
+      doc.addPage();
+    }
+    
+    // Dessiner le tableau de total
+    const totalY = doc.lastAutoTable.finalY + 10;
+    const tableWidth = doc.internal.pageSize.getWidth() - 28; // marge horizontale de 14 de chaque côté
+    
+    // Ligne de total
+    doc.setFillColor(255, 255, 255);
+    doc.rect(14, totalY, tableWidth * 0.8, 10, 'F');
+    doc.setFillColor(255, 0, 0);
+    doc.rect(14 + tableWidth * 0.8, totalY, tableWidth * 0.2, 10, 'F');
+    
+    // Texte
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(10);
+    doc.text('Valeur du stock :', 14 + tableWidth * 0.8 - 5, totalY + 6, { align: 'right' });
+    
+    doc.setTextColor(255, 255, 255);
+    doc.text(`${pdfNumber(totalValueInDisplay)} ${getCurrencyLabel()}`, 14 + tableWidth * 0.9, totalY + 6, { align: 'center' });
+    
+    // Bordure autour du total
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(14, totalY, tableWidth, 10, 'S');
+
+    // Ajouter les numéros de page
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setTextColor(100);
       doc.text(
-        `Page ${i} / ${pageCount}`,
+        `Page ${i} / ${totalPages}`,
         doc.internal.pageSize.getWidth() - 25,
         doc.internal.pageSize.getHeight() - 10
       );
@@ -732,7 +770,7 @@ export default function StockList() {
                         <>
                           <td className="px-4 py-3 text-sm text-right text-gray-700 border border-gray-400">
                             <span className="bg-red-800 px-3 py-1 rounded-full text-sm text-white">
-                              {formatNumber(s.quantiteKg)} Kg
+                              {formatNumber(s.quantiteKg)}
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-gray-700 border border-gray-400">

@@ -130,9 +130,9 @@ const LivraisonPartielleModal = ({
     const newItems = [...livraisonItems];
     const item = newItems[itemIndex];
     const stockKey = `${item.article._id}-${item.depot._id}`;
-    const stockDisponible = stocks[stockKey]?.quantiteCommercialisableKg || 0;
+    const stockDisponible = stocks[stockKey]?.quantiteKg || 0; // Utilisation du stock physique
     
-    // CORRECTION: Limiter la quantité à la quantité restante ET au stock disponible
+    // CORRECTION: Limiter la quantité à la quantité restante ET au stock physique disponible
     // La quantité restante est déjà calculée dans initializeLivraisonItems
     const maxQuantiteRestante = item.quantiteRestante || 0;
     const maxQuantite = Math.min(maxQuantiteRestante, stockDisponible);
@@ -171,7 +171,7 @@ const LivraisonPartielleModal = ({
   const handleLivrerTout = () => {
     const newItems = livraisonItems.map(item => {
       const stockKey = `${item.article._id}-${item.depot._id}`;
-      const stockDisponible = stocks[stockKey]?.quantiteCommercialisableKg || 0;
+      const stockDisponible = stocks[stockKey]?.quantiteKg || 0; // Utilisation du stock physique
       const quantiteLivree = Math.min(item.quantiteKg, stockDisponible);
       
       return {
@@ -469,7 +469,7 @@ const LivraisonPartielleModal = ({
                         <input
                           type="number"
                           min="0"
-                          max={Math.min(item.quantiteKg, stocks[`${item.article._id}-${item.depot._id}`]?.quantiteCommercialisableKg || 0)}
+                          max={Math.min(item.quantiteKg, stocks[`${item.article._id}-${item.depot._id}`]?.quantiteKg || 0)}
                           step="0.01"
                           value={item.quantiteLivree}
                           onChange={(e) => handleQuantiteChange(index, e.target.value)}
