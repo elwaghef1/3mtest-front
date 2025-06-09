@@ -295,21 +295,19 @@ function EntreeList() {
     const lineHeight = 5;
   
     doc.setFont('helvetica', 'bold').setFontSize(12)
-       .text('MSM SEAFOOD', startX, y + 5);
+       .text('MSM SEAFOOD SARL', startX, y + 5);
   
     doc.setFont('helvetica', 'normal').setFontSize(9);
     y += lineHeight; // 16
-    doc.text('RC : 21.019', startX, y + 5);
+    doc.text('Zone idustrielle', startX, y + 5);
     y += lineHeight; // 16
-    doc.text('BP : 00548', startX, y + 5);
+    doc.text('Dakhlet Nouâdhibou', startX, y + 5);
     y += lineHeight; // 22
-    doc.text('CR No: 02/0082/CAT3-2/MPIMP/DDVP/0361/2025', startX, y + 5);
+    doc.text('Mauritanie', startX, y + 5);
     y += lineHeight; // 28
-    doc.text('CNSS N° : 800112025', startX, y + 5);
-    y += lineHeight; // 34
-    doc.text('NIF : 01578160', startX, y + 5);
+    doc.text('msmseafoodsarl@gmail.com', startX, y + 5);
     y += lineHeight; // 40
-    doc.text('Tél. : +222 38 53 64 89', startX, y + 5);
+    doc.text('Tél. : +222 46 00 89 08', startX, y + 5);
   
     // Date en haut à droite
     doc.setFontSize(10)

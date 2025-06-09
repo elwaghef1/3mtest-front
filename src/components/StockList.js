@@ -156,19 +156,20 @@ export default function StockList() {
     return formatted.replace(/\//g, '');
   };
 
-  // Formateur de nombres pour le PDF (format français avec 2 décimales et espaces pour milliers)
+  // Formateur de nombres pour le PDF (format français avec 0 décimale et espaces pour milliers)
   const pdfNumber = (value) => {
     const num = parseFloat(value || 0);
+    // Utiliser l'espace non-sécable (Unicode 00A0) pour le PDF
     return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
       useGrouping: true
-    }).format(num).replace(/\s/g, ' ');
+    }).format(num).replace(/\s/g, '\u00A0');
   };
 
   const formatArticle = (a) => {
     if (!a) return '—';
-    return [a.reference, a.specification, a.taille, a.typeCarton]
+    return [a.reference, a.specification, a.taille]
       .filter(Boolean)
       .join(' - ');
   };
@@ -178,7 +179,7 @@ export default function StockList() {
   
     if (selectedArticle !== '') {
       result = result.filter(
-        (stock) => formatArticle(stock.article) === selectedArticle
+        (stock) => formatArticle(stock.article).toLowerCase().includes(selectedArticle.toLowerCase())
       );
     }
   
@@ -295,42 +296,37 @@ export default function StockList() {
 
     // Définition des colonnes pour l'export
     const columns = [
-      { header: 'Article', dataKey: 'article', width: 60 },
-      { header: 'Dépôt', dataKey: 'depot', width: 30 },
+      { header: 'Article', dataKey: 'article', width: 80 },
+      { header: 'Dépôt', dataKey: 'depot', width: 25 },
       {
         header: 'Quantité (Kg)',
         dataKey: 'quantiteKg',
         width: 25,
         ...styles.numericCell,
-        formatter: (v) => pdfNumber(v),
       },
       {
         header: 'Cartons',
         dataKey: 'cartons',
-        width: 25,
+        width: 20,
         ...styles.numericCell,
-        formatter: (v) => pdfNumber(v),
       },
       {
         header: 'Commercialisable (Kg)',
         dataKey: 'commercialisableKg',
         width: 30,
         ...styles.numericCell,
-        formatter: (v) => pdfNumber(v),
       },
       {
         header: 'Commercialisable (Cartons)',
         dataKey: 'commercialisableCartons',
         width: 30,
         ...styles.numericCell,
-        formatter: (v) => pdfNumber(v),
       },
       {
         header: `CUMP (${getCurrencyLabel()}/Tonne)`,
         dataKey: 'cump',
-        width: 35,
+        width: 30,
         ...styles.numericCell,
-        formatter: (v) => pdfNumber(v),
       },
     ];
 
@@ -340,11 +336,11 @@ export default function StockList() {
       return {
         article: formatArticle(stock.article),
         depot: stock.depot?.intitule || '—',
-        quantiteKg: stock.quantiteKg,
-        cartons: stock.quantiteKg / 20,
-        commercialisableKg: stock.quantiteCommercialisableKg,
-        commercialisableCartons: stock.quantiteCommercialisableKg / 20,
-        cump: parseFloat((stock.valeur * 1000 * factor).toFixed(2)),
+        quantiteKg: pdfNumber(stock.quantiteKg || 0),
+        cartons: pdfNumber((stock.quantiteKg || 0) / 20),
+        commercialisableKg: pdfNumber(stock.quantiteCommercialisableKg || 0),
+        commercialisableCartons: pdfNumber((stock.quantiteCommercialisableKg || 0) / 20),
+        cump: pdfNumber((stock.valeur || 0) * 1000 * factor),
       };
     });
 
@@ -371,6 +367,10 @@ export default function StockList() {
           data.cell.styles.cellWidth = 'auto';
           data.cell.styles.halign = 'left';
         }
+        // Alignement à droite pour les colonnes numériques
+        if (['quantiteKg', 'cartons', 'commercialisableKg', 'commercialisableCartons', 'cump'].includes(data.column.dataKey)) {
+          data.cell.styles.halign = 'right';
+        }
       },
       willDrawCell: (data) => {
         if (data.row.index % 2 === 0 && data.section === 'body') {
@@ -384,13 +384,6 @@ export default function StockList() {
         commercialisableKg: { halign: 'right' },
         commercialisableCartons: { halign: 'right' },
         cump: { halign: 'right' }
-      },
-      didDrawCell: (data) => {
-        // Formatter les valeurs numériques dans les cellules
-        if (data.section === 'body' && ['quantiteKg', 'cartons', 'commercialisableKg', 'commercialisableCartons', 'cump'].includes(data.column.dataKey)) {
-          const value = data.cell.raw;
-          data.cell.text = [pdfNumber(value)];
-        }
       }
     });
 
@@ -751,7 +744,7 @@ export default function StockList() {
                   return (
                     <tr key={s._id} className="hover:bg-gray-50 transition-colors">
                       {!isMobile && (
-                        <td className="px-4 py-3 text-sm text-gray-700 max-w-[200px] truncate border border-gray-400">
+                        <td className="px-4 py-3 text-sm text-gray-700 min-w-[300px] border border-gray-400">
                           {formatArticle(s.article)}
                         </td>
                       )}
