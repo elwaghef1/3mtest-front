@@ -218,11 +218,11 @@ export const generateBonDeCommandePDF = (commande) => {
 
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("RC: 123456789", infoX, currentY);
+  doc.text("Zone idustrielle, Dakhlet Nouâdhibou", infoX, currentY);
   currentY += 5;
   doc.text("License: ABCD-1234", infoX, currentY);
   currentY += 5;
-  doc.text("Address: 123 Example St, City", infoX, currentY);
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
 
   // =============================
   // 2. TITRE & INFORMATIONS DE BASE
@@ -392,11 +392,11 @@ export const generateInvoicePDF = (commande) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("RC: 123456789", infoX, currentY);
+  doc.text("MSM Seafood", infoX, currentY);
   currentY += 5;
-  doc.text("License: ABCD-1234", infoX, currentY);
+    doc.text("License: ABCD-1234", infoX, currentY);
   currentY += 5;
-  doc.text("Address: 123 Example St, City", infoX, currentY);
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("COMMERCIAL INVOICE", pageWidth / 2, 20, { align: 'center' });
@@ -548,11 +548,11 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("RC: 123456789", infoX, currentY);
+  doc.text("MSM Seafood", infoX, currentY);
   currentY += 5;
-  doc.text("License: ABCD-1234", infoX, currentY);
+   doc.text("License: ABCD-1234", infoX, currentY);
   currentY += 5;
-  doc.text("Address: 123 Example St, City", infoX, currentY);
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("PRO FORMA INVOICE", pageWidth / 2, 20, { align: 'center' });

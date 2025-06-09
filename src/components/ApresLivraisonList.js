@@ -204,7 +204,9 @@ function ApresLivraisonList() {
             {cmd.booking || '—'}
           </td>
           <td className="px-4 py-3 border border-gray-400">
-            {cmd.cargo || '—'}
+            {cmd.cargo && Array.isArray(cmd.cargo) && cmd.cargo.length > 0 
+              ? cmd.cargo.map((c, i) => c.nom).filter(nom => nom).join(', ') || '—'
+              : '—'}
           </td>
           <td className="px-4 py-3 border border-gray-400">
             {cmd.datePrevueDeChargement

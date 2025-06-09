@@ -34,7 +34,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
     reference: '',
     typeCommande: 'NORMALE', // Nouveau champ
     numeroBooking: '',
-    cargo: '',
+    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
     noBonDeCommande: '',
     client: '',
     statutBonDeCommande: 'EN_COURS', // EN_COURS ou LIVREE
@@ -44,11 +44,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
     numeroOP: '',
     destination: '',
     datePrevueDeChargement: '',
-    // Champs affichés uniquement en LIVREE
-    poidsCarton: '',
-    noPlomb: '',
-    areDeConteneur: '',
-    noDeConteneur: '',
+    // Champs complémentaires sous forme de drop list
     draftHC: 'ETABLIE',
     facture: 'ETABLIE',
     packingList: 'ETABLIE',
@@ -119,7 +115,17 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         reference: initialCommande.reference || '',
         typeCommande: initialCommande.typeCommande || 'NORMALE',
         numeroBooking: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroBooking || ''),
-        cargo: initialCommande.cargo || '',
+        cargo: Array.isArray(initialCommande.cargo) 
+          ? (initialCommande.cargo.length > 0 
+              ? initialCommande.cargo.map(cargoItem => 
+                  typeof cargoItem === 'string' 
+                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }
+                    : { nom: cargoItem.nom || '', noDeConteneur: cargoItem.noDeConteneur || '', areDeConteneur: cargoItem.areDeConteneur || '', poidsCarton: cargoItem.poidsCarton || '', noPlomb: cargoItem.noPlomb || '' }
+                )
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }])
+          : (initialCommande.cargo 
+              ? [{ nom: initialCommande.cargo, noDeConteneur: initialCommande.noDeConteneur || '', areDeConteneur: initialCommande.areDeConteneur || '', poidsCarton: initialCommande.poidsCarton || '', noPlomb: initialCommande.noPlomb || '' }] 
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]),
         noBonDeCommande: initialCommande.noBonDeCommande || '',
         client: initialCommande.client?._id || '',
         bank: initialCommande.bank?._id || '',
@@ -132,10 +138,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         datePrevueDeChargement: initialCommande.datePrevueDeChargement 
           ? new Date(initialCommande.datePrevueDeChargement).toISOString().slice(0, 10)
           : '',
-        poidsCarton: initialCommande.poidsCarton || '',
-        noPlomb: initialCommande.noPlomb || '',
-        areDeConteneur: initialCommande.areDeConteneur || '',
-        noDeConteneur: initialCommande.noDeConteneur || '',
         draftHC: initialCommande.draftHC || 'ETABLIE',
         facture: initialCommande.facture || 'ETABLIE',
         packingList: initialCommande.packingList || 'ETABLIE',
@@ -178,6 +180,16 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCommande, items]);
+
+  // S'assurer qu'il y a toujours au moins un cargo
+  useEffect(() => {
+    if (formData.cargo.length === 0) {
+      setFormData(prev => ({
+        ...prev,
+        cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]
+      }));
+    }
+  }, [formData.cargo]);
 
   // Chargement des données de référence
   useEffect(() => {
@@ -306,6 +318,31 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
   const removeItem = (index) => {
     const updatedItems = items.filter((_, i) => i !== index);
     setItems(updatedItems);
+  };
+
+  // Gestion des cargos multiples
+  const addCargo = () => {
+    setFormData({
+      ...formData,
+      cargo: [...formData.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]
+    });
+  };
+
+  const removeCargo = (index) => {
+    const updatedCargos = formData.cargo.filter((_, i) => i !== index);
+    setFormData({
+      ...formData,
+      cargo: updatedCargos
+    });
+  };
+
+  const updateCargo = (index, field, value) => {
+    const updatedCargos = [...formData.cargo];
+    updatedCargos[index] = { ...updatedCargos[index], [field]: value };
+    setFormData({
+      ...formData,
+      cargo: updatedCargos
+    });
   };
 
   // Gestion du changement du champ Banque (on stocke l'ID sélectionné)
@@ -931,18 +968,90 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">Cargo</label>
-                  <select
-                    name="cargo"
-                    value={formData.cargo}
-                    onChange={handleChange}
-                    className={getInputClass(formData.cargo)}
-                  >
-                    <option value="">-- Choisir un cargo --</option>
-                    <option value="Maersk">Maersk</option>
-                    <option value="MSC Line">MSC Line</option>
-                    <option value="CMA/CGM">CMA/CGM</option>
-                  </select>
+                  <label className="mb-1 text-sm font-medium text-gray-700">Cargos et Informations Conteneur</label>
+                  <div className="space-y-4">
+                    {formData.cargo.map((cargo, index) => (
+                      <div key={index} className="border border-gray-300 rounded-lg p-4 bg-white">
+                        <div className="flex justify-between items-center mb-3">
+                          <h4 className="font-medium text-gray-700">Cargo {index + 1}</h4>
+                          {formData.cargo.length > 1 && (
+                            <Button
+                              type="button"
+                              variant="danger"
+                              size="sm"
+                              onClick={() => removeCargo(index)}
+                            >
+                              Supprimer
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Nom du Cargo</label>
+                            <select
+                              value={cargo.nom}
+                              onChange={(e) => updateCargo(index, 'nom', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- Choisir un cargo --</option>
+                              <option value="Maersk">Maersk</option>
+                              <option value="MSC Line">MSC Line</option>
+                              <option value="CMA/CGM">CMA/CGM</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">N° de Conteneur</label>
+                            <input
+                              type="text"
+                              value={cargo.noDeConteneur}
+                              onChange={(e) => updateCargo(index, 'noDeConteneur', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="N° de conteneur"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Tare de Conteneur</label>
+                            <input
+                              type="text"
+                              value={cargo.areDeConteneur}
+                              onChange={(e) => updateCargo(index, 'areDeConteneur', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Tare de conteneur"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Poids Carton</label>
+                            <input
+                              type="number"
+                              value={cargo.poidsCarton}
+                              onChange={(e) => updateCargo(index, 'poidsCarton', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Poids en kg"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-medium text-gray-600 mb-1">N° Plomb</label>
+                            <input
+                              type="text"
+                              value={cargo.noPlomb}
+                              onChange={(e) => updateCargo(index, 'noPlomb', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="N° de plomb"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="info"
+                      size="sm"
+                      onClick={addCargo}
+                      className="mt-2"
+                    >
+                      + Ajouter un cargo
+                    </Button>
+                  </div>
                 </div>
                 <div className="flex flex-col">
                   <label className="mb-1 text-sm font-medium text-gray-700">Date Prévue de Chargement</label>
@@ -956,72 +1065,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
                 </div>
               </div>
             </div>
-
-            {/* Informations Conteneur (LIVREE) */}
-            {isCommandeLivree && !isCommandeLocale && (
-              <>
-                <h3 className="text-lg font-semibold mt-8 mb-4 text-gray-700">
-                  Informations Conteneur
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Numéro de Conteneur */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Numéro de Conteneur
-                    </label>
-                    <input
-                      type="text"
-                      name="noDeConteneur"
-                      value={formData.noDeConteneur}
-                      onChange={handleChange}
-                      className="w-full p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* No Plomb */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      N° Plomb
-                    </label>
-                    <input
-                      type="text"
-                      name="noPlomb"
-                      value={formData.noPlomb}
-                      onChange={handleChange}
-                      className="w-full p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* Tare de Conteneur */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Tare de Conteneur
-                    </label>
-                    <input
-                      type="text"
-                      name="areDeConteneur"
-                      value={formData.areDeConteneur}
-                      onChange={handleChange}
-                      className="w-full p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* Poids Carton */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Poids Carton
-                    </label>
-                    <input
-                      type="number"
-                      name="poidsCarton"
-                      value={formData.poidsCarton}
-                      onChange={handleChange}
-                      className="w-full p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </>
-            )}
 
             {/* Champs Complémentaires (LIVREE) */}
             <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">

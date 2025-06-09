@@ -162,26 +162,98 @@ const generatePackingListPage = (doc, sortie, commande) => {
     doc.text(`Type: Commande Locale`, 15, 60);
   }
   
-  // Tableau détaillé
-  const tableData = sortie.items.map((item, index) => {
-    const article = item.article;
-    return [
-      index + 1,
-      article?.reference || 'N/A',
-      article?.specification || 'N/A',
-      article?.taille || 'N/A',
-      item.lot?.batchNumber || 'N/A',
-      `${item.quantiteKg || 0}`,
-      `${item.quantiteCarton || 0}`,
-      article?.typeCarton || 'N/A',
-      item.noLot || 'N/A',
-      item.block || 'N/A'
-    ];
-  });
+  // Vérifier si on a des allocations cargo et les utiliser à la place des données par défaut
+  const hasCargoAllocations = commande?.cargo?.some(cargo => 
+    cargo.itemsAlloues && cargo.itemsAlloues.length > 0
+  );
   
-  doc.autoTable({
+  let tableData = [];
+  let tableHeaders = [];
+  
+  if (hasCargoAllocations) {
+    // Utiliser les données d'allocation cargo
+    doc.setFontSize(9);
+    doc.setTextColor(34, 139, 34);
+    doc.text('✓ Packing List généré à partir des allocations cargo', 15, 70);
+    
+    tableHeaders = ['#', 'Container N°', 'Seal Number', 'Marks', 'SIZE', 'Prod. Date', 'Expiry Date', 'Num of Box', 'Net Weight', 'Gross Weight'];
+    
+    let itemIndex = 1;
+    commande.cargo.forEach((cargo) => {
+      if (cargo.itemsAlloues && cargo.itemsAlloues.length > 0) {
+        cargo.itemsAlloues.forEach((item) => {
+          const article = item.article;
+          const quantiteKg = parseFloat(item.quantiteAllouee) || 0;
+          const numBox = Math.ceil(quantiteKg / 20); // 20kg par carton
+          const poidsCarton = parseFloat(cargo.poidsCarton) || 1.12; // poids d'un carton vide
+          const grossWeight = quantiteKg + (poidsCarton * numBox);
+          
+          // Construction du marks (nom du produit)
+          const marks = [
+            article?.reference || 'N/A',
+            article?.specification || '',
+            article?.taille ? `(SIZE ${article.taille})` : ''
+          ].filter(Boolean).join('\n');
+          
+          tableData.push([
+            itemIndex++,
+            cargo.noDeConteneur || 'N/A',
+            cargo.noPlomb || 'N/A',
+            marks,
+            article?.taille || 'G',
+            item.dateProduction || 'MAY 2025',
+            item.dateExpiration || 'NOVEMBER 2026',
+            numBox.toString(),
+            quantiteKg.toLocaleString(),
+            grossWeight.toLocaleString()
+          ]);
+        });
+      }
+    });
+  } else {
+    // Utiliser les données par défaut des items de sortie
+    tableHeaders = ['#', 'Reference', 'Specification', 'Size', 'Batch', 'Weight (Kg)', 'Cartons', 'Carton Type', 'Lot No', 'Block'];
+    
+    tableData = sortie.items.map((item, index) => {
+      const article = item.article;
+      return [
+        index + 1,
+        article?.reference || 'N/A',
+        article?.specification || 'N/A',
+        article?.taille || 'N/A',
+        item.lot?.batchNumber || 'N/A',
+        `${item.quantiteKg || 0}`,
+        `${item.quantiteCarton || 0}`,
+        article?.typeCarton || 'N/A',
+        item.noLot || 'N/A',
+        item.block || 'N/A'
+      ];
+    });
+  }
+  
+  // Configuration du tableau selon le type de données
+  const tableConfig = hasCargoAllocations ? {
+    startY: 80,
+    head: [tableHeaders],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 8 },
+    styles: { fontSize: 7, cellPadding: 1.5 },
+    columnStyles: {
+      0: { cellWidth: 8 },   // #
+      1: { cellWidth: 20 },  // Container N°
+      2: { cellWidth: 18 },  // Seal Number
+      3: { cellWidth: 30 },  // Marks
+      4: { cellWidth: 12 },  // SIZE
+      5: { cellWidth: 18 },  // Prod. Date
+      6: { cellWidth: 18 },  // Expiry Date
+      7: { cellWidth: 15 },  // Num of Box
+      8: { cellWidth: 18 },  // Net Weight
+      9: { cellWidth: 20 }   // Gross Weight
+    }
+  } : {
     startY: 75,
-    head: [['#', 'Reference', 'Specification', 'Size', 'Batch', 'Weight (Kg)', 'Cartons', 'Carton Type', 'Lot No', 'Block']],
+    head: [tableHeaders],
     body: tableData,
     theme: 'grid',
     headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 8 },
@@ -198,24 +270,53 @@ const generatePackingListPage = (doc, sortie, commande) => {
       8: { cellWidth: 15 },
       9: { cellWidth: 15 }
     }
-  });
+  };
   
-  // Totaux
+  doc.autoTable(tableConfig);
+  
+  // Totaux - calculer selon la source des données
   const finalY = doc.lastAutoTable.finalY + 10;
-  const totalKg = sortie.items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0);
-  const totalCartons = sortie.items.reduce((sum, item) => sum + (item.quantiteCarton || 0), 0);
+  let totalKg = 0;
+  let totalCartons = 0;
+  let totalGrossWeight = 0;
+  
+  if (hasCargoAllocations) {
+    // Calculer les totaux à partir des allocations cargo
+    commande.cargo.forEach((cargo) => {
+      if (cargo.itemsAlloues && cargo.itemsAlloues.length > 0) {
+        cargo.itemsAlloues.forEach((item) => {
+          const quantiteKg = parseFloat(item.quantiteAllouee) || 0;
+          const numBox = Math.ceil(quantiteKg / 20);
+          const poidsCarton = parseFloat(cargo.poidsCarton) || 1.12;
+          const grossWeight = quantiteKg + (poidsCarton * numBox);
+          
+          totalKg += quantiteKg;
+          totalCartons += numBox;
+          totalGrossWeight += grossWeight;
+        });
+      }
+    });
+  } else {
+    // Calculer les totaux à partir des items de sortie
+    totalKg = sortie.items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0);
+    totalCartons = sortie.items.reduce((sum, item) => sum + (item.quantiteCarton || 0), 0);
+  }
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Total Weight: ${totalKg} Kg`, 15, finalY);
-  doc.text(`Total Cartons: ${totalCartons}`, 15, finalY + 6);
+  doc.text(`Total Net Weight: ${totalKg.toLocaleString()} Kg`, 15, finalY);
+  doc.text(`Total Cartons: ${totalCartons.toLocaleString()}`, 15, finalY + 6);
+  
+  if (hasCargoAllocations && totalGrossWeight > 0) {
+    doc.text(`Total Gross Weight: ${totalGrossWeight.toLocaleString()} Kg`, 15, finalY + 12);
+  }
   
   // Informations conteneur si disponibles
   if (commande?.noDeConteneur) {
-    doc.text(`Container No: ${commande.noDeConteneur}`, 15, finalY + 12);
+    doc.text(`Container No: ${commande.noDeConteneur}`, 15, finalY + (hasCargoAllocations ? 18 : 12));
   }
   if (commande?.noPlomb) {
-    doc.text(`Seal No: ${commande.noPlomb}`, 15, finalY + 18);
+    doc.text(`Seal No: ${commande.noPlomb}`, 15, finalY + (hasCargoAllocations ? 24 : 18));
   }
 };
 

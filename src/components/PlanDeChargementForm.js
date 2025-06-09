@@ -20,7 +20,7 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
     reference: '',
     client: '',
     booking: '',
-    cargo: '',
+    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }],
     destination: '',
     // Utilisation du champ "numeroOP" au lieu de "OP"
     numeroOP: '',
@@ -59,7 +59,17 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
         reference: initialCommande.reference || '',
         client: initialCommande.client?._id || '',
         booking: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.booking || ''),
-        cargo: initialCommande.cargo || '',
+        cargo: Array.isArray(initialCommande.cargo) 
+          ? (initialCommande.cargo.length > 0 
+              ? initialCommande.cargo.map(cargoItem => 
+                  typeof cargoItem === 'string' 
+                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }
+                    : { nom: cargoItem.nom || '', noDeConteneur: cargoItem.noDeConteneur || '', areDeConteneur: cargoItem.areDeConteneur || '', poidsCarton: cargoItem.poidsCarton || '', noPlomb: cargoItem.noPlomb || '' }
+                )
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }])
+          : (initialCommande.cargo 
+              ? [{ nom: initialCommande.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }] 
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]),
         destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
         numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
         datePrevueDeChargement: initialCommande.datePrevueDeChargement
@@ -105,7 +115,17 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
           reference: cmd.reference,
           client: cmd.client?._id || '',
           booking: cmd.booking || '',
-          cargo: cmd.cargo || '',
+          cargo: Array.isArray(cmd.cargo) 
+            ? (cmd.cargo.length > 0 
+                ? cmd.cargo.map(cargoItem => 
+                    typeof cargoItem === 'string' 
+                      ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }
+                      : { nom: cargoItem.nom || '', noDeConteneur: cargoItem.noDeConteneur || '', areDeConteneur: cargoItem.areDeConteneur || '', poidsCarton: cargoItem.poidsCarton || '', noPlomb: cargoItem.noPlomb || '' }
+                  )
+                : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }])
+            : (cmd.cargo 
+                ? [{ nom: cmd.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }] 
+                : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]),
           destination: cmd.destination || '',
           numeroOP: cmd.numeroOP || '',
           datePrevueDeChargement: cmd.datePrevueDeChargement
@@ -152,6 +172,30 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
+  };
+
+  // Fonctions de gestion des cargos
+  const addCargo = () => {
+    setFormData(prev => ({
+      ...prev,
+      cargo: [...prev.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]
+    }));
+  };
+
+  const removeCargo = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      cargo: prev.cargo.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateCargo = (index, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      cargo: prev.cargo.map((cargo, i) => 
+        i === index ? { ...cargo, [field]: value } : cargo
+      )
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -305,16 +349,107 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
               onChange={handleChange}
             />
           </div>
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Cargo</label>
-            <input
-              name="cargo"
-              type="text"
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
-              value={formData.cargo}
-              onChange={handleChange}
-            />
+        </div>
+
+        {/* Section Cargos avec informations conteneur */}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium text-gray-900">Cargos et Informations Conteneur</h3>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={addCargo}
+            >
+              Ajouter un Cargo
+            </Button>
           </div>
+          
+          {formData.cargo.map((cargo, index) => (
+            <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+              <div className="flex justify-between items-center mb-3">
+                <h4 className="font-medium text-gray-700">Cargo {index + 1}</h4>
+                {formData.cargo.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={() => removeCargo(index)}
+                  >
+                    Supprimer
+                  </Button>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Nom du Cargo
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                    value={cargo.nom}
+                    onChange={(e) => updateCargo(index, 'nom', e.target.value)}
+                    placeholder="Nom du cargo"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    N° de Conteneur
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                    value={cargo.noDeConteneur}
+                    onChange={(e) => updateCargo(index, 'noDeConteneur', e.target.value)}
+                    placeholder="N° de conteneur"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Tare de Conteneur
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                    value={cargo.areDeConteneur}
+                    onChange={(e) => updateCargo(index, 'areDeConteneur', e.target.value)}
+                    placeholder="Tare de conteneur"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Poids Carton
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                    value={cargo.poidsCarton}
+                    onChange={(e) => updateCargo(index, 'poidsCarton', e.target.value)}
+                    placeholder="Poids carton"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    N° Plomb
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                    value={cargo.noPlomb}
+                    onChange={(e) => updateCargo(index, 'noPlomb', e.target.value)}
+                    placeholder="N° plomb"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

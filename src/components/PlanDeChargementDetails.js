@@ -178,6 +178,27 @@ function PlanDeChargementDetails({ commande, onClose, formatCurrency }) {
         </table>
       </div>
 
+      {/* Section Cargos et Informations Conteneur */}
+      {commande.cargo && Array.isArray(commande.cargo) && commande.cargo.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-xl font-bold mb-4 text-gray-800">Cargos et Informations Conteneur</h3>
+          <div className="space-y-4">
+            {commande.cargo.map((cargo, index) => (
+              <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <h4 className="font-medium text-gray-700 mb-3">Cargo {index + 1}</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  <DetailItem label="Nom du Cargo" value={cargo.nom} />
+                  <DetailItem label="N° de Conteneur" value={cargo.noDeConteneur} />
+                  <DetailItem label="Tare de Conteneur" value={cargo.areDeConteneur} />
+                  <DetailItem label="Poids Carton" value={cargo.poidsCarton} />
+                  <DetailItem label="N° Plomb" value={cargo.noPlomb} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Informations globales en grille */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         {details.map((detail, idx) => (

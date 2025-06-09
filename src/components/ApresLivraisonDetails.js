@@ -82,7 +82,6 @@ function ApresLivraisonDetails({ commande, onClose }) {
     { label: 'Client', value: commande.client?.raisonSociale },
     { label: 'Booking', value: commande.numeroBooking },
     { label: 'Numéro OP', value: commande.numeroOP },
-    { label: 'Cargo', value: commande.cargo },
     { label: 'No Bon de Commande', value: commande.noBonDeCommande },
     { label: 'Destination', value: commande.destination },
     {
@@ -91,9 +90,6 @@ function ApresLivraisonDetails({ commande, onClose }) {
         ? new Date(commande.datePrevueDeChargement).toLocaleDateString('fr-FR')
         : null,
     },
-    { label: 'Poids Carton', value: commande.poidsCarton },
-    { label: 'No Plomb', value: commande.noPlomb },
-    { label: 'Tare de Conteneur', value: commande.areDeConteneur },
     {
       label: 'Montant Payé',
       value: commande.montantPaye ? `${commande.montantPaye} ${commande.currency}` : null,
@@ -228,6 +224,48 @@ function ApresLivraisonDetails({ commande, onClose }) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Section Cargos et Informations Conteneur */}
+      <div className="mb-8">
+        <h3 className="text-xl font-bold mb-4 text-gray-800">Cargos et Informations Conteneur</h3>
+        {commande.cargo && commande.cargo.length > 0 ? (
+          <div className="space-y-4">
+            {commande.cargo.map((cargo, index) => (
+              <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <h4 className="text-lg font-semibold mb-3 text-gray-700">
+                  {typeof cargo === 'string' ? `Cargo ${index + 1}: ${cargo}` : `Cargo ${index + 1}: ${cargo.nom || 'Sans nom'}`}
+                </h4>
+                {typeof cargo === 'object' && cargo !== null ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <DetailItem
+                      label="N° de Conteneur"
+                      value={cargo.noDeConteneur}
+                    />
+                    <DetailItem
+                      label="Tare de Conteneur"
+                      value={cargo.areDeConteneur}
+                    />
+                    <DetailItem
+                      label="Poids Carton"
+                      value={cargo.poidsCarton}
+                    />
+                    <DetailItem
+                      label="N° Plomb"
+                      value={cargo.noPlomb}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">
+                    Format ancien - Informations conteneur non disponibles
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-500 italic">Aucun cargo renseigné.</p>
+        )}
       </div>
 
       {/* Informations globales en grille */}

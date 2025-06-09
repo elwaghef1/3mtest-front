@@ -1,6 +1,9 @@
 // frontend/src/components/CommandeDetails.js
-import React from 'react';
+import React, { useState } from 'react';
 import Button from './Button';
+import CargoAllocationModal from './CargoAllocationModal';
+import { downloadCargoPackingList, downloadAllCargoPackingLists } from '../services/cargoPackingListGenerator';
+import axios from '../api/axios';
 
 // Fonction utilitaire pour formater un article (détail)
 const formatArticle = (a) => {
@@ -61,6 +64,8 @@ const DetailItem = ({ label, value, badge }) => (
 );
 
 function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
+  const [showAllocationModal, setShowAllocationModal] = useState(false);
+  const [loading, setLoading] = useState(false);
   // Fonctions de formatage par défaut si elles ne sont pas fournies
   const defaultFormatCurrency = (value, currency = 'EUR') => {
     return new Intl.NumberFormat('fr-FR', {
@@ -77,6 +82,85 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
   // Utiliser les fonctions fournies ou les fonctions par défaut
   const formatCurrencyFunc = formatCurrency || defaultFormatCurrency;
   const formatNumberFunc = formatNumber || defaultFormatNumber;
+
+  // Fonctions de gestion des allocations cargo
+  const handleSaveAllocations = async (cargoAllocations) => {
+    setLoading(true);
+    try {
+      // Fonction utilitaire pour nettoyer un ObjectId
+      const cleanObjectId = (value) => {
+        if (!value || value === '' || value === null || value === undefined) {
+          return undefined;
+        }
+        return value;
+      };
+
+      // Préparer les données pour l'API avec nettoyage
+      const updatedCargo = cargoAllocations.map(cargo => ({
+        nom: cargo.nom,
+        noDeConteneur: cargo.noDeConteneur,
+        areDeConteneur: cargo.areDeConteneur,
+        poidsCarton: cargo.poidsCarton,
+        noPlomb: cargo.noPlomb,
+        itemsAlloues: (cargo.itemsAlloues || [])
+          .filter(item => item.article && item.depot && item.quantiteAllouee > 0) // Filtrer les items invalides
+          .map(item => {
+            const cleanedItem = {
+              article: cleanObjectId(item.article),
+              depot: cleanObjectId(item.depot),
+              quantiteAllouee: parseFloat(item.quantiteAllouee) || 0,
+              quantiteCarton: parseFloat(item.quantiteCarton) || 0,
+              dateProduction: item.dateProduction || '',
+              dateExpiration: item.dateExpiration || ''
+            };
+
+            // Ajouter les informations de lot seulement si elles sont valides
+            if (item.lot && (item.lot.entreeOrigine || item.lot.batchNumber)) {
+              cleanedItem.lot = {};
+              
+              if (cleanObjectId(item.lot.entreeOrigine)) {
+                cleanedItem.lot.entreeOrigine = cleanObjectId(item.lot.entreeOrigine);
+              }
+              
+              if (item.lot.batchNumber && item.lot.batchNumber !== '') {
+                cleanedItem.lot.batchNumber = item.lot.batchNumber;
+              }
+              
+              if (item.lot.quantiteUtilisee) {
+                cleanedItem.lot.quantiteUtilisee = parseFloat(item.lot.quantiteUtilisee);
+              }
+            }
+
+            return cleanedItem;
+          })
+      }));
+
+      console.log('Données envoyées à l\'API:', JSON.stringify(updatedCargo, null, 2));
+
+      // Sauvegarder via API
+      await axios.put(`/commandes/${commande._id}/cargo-allocations`, {
+        cargo: updatedCargo
+      });
+
+      // Recharger les données ou mettre à jour l'état local
+      alert('Allocations sauvegardées avec succès !');
+      
+      // Optionnel : déclencher un rafraîchissement des données parent
+      if (onClose) {
+        window.location.reload(); // Simple refresh pour voir les changements
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+      alert('Erreur lors de la sauvegarde des allocations');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasAllocations = () => {
+    return commande.cargo?.some(cargo => cargo.itemsAlloues && cargo.itemsAlloues.length > 0);
+  };
 
   // Carte affichant le total de la commande
   const totalCard = (
@@ -110,17 +194,6 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
 
   // Si la commande est LIVREE, ajouter les champs spécifiques
   if (commande.statutBonDeCommande === 'LIVREE') {
-    // Ajouter les champs conteneur seulement si ce n'est pas une commande locale
-    if (commande.typeCommande !== 'LOCALE') {
-      details.push(
-        { label: 'Cargo', value: commande.cargo },
-        { label: 'Poids Carton', value: commande.poidsCarton },
-        { label: 'No Plomb', value: commande.noPlomb },
-        { label: 'Tare de Conteneur', value: commande.areDeConteneur },
-        { label: 'Numéro de Conteneur', value: commande.noDeConteneur }
-      );
-    }
-    
     // Champs communs pour toutes les commandes livrées
     details.push(
       { label: 'Draft HC', value: commande.draftHC, badge: getStatusColor(commande.draftHC) },
@@ -204,6 +277,67 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
           </tbody>
         </table>
       </div>
+
+      {/* Section Cargos et Informations Conteneur */}
+      {commande.cargo && Array.isArray(commande.cargo) && commande.cargo.length > 0 && (
+        <div className="mb-8">
+          <h3 className="text-xl font-bold mb-4 text-gray-800">Cargos et Informations Conteneur</h3>
+          <div className="space-y-4">
+            {commande.cargo.map((cargo, index) => (
+              <div key={index} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                <h4 className="font-medium text-gray-700 mb-3">Cargo {index + 1}</h4>                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <DetailItem label="Nom du Cargo" value={cargo.nom} />
+                    <DetailItem label="N° de Conteneur" value={cargo.noDeConteneur} />
+                    <DetailItem label="Tare de Conteneur" value={cargo.areDeConteneur} />
+                    <DetailItem label="Poids Carton" value={cargo.poidsCarton} />
+                    <DetailItem label="N° Plomb" value={cargo.noPlomb} />
+                  </div>
+                  
+                  {/* Affichage des articles alloués à ce cargo */}
+                  {cargo.itemsAlloues && cargo.itemsAlloues.length > 0 && (
+                    <div className="mt-4">
+                      <h5 className="font-medium text-gray-600 mb-2">Articles alloués:</h5>
+                      <div className="bg-white rounded border">
+                        <table className="w-full text-xs">
+                          <thead className="bg-gray-100">
+                            <tr>
+                              <th className="p-2 text-left">Article</th>
+                              <th className="p-2 text-right">Quantité (kg)</th>
+                              <th className="p-2 text-right">Cartons</th>
+                              <th className="p-2 text-left">Batch Number</th>
+                              <th className="p-2 text-left">Prod. Date</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {cargo.itemsAlloues.map((item, itemIndex) => (
+                              <tr key={itemIndex} className="border-t">
+                                <td className="p-2">{item.article?.reference || 'N/A'}</td>
+                                <td className="p-2 text-right">{item.quantiteAllouee || 0}</td>
+                                <td className="p-2 text-right">{item.quantiteCarton || 0}</td>
+                                <td className="p-2">{item.lot?.batchNumber || 'N/A'}</td>
+                                <td className="p-2">{item.dateProduction || 'N/A'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="mt-2">
+                        <Button
+                          onClick={() => downloadCargoPackingList(commande, index)}
+                          variant="success"
+                          size="sm"
+                        >
+                          Télécharger Packing List
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
         {details.map((detail, idx) => (
           <DetailItem
@@ -214,7 +348,29 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
           />
         ))}
       </div>
-      <div className="flex justify-end mt-8">
+      <div className="flex justify-between items-center mt-8">
+        <div className="flex space-x-3">
+          {/* Boutons de gestion des allocations cargo */}
+          <Button
+            onClick={() => setShowAllocationModal(true)}
+            variant="primary"
+            size="md"
+            disabled={loading}
+          >
+            {loading ? 'Chargement...' : 'Allouer Articles aux Cargos'}
+          </Button>
+          
+          {hasAllocations() && (
+            <Button
+              onClick={() => downloadAllCargoPackingLists(commande)}
+              variant="success"
+              size="md"
+            >
+              Télécharger Toutes les Packing Lists
+            </Button>
+          )}
+        </div>
+        
         <Button
           onClick={onClose}
           variant="secondary"
@@ -223,6 +379,14 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
           Fermer
         </Button>
       </div>
+
+      {/* Modal d'allocation des cargos */}
+      <CargoAllocationModal
+        commande={commande}
+        isOpen={showAllocationModal}
+        onClose={() => setShowAllocationModal(false)}
+        onSave={handleSaveAllocations}
+      />
     </div>
   );
 }
