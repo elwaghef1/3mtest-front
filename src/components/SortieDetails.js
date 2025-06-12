@@ -271,7 +271,7 @@ const SortieDetails = ({ sortie, onClose }) => {
           variant="primary"
           icon={<PrinterIcon className="h-5 w-5" />}
         >
-          Télécharger PDF Complet
+          Télécharger le Dossier Complet
         </Button>
         <Button
           onClick={onClose}

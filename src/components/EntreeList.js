@@ -10,6 +10,7 @@ import {
   ArrowPathIcon,
   PrinterIcon,
   ExclamationTriangleIcon,
+  TrashIcon,
 } from '@heroicons/react/24/solid';
 import Pagination from './Pagination';
 
@@ -93,6 +94,12 @@ function EntreeList() {
   const [articleSearch, setArticleSearch] = useState('');
 
   const [error, setError] = useState(null);
+
+  // États pour la suppression
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [entreeToDelete, setEntreeToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Pagination
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -426,6 +433,123 @@ const exportToPDF = () => {
     XLSX.writeFile(wb, 'entrees_report.xlsx');
   };
 
+  // Fonctions de suppression
+  const [deletionCheckResults, setDeletionCheckResults] = useState({});
+
+  // Fonction pour vérifier si une entrée peut être supprimée
+  const checkCanDeleteEntree = async (entree) => {
+    try {
+      // Vérifier pour chaque article de l'entrée si une partie a été utilisée
+      const utilizationChecks = [];
+      
+      for (const item of entree.items) {
+        const quantiteOriginale = item.quantiteKg;
+        const quantiteRestante = item.quantiteRestante || 0;
+        const quantiteUtilisee = quantiteOriginale - quantiteRestante;
+        
+        const canDelete = quantiteUtilisee === 0; // Suppression autorisée seulement si rien n'a été utilisé
+        
+        utilizationChecks.push({
+          articleId: item.article._id,
+          articleRef: item.article.reference,
+          articleSpec: item.article.specification,
+          quantiteOriginale,
+          quantiteRestante,
+          quantiteUtilisee,
+          canDelete,
+          status: canDelete ? 'OK - Aucune utilisation' : 'Partiellement utilisée'
+        });
+      }
+
+      const canDeleteAll = utilizationChecks.every(check => check.canDelete);
+      const articlesBloquants = utilizationChecks.filter(check => !check.canDelete);
+
+      return {
+        canDelete: canDeleteAll,
+        utilizationChecks,
+        articlesBloquants,
+        summary: {
+          totalArticles: utilizationChecks.length,
+          articlesOK: utilizationChecks.filter(check => check.canDelete).length,
+          articlesBloquants: articlesBloquants.length
+        }
+      };
+    } catch (error) {
+      console.error('Erreur lors de la vérification:', error);
+      return {
+        canDelete: false,
+        error: 'Erreur lors de la vérification de la suppression',
+        utilizationChecks: [],
+        articlesBloquants: []
+      };
+    }
+  };
+
+  const handleDeleteClick = async (entree) => {
+    setDeleteLoading(true);
+    setError('');
+    
+    try {
+      // Vérifier d'abord si la suppression est possible
+      const checkResult = await checkCanDeleteEntree(entree);
+      setDeletionCheckResults({ [entree._id]: checkResult });
+      
+      setEntreeToDelete(entree);
+      setShowDeleteModal(true);
+    } catch (error) {
+      setError('Erreur lors de la vérification de la suppression');
+      console.error('Erreur:', error);
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!entreeToDelete) return;
+
+    setDeleteLoading(true);
+    setError('');
+
+    try {
+      const response = await axios.delete(`/entrees/${entreeToDelete._id}`);
+      setSuccessMessage('Entrée supprimée avec succès et stock restauré');
+      setShowDeleteModal(false);
+      setEntreeToDelete(null);
+      setDeletionCheckResults({});
+      fetchEntrees();
+      
+      // Effacer le message de succès après 3 secondes
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      
+      if (error.response?.status === 400 && error.response?.data?.canDelete === false) {
+        // Erreur de logique métier - quantités déjà utilisées
+        setError({
+          type: 'business',
+          message: error.response.data.message,
+          details: error.response.data.details,
+          articlesBloquants: error.response.data.articlesBloquants
+        });
+      } else {
+        // Erreur technique
+        setError({
+          type: 'technical',
+          message: error.response?.data?.error || 'Erreur lors de la suppression'
+        });
+      }
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setEntreeToDelete(null);
+    setDeletionCheckResults({});
+    setError('');
+  };
+
   return (
     <div className="p-4 lg:p-6 max-w-8xl mx-auto">
       {/* Titre + boutons */}
@@ -562,8 +686,9 @@ const exportToPDF = () => {
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Prix Total</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Coût Location</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Détails</th>
-                <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Modifier</th>
+                {/* <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Modifier</th> */}
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Bon d'entrée</th>
+                <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Supprimer</th>
               </tr>
             </thead>
             <tbody className="bg-white">
@@ -593,7 +718,7 @@ const exportToPDF = () => {
                       {firstItem ? (
                         <div className="flex items-center justify-center space-x-1">
                           <span>
-                            {firstItem.article ? firstItem.article.intitule : 'Article inconnu'} ({firstItem.quantiteKg} Kg)
+                            {firstItem.article ? firstItem.article.intitule : 'Article inconnu'} 
                           </span>
                           {moreItems && (
                             <div className="relative group inline-block">
@@ -627,7 +752,7 @@ const exportToPDF = () => {
                         Détails
                       </Button>
                     </td>
-                    <td className="px-4 py-3 text-center border border-gray-400">
+                    {/* <td className="px-4 py-3 text-center border border-gray-400">
                       <Button
                         onClick={() => handleOpenFormToEdit(e)}
                         variant="warning"
@@ -635,7 +760,7 @@ const exportToPDF = () => {
                       >
                         Modifier
                       </Button>
-                    </td>
+                    </td> */}
                     <td className="px-4 py-3 text-center border border-gray-400">
                       <Button
                         onClick={() => generateBonDEntreePDF(e)}
@@ -644,6 +769,16 @@ const exportToPDF = () => {
                         leftIcon={<PrinterIcon className="h-4 w-4" />}
                       >
                         Imprimer
+                      </Button>
+                    </td>
+                    <td className="px-4 py-3 text-center border border-gray-400">
+                      <Button
+                        onClick={() => handleDeleteClick(e)}
+                        variant="danger"
+                        size="sm"
+                        leftIcon={<TrashIcon className="h-4 w-4" />}
+                      >
+                        Supprimer
                       </Button>
                     </td>
                   </tr>
@@ -676,6 +811,22 @@ const exportToPDF = () => {
         </div>
       )}
 
+      {/* Message de succès */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 bg-green-50 text-green-700 p-4 rounded-lg shadow-lg z-50 border border-green-200">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="font-medium">{successMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDetailsModal && selectedEntree && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -683,6 +834,157 @@ const exportToPDF = () => {
               entree={selectedEntree}
               onClose={() => setShowDetailsModal(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modale de confirmation de suppression */}
+      {showDeleteModal && entreeToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-3" />
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Confirmer la suppression
+                </h3>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-gray-700 mb-2">
+                  Êtes-vous sûr de vouloir supprimer cette entrée ?
+                </p>
+                <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                  <p className="text-sm font-medium text-gray-900">
+                    Batch Number: {entreeToDelete.batchNumber}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Dépôt: {entreeToDelete.depot?.intitule || '—'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Quantité totale: {totalQuantity(entreeToDelete.items)} Kg
+                  </p>
+                </div>
+
+                {/* Affichage des vérifications de stock */}
+                {deletionCheckResults[entreeToDelete._id] && (
+                  <div className="mb-4">
+                    {deletionCheckResults[entreeToDelete._id].canDelete ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center">
+                          <svg className="h-5 w-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          <p className="text-sm font-medium text-green-800">
+                            ✅ Suppression autorisée
+                          </p>
+                        </div>
+                        <p className="text-xs text-green-700 mt-1">
+                          Toutes les quantités sont encore présentes dans le stock
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="flex items-center mb-2">
+                          <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          <p className="text-sm font-medium text-red-800">
+                            ❌ Suppression impossible
+                          </p>
+                        </div>
+                        <p className="text-xs text-red-700 mb-3">
+                          Une partie des quantités a déjà été utilisée dans des sorties
+                        </p>
+                        
+                        <div className="space-y-2">
+                          <p className="text-xs font-medium text-gray-700">Articles problématiques :</p>
+                          {deletionCheckResults[entreeToDelete._id].articlesBloquants.map((blocage, index) => (
+                            <div key={index} className="bg-white border border-red-200 rounded p-2">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <p className="text-xs font-medium text-gray-900">
+                                    {blocage.articleRef} {blocage.articleSpec && `- ${blocage.articleSpec}`}
+                                  </p>
+                                  <div className="flex space-x-4 text-xs text-gray-600 mt-1">
+                                    <span>Quantité originale: {blocage.quantiteOriginale}kg</span>
+                                    <span>Restante: {blocage.quantiteRestante}kg</span>
+                                    <span className="text-red-600 font-medium">
+                                      Utilisée: {blocage.quantiteUtilisee}kg
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-red-600 mt-1">{blocage.status}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Message d'avertissement */}
+                {deletionCheckResults[entreeToDelete._id]?.canDelete && (
+                  <p className="text-sm text-orange-600 mt-2">
+                    ⚠️ Cette action supprimera l'entrée et restaurera automatiquement le stock.
+                  </p>
+                )}
+
+                {/* Affichage des erreurs */}
+                {error && (
+                  <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+                    <div className="flex items-center">
+                      <svg className="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-sm font-medium text-red-800">
+                        {typeof error === 'string' ? error : error.message}
+                      </p>
+                    </div>
+                    {error.details && (
+                      <p className="text-xs text-red-700 mt-1">{error.details}</p>
+                    )}
+                    {error.articlesBloquants && error.articlesBloquants.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {error.articlesBloquants.map((article, index) => (
+                          <div key={index} className="text-xs text-red-700 bg-red-100 p-2 rounded">
+                            <span className="font-medium">{article.reference}</span>
+                            {article.specification && ` - ${article.specification}`}
+                            <div className="mt-1">
+                              Entrée: {article.quantiteEntree}kg | 
+                              Stock: {article.quantiteStock}kg | 
+                              Utilisé: {article.quantiteUtilisee}kg
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <Button
+                  onClick={handleDeleteCancel}
+                  variant="secondary"
+                  size="sm"
+                  disabled={deleteLoading}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={handleDeleteConfirm}
+                  variant="danger"
+                  size="sm"
+                  loading={deleteLoading}
+                  leftIcon={<TrashIcon className="h-4 w-4" />}
+                  disabled={deletionCheckResults[entreeToDelete._id] && !deletionCheckResults[entreeToDelete._id].canDelete}
+                >
+                  {deleteLoading ? 'Vérification...' : 'Supprimer'}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -43,9 +43,15 @@ function PlanDeChargementList() {
       setLoading(true);
       setError(null);
       const res = await axios.get('/commandes');
-      // On suppose que la commande comporte déjà des totaux calculés (prixTotal, quantiteKg, quantiteCarton)
-      setCommandes(res.data);
-      setFiltered(res.data);
+      
+      // Filtrer pour afficher seulement les commandes AVANT livraison
+      const commandesAvantLivraison = res.data.filter(cmd => 
+        cmd.statutBonDeCommande !== 'LIVREE' && 
+        cmd.statutBonDeCommande !== 'PARTIELLEMENT_LIVREE'
+      );
+      
+      setCommandes(commandesAvantLivraison);
+      setFiltered(commandesAvantLivraison);
     } catch (err) {
       console.error(err);
       setError('Erreur de chargement des données');
@@ -115,7 +121,7 @@ function PlanDeChargementList() {
     <div className="p-4 lg:p-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold mb-4 md:mb-0">Plan de Chargement</h1>
+        <h1 className="text-2xl font-bold mb-4 md:mb-0">Plan Avant Chargement - Commandes en Préparation</h1>
         {/* Bouton de création : si besoin, vous pouvez décommenter */}
         {/* <button
           onClick={handleOpenForm}
@@ -139,8 +145,8 @@ function PlanDeChargementList() {
       ) : commandes.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg border">
           <InformationCircleIcon className="h-12 w-12 mx-auto text-gray-400" />
-          <h3 className="mt-4 text-lg font-medium">Aucune commande trouvée</h3>
-          <p className="mt-1 text-gray-500">Aucun plan de chargement n'a été créé</p>
+          <h3 className="mt-4 text-lg font-medium">Aucune commande en préparation</h3>
+          <p className="mt-1 text-gray-500">Les commandes en cours ou complètes apparaîtront ici</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border shadow-sm">
@@ -159,17 +165,11 @@ function PlanDeChargementList() {
         <th className="px-4 py-3 text-left font-medium text-gray-700 border border-gray-400">
           Booking
         </th>
-        <th className="px-4 py-3 text-left font-medium text-gray-700 border border-gray-400">
-          Cargo
-        </th>
-        <th className="px-4 py-3 text-left font-medium text-gray-700 border border-gray-400">
-          Date Prévue
+        <th className="px-4 py-3 text-right font-medium text-gray-700 border border-gray-400">
+          Quantité Total (Kg)
         </th>
         <th className="px-4 py-3 text-right font-medium text-gray-700 border border-gray-400">
-          Quantité (Kg)
-        </th>
-        <th className="px-4 py-3 text-right font-medium text-gray-700 border border-gray-400">
-          Quantité (Cartons)
+          Prix Total
         </th>
         <th className="px-4 py-3 text-left font-medium text-gray-700 border border-gray-400">
           Statut BC
@@ -200,23 +200,16 @@ function PlanDeChargementList() {
             {cmd.numeroOP || '—'}
           </td>
           <td className="px-4 py-3 border border-gray-400">
-            {cmd.booking || '—'}
-          </td>
-          <td className="px-4 py-3 border border-gray-400">
-            {cmd.cargo && Array.isArray(cmd.cargo) && cmd.cargo.length > 0 
-              ? cmd.cargo.map((c, i) => c.nom).filter(nom => nom).join(', ') || '—'
-              : '—'}
-          </td>
-          <td className="px-4 py-3 border border-gray-400">
-            {cmd.datePrevueDeChargement
-              ? new Date(cmd.datePrevueDeChargement).toLocaleDateString()
-              : '—'}
+            {cmd.numeroBooking || '—'}
           </td>
           <td className="px-4 py-3 text-right border border-gray-400">
-            {cmd.quantiteKg || '—'}
+            {cmd.items && cmd.items.length > 0 
+              ? cmd.items.reduce((total, item) => total + (item.quantiteKg || 0), 0).toFixed(2) 
+              : '0'
+            }
           </td>
           <td className="px-4 py-3 text-right border border-gray-400">
-            {cmd.quantiteCarton || '—'}
+            {cmd.prixTotal ? `${cmd.prixTotal} ${cmd.currency || 'EUR'}` : '—'}
           </td>
           <td className="px-4 py-3 border border-gray-400">
             {cmd.statutBonDeCommande || '—'}

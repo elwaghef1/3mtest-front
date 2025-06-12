@@ -125,6 +125,9 @@ function BankAccountList() {
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
                   Code Swift
                 </th>
+                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
+                  Compte intermédiaire
+                </th>
                 <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
                   Actions
                 </th>
@@ -137,6 +140,9 @@ function BankAccountList() {
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">{account.titulaire}</td>
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">{account.iban}</td>
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">{account.codeSwift}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">
+                    {account.compteIntermediaire || '—'}
+                  </td>
                   <td className="px-4 py-3 text-center border border-gray-400">
                     <div className="flex justify-center space-x-2">
                       <Button

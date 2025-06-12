@@ -292,7 +292,7 @@ const SortieList = () => {
                         icon={<PrinterIcon className="h-5 w-5" />}
                         title="Télécharger PDF complet"
                       >
-                        <span className="hidden sm:inline">PDF Complet</span>
+                        <span className="hidden sm:inline">Dossier Complet</span>
                       </Button>
                       <Button
                         onClick={() => handleShowDetails(s)}

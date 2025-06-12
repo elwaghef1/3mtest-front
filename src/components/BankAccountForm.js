@@ -8,6 +8,7 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
   const [titulaire, setTitulaire] = useState('');
   const [iban, setIban] = useState('');
   const [codeSwift, setCodeSwift] = useState('');
+  const [compteIntermediaire, setCompteIntermediaire] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -18,6 +19,7 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
       setTitulaire(initialAccount.titulaire);
       setIban(initialAccount.iban);
       setCodeSwift(initialAccount.codeSwift);
+      setCompteIntermediaire(initialAccount.compteIntermediaire || '');
     }
   }, [initialAccount]);
 
@@ -28,10 +30,10 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
     try {
       if (initialAccount) {
         // Mise à jour du compte existant
-        await axios.put(`/bankaccounts/${initialAccount._id}`, { banque, titulaire, iban, codeSwift });
+        await axios.put(`/bankaccounts/${initialAccount._id}`, { banque, titulaire, iban, codeSwift, compteIntermediaire });
       } else {
         // Création d'un nouveau compte
-        await axios.post('/bankaccounts', { banque, titulaire, iban, codeSwift });
+        await axios.post('/bankaccounts', { banque, titulaire, iban, codeSwift, compteIntermediaire });
       }
       onAccountCreated();
     } catch (err) {
@@ -107,6 +109,20 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
             value={codeSwift}
             onChange={(e) => setCodeSwift(e.target.value)}
             required
+            className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Compte Intermédiaire */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Compte intermédiaire
+          </label>
+          <input
+            type="text"
+            value={compteIntermediaire}
+            onChange={(e) => setCompteIntermediaire(e.target.value)}
+            placeholder="Numéro de compte intermédiaire (optionnel)"
             className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
           />
         </div>

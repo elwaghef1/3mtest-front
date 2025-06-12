@@ -5,6 +5,7 @@ import CommandeForm from './CommandeForm';
 import CommandeDetails from './CommandeDetails';
 import Button from './Button';
 import LivraisonPartielleModal from './LivraisonPartielleModal';
+import { useNavigate } from 'react-router-dom';
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,
@@ -12,12 +13,15 @@ import {
   PlusIcon,
   PencilIcon,
   InformationCircleIcon,
-  TruckIcon
+  TruckIcon,
+  TrashIcon
 } from '@heroicons/react/24/solid';
 import {
   ArrowPathIcon,
   DocumentArrowDownIcon,
-  PrinterIcon
+  PrinterIcon,
+  BellIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 import Pagination from './Pagination';
 import jsPDF from 'jspdf';
@@ -35,6 +39,7 @@ import { generateInvoicePDF, generatePackingListPDF } from './pdfGenerators';
 moment.locale('fr');
 
 const CommandeList = () => {
+  const navigate = useNavigate();
   // États existants
   const [commandes, setCommandes] = useState([]);
   const [clients, setClients] = useState([]);
@@ -62,6 +67,11 @@ const CommandeList = () => {
   // États pour le modal de livraison partielle
   const [showLivraisonModal, setShowLivraisonModal] = useState(false);
   const [selectedCommandeForLivraison, setSelectedCommandeForLivraison] = useState(null);
+
+  // États pour la suppression de commandes
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [commandeToDelete, setCommandeToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // État pour les informations de sorties (livraisons)
   const [sortiesData, setSortiesData] = useState({});
@@ -403,8 +413,7 @@ const CommandeList = () => {
 
   // Ouverture/fermeture des modales et actions diverses
   const handleOpenForm = () => {
-    setEditingCommande(null);
-    setShowForm(true);
+    navigate('/commandes/nouvelle');
   };
   const handleCloseForm = () => {
     setShowForm(false);
@@ -414,8 +423,7 @@ const CommandeList = () => {
     fetchData();
   };
   const handleEdit = (cmd) => {
-    setEditingCommande(cmd);
-    setShowForm(true);
+    navigate(`/commandes/modifier/${cmd._id}`);
   };
   const handleShowDetails = (cmd) => {
     setDetailsCommande(cmd);
@@ -440,6 +448,77 @@ const CommandeList = () => {
     setShowLivraisonModal(false);
     setSelectedCommandeForLivraison(null);
     fetchData(); // Recharger les données
+  };
+
+  // Fonctions pour la suppression de commandes
+  const handleShowDeleteModal = (commande) => {
+    setCommandeToDelete(commande);
+    setShowDeleteModal(true);
+  };
+
+  const handleCloseDeleteModal = () => {
+    setShowDeleteModal(false);
+    setCommandeToDelete(null);
+  };
+
+  const handleDeleteCommande = async () => {
+    if (!commandeToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await axios.delete(`/commandes/${commandeToDelete._id}`);
+      
+      // Afficher une notification de succès
+      setNotificationDetails({
+        type: 'success',
+        message: 'Commande supprimée avec succès',
+        details: `La commande ${commandeToDelete.reference} a été supprimée et le stock a été restauré`
+      });
+      setShowNotification(true);
+      
+      // Fermer le modal et recharger les données
+      handleCloseDeleteModal();
+      fetchData();
+      
+      // Cacher la notification après 5 secondes
+      setTimeout(() => setShowNotification(false), 5000);
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      setNotificationDetails({
+        type: 'error',
+        message: 'Erreur lors de la suppression',
+        details: error.response?.data?.message || 'Une erreur est survenue lors de la suppression de la commande'
+      });
+      setShowNotification(true);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Fonction pour vérifier si une commande peut être modifiée
+  const canEditCommande = (commande) => {
+    // Ne peut pas modifier seulement si la commande a des quantités manquantes ou est en attente
+    return commande.statutBonDeCommande !== 'EN_ATTENTE_STOCK' &&
+           commande.statutBonDeCommande !== 'AVEC_QUANTITES_MANQUANTES';
+  };
+
+  // Fonction pour obtenir le titre du bouton de modification
+  const getEditButtonTitle = (commande) => {
+    if (commande.statutBonDeCommande === 'EN_ATTENTE_STOCK') {
+      return 'Commande en attente de stock - Modification désactivée';
+    }
+    if (commande.statutBonDeCommande === 'AVEC_QUANTITES_MANQUANTES') {
+      return 'Commande avec quantités manquantes - Modification désactivée';
+    }
+    if (commande.statutBonDeCommande === 'LIVREE') {
+      return 'Modifier la commande livrée';
+    }
+    return 'Modifier la commande';
+  };
+
+  // Fonction pour vérifier si une commande peut être supprimée
+  const canDeleteCommande = (commande) => {
+    return commande.statutBonDeCommande !== 'LIVREE';
   };
 
   // Fonctions d'export et d'impression (identiques aux versions précédentes)
@@ -673,13 +752,181 @@ const CommandeList = () => {
     fetchCommandes();
   };
 
+  const [commandesCompletables, setCommandesCompletables] = useState([]);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationDetails, setNotificationDetails] = useState(null);
+
+  // Vérifier les commandes complétables périodiquement
+  useEffect(() => {
+    const checkCompletables = async () => {
+      try {
+        const response = await axios.get('/commandes/completables');
+        setCommandesCompletables(response.data.commandesCompletables || []);
+      } catch (error) {
+        console.error('Erreur lors de la vérification des commandes complétables:', error);
+      }
+    };
+
+    checkCompletables();
+    const interval = setInterval(checkCompletables, 60000); // Vérifier toutes les minutes
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fonction pour obtenir le badge de statut
+  const getStatutBadge = (commande) => {
+    const isCompletable = commandesCompletables.some(
+      c => c.commande._id === commande._id
+    );
+
+    if (isCompletable) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 animate-pulse">
+          <CheckCircleIcon className="w-3 h-3 mr-1" />
+          Peut être complétée
+        </span>
+      );
+    }
+
+    switch (commande.statutBonDeCommande) {
+      case 'EN_ATTENTE_STOCK':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            <ClockIcon className="w-3 h-3 mr-1" />
+            En attente de stock
+          </span>
+        );
+      case 'AVEC_QUANTITES_MANQUANTES':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            <ExclamationCircleIcon className="w-3 h-3 mr-1" />
+            Quantités manquantes
+          </span>
+        );
+      case 'COMPLET':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            Complet
+          </span>
+        );
+      case 'LIVREE':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            Livrée
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Fonction pour compléter une commande
+  const handleCompleterCommande = async (commandeId) => {
+    try {
+      const response = await axios.post(`/commandes/${commandeId}/completer`);
+      
+      if (response.data.commande) {
+        // Recharger les commandes
+        const updatedCommandes = await axios.get('/commandes');
+        setCommandes(updatedCommandes.data);
+        
+        // Afficher une notification de succès
+        setNotificationDetails({
+          type: 'success',
+          message: 'Commande complétée avec succès',
+          details: response.data.message
+        });
+        setShowNotification(true);
+        
+        // Cacher la notification après 5 secondes
+        setTimeout(() => setShowNotification(false), 5000);
+      }
+    } catch (error) {
+      setNotificationDetails({
+        type: 'error',
+        message: 'Erreur lors de la complétion de la commande',
+        details: error.response?.data?.message || error.message
+      });
+      setShowNotification(true);
+    }
+  };
+
+  // Fonction pour vérifier si une commande peut être livrée
+  const canDeliver = (commande) => {
+    return commande.statutBonDeCommande !== 'EN_ATTENTE_STOCK' && 
+           commande.statutBonDeCommande !== 'AVEC_QUANTITES_MANQUANTES' &&
+           commande.statutBonDeCommande !== 'LIVREE';
+  };
+
+  // Fonction pour obtenir le titre du bouton livrer
+  const getDeliverButtonTitle = (commande) => {
+    if (commande.statutBonDeCommande === 'LIVREE') {
+      return 'Commande déjà livrée';
+    } else if (commande.statutBonDeCommande === 'EN_ATTENTE_STOCK' || commande.statutBonDeCommande === 'AVEC_QUANTITES_MANQUANTES') {
+      return 'Commande incomplète - Livraison impossible';
+    }
+    return 'Livraison partielle';
+  };
+
   return (
-    <div className="p-4 lg:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
+      {/* Notification */}
+      {showNotification && notificationDetails && (
+        <div className={`fixed top-4 right-4 z-50 max-w-md p-4 rounded-lg shadow-lg ${
+          notificationDetails.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+        }`}>
+          <div className="flex items-start">
+            {notificationDetails.type === 'success' ? (
+              <CheckCircleIcon className="h-6 w-6 text-green-400 mr-3" />
+            ) : (
+              <ExclamationCircleIcon className="h-6 w-6 text-red-400 mr-3" />
+            )}
+            <div>
+              <h3 className={`text-sm font-medium ${
+                notificationDetails.type === 'success' ? 'text-green-800' : 'text-red-800'
+              }`}>
+                {notificationDetails.message}
+              </h3>
+              {notificationDetails.details && (
+                <p className={`mt-1 text-sm ${
+                  notificationDetails.type === 'success' ? 'text-green-700' : 'text-red-700'
+                }`}>
+                  {notificationDetails.details}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowNotification(false)}
+              className="ml-4 text-gray-400 hover:text-gray-500"
+            >
+              <XCircleIcon className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Badge pour les commandes complétables */}
+      {commandesCompletables.length > 0 && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <BellIcon className="h-6 w-6 text-green-600 mr-3" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-green-800">
+                {commandesCompletables.length} commande(s) peuvent maintenant être complétées
+              </h3>
+              <p className="mt-1 text-sm text-green-700">
+                Le stock nécessaire est maintenant disponible
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <h1 className="text-2xl font-bold mb-4 md:mb-0">Commandes Confirmées</h1>
         <div className="flex flex-col sm:flex-row gap-2">
           <Button
-            onClick={() => { setEditingCommande(null); setShowForm(true); }}
+            onClick={() => navigate('/commandes/nouvelle')}
             variant="primary"
             size="md"
             icon={<PlusIcon className="h-5 w-5" />}
@@ -887,12 +1134,13 @@ const CommandeList = () => {
                           Détails
                         </Button>
                         <Button
-                          onClick={() => handleEdit(commande)}
-                          variant="warning"
+                          onClick={() => canEditCommande(commande) ? handleEdit(commande) : null}
+                          variant={canEditCommande(commande) ? "warning" : "secondary"}
                           size="md"
                           icon={<PencilIcon className="h-5 w-5" />}
-                          title="Modifier la commande"
-                          className="font-semibold min-w-[90px]"
+                          title={getEditButtonTitle(commande)}
+                          className={`font-semibold min-w-[90px] ${!canEditCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          disabled={!canEditCommande(commande)}
                         >
                           Modifier
                         </Button>
@@ -906,6 +1154,18 @@ const CommandeList = () => {
                           disabled={commande.statutBonDeCommande === 'LIVREE'}
                         >
                           Livrer
+                        </Button>
+                        {/* Bouton de suppression - toujours affiché mais grisé pour les commandes livrées */}
+                        <Button
+                          onClick={() => canDeleteCommande(commande) ? handleShowDeleteModal(commande) : null}
+                          variant={canDeleteCommande(commande) ? "danger" : "secondary"}
+                          size="md"
+                          icon={<TrashIcon className="h-5 w-5" />}
+                          title={canDeleteCommande(commande) ? "Supprimer la commande" : "Impossible de supprimer une commande livrée"}
+                          className={`font-semibold min-w-[90px] ${!canDeleteCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          disabled={!canDeleteCommande(commande)}
+                        >
+                          Supprimer
                         </Button>
                       </div>
                     </div>
@@ -984,7 +1244,7 @@ const CommandeList = () => {
                         {new Date(commande.dateCommande).toLocaleDateString()}
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-4">
+                        <div className="flex items-center justify-end space-x-2">
                           <Button
                             onClick={() => handleShowDetails(commande)}
                             variant="info"
@@ -996,25 +1256,41 @@ const CommandeList = () => {
                             Détails
                           </Button>
                           <Button
-                            onClick={() => handleEdit(commande)}
-                            variant="warning"
+                            onClick={() => canEditCommande(commande) ? handleEdit(commande) : null}
+                            variant={canEditCommande(commande) ? "warning" : "secondary"}
                             size="md"
                             icon={<PencilIcon className="h-5 w-5" />}
-                            title="Modifier la commande"
-                            className="font-semibold min-w-[90px]"
+                            title={getEditButtonTitle(commande)}
+                            className={`font-semibold min-w-[90px] ${!canEditCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={!canEditCommande(commande)}
                           >
                             Modifier
                           </Button>
+                          {/* Bouton de livraison avec indication si désactivé */}
                           <Button
                             onClick={() => handleShowLivraisonPartielle(commande)}
-                            variant="success"
-                            size="md"
-                            icon={<TruckIcon className="h-5 w-5" />}
-                            title={commande.statutBonDeCommande === 'LIVREE' ? "Commande déjà livrée" : "Livraison partielle"}
-                            className="font-semibold min-w-[90px]"
-                            disabled={commande.statutBonDeCommande === 'LIVREE'}
+                            className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs leading-4 font-medium rounded-md ${
+                              canDeliver(commande)
+                                ? 'text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500'
+                                : 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                            }`}
+                            disabled={!canDeliver(commande)}
+                            title={getDeliverButtonTitle(commande)}
                           >
+                            <TruckIcon className="h-4 w-4 mr-1" />
                             Livrer
+                          </Button>
+                          {/* Bouton de suppression - toujours affiché mais grisé pour les commandes livrées */}
+                          <Button
+                            onClick={() => canDeleteCommande(commande) ? handleShowDeleteModal(commande) : null}
+                            variant={canDeleteCommande(commande) ? "danger" : "secondary"}
+                            size="md"
+                            icon={<TrashIcon className="h-5 w-5" />}
+                            title={canDeleteCommande(commande) ? "Supprimer la commande" : "Impossible de supprimer une commande livrée"}
+                            className={`font-semibold min-w-[90px] ${!canDeleteCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={!canDeleteCommande(commande)}
+                          >
+                            Supprimer
                           </Button>
                         </div>
                       </td>
@@ -1037,19 +1313,6 @@ const CommandeList = () => {
             />
           </div>
         </>
-      )}
-
-      {/* Modal de formulaire */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <CommandeForm
-              onClose={handleCloseForm}
-              onCommandeCreated={handleCommandeCreatedOrUpdated}
-              initialCommande={editingCommande}
-            />
-          </div>
-        </div>
       )}
 
       {/* Modal de détails */}
@@ -1077,6 +1340,68 @@ const CommandeList = () => {
               formatCurrency={formatCurrency}
               formatNumber={formatNumber}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmation de suppression */}
+      {showDeleteModal && commandeToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center mb-4">
+                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100">
+                  <ExclamationCircleIcon className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-2">
+                  Confirmer la suppression
+                </h3>
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500 mb-2">
+                    Êtes-vous sûr de vouloir supprimer la commande suivante ?
+                  </p>
+                  <div className="bg-gray-50 p-3 rounded-lg text-left">
+                    <p className="text-sm font-medium text-gray-900">
+                      Référence: {commandeToDelete.reference}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Client: {commandeToDelete.client?.raisonSociale || 'N/A'}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Prix total: {formatCurrency(commandeToDelete.prixTotal, commandeToDelete.currency)}
+                    </p>
+                  </div>
+                  <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ <strong>Attention :</strong> Cette action est irréversible. 
+                      Le stock des articles sera automatiquement restauré.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex space-x-3 justify-end">
+                <Button
+                  onClick={handleCloseDeleteModal}
+                  variant="secondary"
+                  size="md"
+                  disabled={isDeleting}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  onClick={handleDeleteCommande}
+                  variant="danger"
+                  size="md"
+                  loading={isDeleting}
+                  disabled={isDeleting}
+                  icon={<TrashIcon className="h-5 w-5" />}
+                >
+                  {isDeleting ? 'Suppression...' : 'Supprimer définitivement'}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

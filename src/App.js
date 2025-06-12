@@ -15,6 +15,7 @@ import PoissonList from './components/PoissonList.js';
 import DepotList from './components/DepotList.js';
 import ClientList from './components/ClientList.js';
 import CommandeList from './components/CommandeList.js';
+import CommandeForm from './components/CommandeForm.js';
 import EntreeList from './components/EntreeList.js';
 import StockList from './components/StockList.js';
 import ArticleList from './components/ArticleList.js';
@@ -70,6 +71,22 @@ function App() {
               element={
                 <PrivateRoute>
                   <CommandeList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/commandes/nouvelle"
+              element={
+                <PrivateRoute>
+                  <CommandeForm />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/commandes/modifier/:id"
+              element={
+                <PrivateRoute>
+                  <CommandeForm />
                 </PrivateRoute>
               }
             />

@@ -4,12 +4,18 @@ import Button from './Button';
 
 // Fonction utilitaire pour formater un article
 const formatArticle = (a) => {
-  if (!a) return '—';
+  console.log('DEBUG - formatArticle called with:', a);
+  if (!a) {
+    console.log('DEBUG - formatArticle: Article is null/undefined');
+    return '—';
+  }
   const ref = a.reference || '';
   const spec = a.specification || '';
   const taille = a.taille || '';
   const typeCarton = a.typeCarton || '';
-  return `${ref} - ${spec} - ${taille} - ${typeCarton}`;
+  const formatted = `${ref} - ${spec} - ${taille} - ${typeCarton}`;
+  console.log('DEBUG - formatArticle result:', formatted);
+  return formatted;
 };
 
 // Couleurs de badge selon le statut
@@ -66,6 +72,25 @@ const DetailItem = ({ label, value, badge }) => (
 );
 
 function ApresLivraisonDetails({ commande, onClose }) {
+  // Debug: Log the entire commande object to understand the data structure
+  console.log('DEBUG - ApresLivraisonDetails: Full commande object:', commande);
+  console.log('DEBUG - ApresLivraisonDetails: historiquelivraisons:', commande.historiquelivraisons);
+  
+  // If historiquelivraisons exists, log each livraison and its items
+  if (commande.historiquelivraisons && commande.historiquelivraisons.length > 0) {
+    commande.historiquelivraisons.forEach((livraison, index) => {
+      console.log(`DEBUG - Livraison ${index}:`, livraison);
+      if (livraison.items && livraison.items.length > 0) {
+        livraison.items.forEach((item, itemIndex) => {
+          console.log(`DEBUG - Livraison ${index}, Item ${itemIndex}:`, item);
+          console.log(`DEBUG - Item article:`, item.article);
+          console.log(`DEBUG - Item lotInfo:`, item.lotInfo);
+          console.log(`DEBUG - Item quantiteKg:`, item.quantiteKg);
+        });
+      }
+    });
+  }
+
   // Carte récapitulative pour le prix total
   const totalCard = (
     <div className="bg-gray-200 p-6 rounded-lg text-center mb-8">
@@ -265,6 +290,109 @@ function ApresLivraisonDetails({ commande, onClose }) {
           </div>
         ) : (
           <p className="text-sm text-gray-500 italic">Aucun cargo renseigné.</p>
+        )}
+      </div>
+
+      {/* Section Détails de Livraison par Lots */}
+      <div className="mb-8">
+        <h3 className="text-xl font-bold mb-4 text-gray-800">Détails de Livraison par Lots</h3>
+        {commande.historiquelivraisons && commande.historiquelivraisons.length > 0 ? (
+          <div className="space-y-6">
+            {commande.historiquelivraisons.map((livraison, livraisonIndex) => (
+              <div key={livraisonIndex} className="border border-gray-300 rounded-lg p-4 bg-blue-50">
+                <h4 className="text-lg font-semibold mb-3 text-gray-700">
+                  Livraison {livraisonIndex + 1} - {livraison.dateLivraison ? new Date(livraison.dateLivraison).toLocaleDateString('fr-FR') : 'Date non renseignée'}
+                  {livraison.referenceLivraison && (
+                    <span className="ml-2 text-sm text-blue-600">({livraison.referenceLivraison})</span>
+                  )}
+                </h4>
+                {livraison.items && livraison.items.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border-collapse border border-gray-300">
+                      <thead>
+                        <tr className="bg-gray-200">
+                          <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-left">
+                            Article
+                          </th>
+                          <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-center">
+                            Quantité Livrée (Kg)
+                          </th>
+                          <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-center">
+                            Détails par Lot
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {livraison.items.map((item, itemIndex) => (
+                          <tr key={itemIndex} className="hover:bg-gray-50 transition-colors">
+                            <td className="border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 whitespace-nowrap">
+                              {item.article ? formatArticle(item.article) : '—'}
+                            </td>
+                            <td className="border border-gray-300 px-2 py-1 text-xs text-center text-gray-700 whitespace-nowrap">
+                              <strong>{item.quantiteKg || '—'} Kg</strong>
+                            </td>
+                            <td className="border border-gray-300 px-2 py-1 text-xs text-gray-700">
+                              {item.lotInfo && item.lotInfo.distributionLots && item.lotInfo.distributionLots.length > 0 ? (
+                                <div className="space-y-1">
+                                  {item.lotInfo.distributionLots.map((lot, lotIndex) => (
+                                    <div key={lotIndex} className="bg-white rounded px-2 py-1 border border-gray-200">
+                                      <span className="font-semibold text-blue-700">Lot: {lot.batchNumber || 'N/A'}</span>
+                                      <span className="ml-2 text-green-700">→ {lot.quantiteUtilisee || '0'} Kg</span>
+                                      {lot.dateProduction && (
+                                        <span className="ml-2 text-gray-500 text-xs">
+                                          (Prod: {new Date(lot.dateProduction).toLocaleDateString('fr-FR')})
+                                        </span>
+                                      )}
+                                      {lot.dateExpiration && (
+                                        <span className="ml-2 text-gray-500 text-xs">
+                                          (Exp: {new Date(lot.dateExpiration).toLocaleDateString('fr-FR')})
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : item.lotInfo && item.lotInfo.batchNumber ? (
+                                // Support pour l'ancien format de lot
+                                <div className="bg-white rounded px-2 py-1 border border-gray-200">
+                                  <span className="font-semibold text-blue-700">Lot: {item.lotInfo.batchNumber}</span>
+                                  <span className="ml-2 text-green-700">→ {item.lotInfo.quantiteUtilisee || item.quantiteKg || '0'} Kg</span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-500 italic">Informations de lot non disponibles</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic">Aucun article livré dans cette livraison.</p>
+                )}
+                
+                {/* Résumé de la livraison */}
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Quantité totale livrée:</span>
+                    <span className="font-semibold text-gray-800">{livraison.quantiteLivree || '—'} Kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Prix total livré:</span>
+                    <span className="font-semibold text-gray-800">{livraison.prixLivre || '—'} {commande.currency || 'EUR'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="border border-gray-300 rounded-lg p-4 bg-blue-50">
+            <p className="text-sm text-gray-600">
+              <strong>Aucun détail de livraison par lots trouvé pour cette commande.</strong>
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Les informations de lots peuvent être consultées dans la section Articles ci-dessus ou vérifiez que la livraison a été correctement enregistrée.
+            </p>
+          </div>
         )}
       </div>
 

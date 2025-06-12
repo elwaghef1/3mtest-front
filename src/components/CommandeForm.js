@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from '../api/axios';
 import Button from './Button';
+import { useNavigate, useParams } from 'react-router-dom';
 
 // Pour la liste des pays en français
 import i18nIsoCountries from 'i18n-iso-countries';
@@ -17,7 +18,10 @@ import {
 
 i18nIsoCountries.registerLocale(frLocale);
 
-const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
+const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitialCommande }) => {
+  const navigate = useNavigate();
+  const { id } = useParams(); // Pour récupérer l'ID depuis l'URL
+  const [initialCommande, setInitialCommande] = useState(propInitialCommande);
   // Préparation de la liste des pays (en français)
   const countries = useMemo(() => {
     const countriesObj = i18nIsoCountries.getNames('fr', { select: 'official' });
@@ -75,9 +79,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
       quantiteKg: '',
       prixUnitaire: '',
       quantiteCarton: 0,
-      prixTotal: 0,
-      availableLots: [],
-      selectedLot: ''
+      prixTotal: 0
+      // Note: Suppression des champs de lots pour simplifier la création de commande
     }
   ]);
 
@@ -99,6 +102,24 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
 
   // Ajouter cette ligne pour définir isCommandeLocale
   const isCommandeLocale = formData.typeCommande === 'LOCALE';
+
+  // Effet pour charger la commande si on est en mode édition via URL
+  useEffect(() => {
+    const loadCommandeFromUrl = async () => {
+      if (id && !propInitialCommande) {
+        try {
+          const response = await axios.get(`/commandes/${id}`);
+          setInitialCommande(response.data);
+        } catch (error) {
+          console.error('Erreur lors du chargement de la commande:', error);
+          // Rediriger vers la liste si la commande n'existe pas
+          navigate('/commandes');
+        }
+      }
+    };
+
+    loadCommandeFromUrl();
+  }, [id, propInitialCommande, navigate]);
 
   // Fonction utilitaire pour générer la classe d'un input/select
   const getInputClass = (value, additionalClasses = '') => {
@@ -155,31 +176,25 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         conditionsDeVente: initialCommande.conditionsDeVente || defaultConditions
       });
       setItems(
-        initialCommande.items.map(item => ({
+        (initialCommande.items || []).map(item => ({
           article: item.article?._id || '',
           depot: item.depot?._id || '',
           quantiteKg: item.quantiteKg || '',
           prixUnitaire: item.prixUnitaire || '',
           quantiteCarton: item.quantiteCarton || 0,
           prixTotal: item.prixTotal || 0,
-          availableLots: [],
-          selectedLot: item.lot ? item.lot.entreeOrigine : ''
+          // Conserver les données de stock pour l'affichage
+          quantiteAllouee: item.quantiteAllouee || 0,
+          quantiteManquante: item.quantiteManquante || 0,
+          statutStock: item.statutStock || ''
+          // Note: selectedLot supprimé - gestion des lots lors de la livraison
         }))
       );
     }
   }, [initialCommande, defaultConditions]);
 
-  // Après préremplissage, charger les lots disponibles pour chaque item
-  useEffect(() => {
-    if (initialCommande) {
-      items.forEach((item, index) => {
-        if (item.article && item.depot && (!item.availableLots || item.availableLots.length === 0)) {
-          fetchAvailableLotsForItem(index, item.article, item.depot);
-        }
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialCommande, items]);
+  // Note: L'effet pour charger les lots a été supprimé car la gestion des lots
+  // se fait maintenant lors de la livraison via LivraisonPartielleModal
 
   // S'assurer qu'il y a toujours au moins un cargo
   useEffect(() => {
@@ -254,34 +269,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
     return found ? found.quantiteCommercialisableKg : 0;
   };
 
-  // Fonction pour récupérer les lots disponibles pour un item
-  const fetchAvailableLotsForItem = async (itemIndex, articleId, depotId) => {
-    try {
-      const res = await axios.get('/entrees');
-      let availableLots = [];
-      res.data.forEach(entree => {
-        if (entree.depot && entree.depot._id === depotId) {
-          entree.items.forEach(item => {
-            if (item.article && item.article._id === articleId && item.quantiteRestante > 0) {
-              availableLots.push({
-                _id: entree._id, // L'ID de l'entrée
-                batchNumber: entree.batchNumber,
-                quantiteRestante: item.quantiteRestante
-              });
-            }
-          });
-        }
-      });
-      const updatedItems = [...items];
-      updatedItems[itemIndex].availableLots = availableLots;
-      if (!availableLots.find(lot => lot._id === updatedItems[itemIndex].selectedLot)) {
-        updatedItems[itemIndex].selectedLot = '';
-      }
-      setItems(updatedItems);
-    } catch (error) {
-      console.error('Erreur lors du chargement des lots:', error);
-    }
-  };
+  // Note: La gestion des lots a été supprimée de la création de commande
+  // Les lots seront gérés lors de la livraison via LivraisonPartielleModal
 
   // Mise à jour d’un item
   const updateItem = (index, field, value) => {
@@ -293,9 +282,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
       updatedItems[index].quantiteCarton = quantiteKg / 20;
       updatedItems[index].prixTotal = prixUnitaire * quantiteKg;
     }
-    if ((field === 'article' || field === 'depot') && updatedItems[index].article && updatedItems[index].depot) {
-      fetchAvailableLotsForItem(index, updatedItems[index].article, updatedItems[index].depot);
-    }
+    // Note: La gestion des lots a été supprimée lors de la création de commande
     setItems(updatedItems);
   };
 
@@ -409,8 +396,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
           quantiteKg: parseFloat(item.quantiteKg) || 0,
           quantiteCarton: parseFloat(item.quantiteCarton) || 0,
           prixUnitaire: parseFloat(item.prixUnitaire) || 0,
-          prixTotal: parseFloat(item.prixTotal) || 0,
-          selectedLot: item.selectedLot
+          prixTotal: parseFloat(item.prixTotal) || 0
+          // Note: selectedLot supprimé - gestion des lots lors de la livraison
         })),
       };
 
@@ -442,7 +429,11 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         reference: response.data.reference
       });
       
-      onCommandeCreated();
+      // Navigation vers la liste des commandes après création/modification
+      if (onCommandeCreated) {
+        onCommandeCreated(); // Pour compatibilité avec le mode modal
+      }
+      navigate('/commandes');
     } catch (err) {
       if (err.response && err.response.data && err.response.data.message) {
         setErrorMessage(err.response.data.message);
@@ -526,7 +517,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
       <h2 className="text-2xl font-bold mb-6">{initialCommande ? 'Modifier la Commande' : 'Nouvelle Commande'}</h2>
       
       {/* Type de commande */}
-      <div className="mb-6 bg-blue-50 p-4 rounded-lg">
+      <div className="mb-6 bg-white p-4 rounded-lg">
         <label className="block text-sm font-bold text-gray-700 mb-2">
           Type de commande <span className="text-red-500">*</span>
         </label>
@@ -541,7 +532,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
               className="mr-2"
               disabled={isLivree || (initialCommande && initialCommande.typeCommande === 'LOCALE')}
             />
-            <span className="font-medium">Normale (Export)</span>
+            <span className="font-medium">Export</span>
           </label>
           <label className="flex items-center">
             <input
@@ -556,17 +547,11 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
             <span className="font-medium">Locale</span>
           </label>
         </div>
-        {isCommandeLocale && (
-          <p className="text-sm text-blue-600 mt-2">
-            ℹ️ Commande locale : Les champs d'export et charges locales sont masqués
-            {initialCommande && initialCommande.typeCommande === 'LOCALE' && ' • Ce type ne peut plus être modifié'}
-          </p>
-        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Section Informations Générales */}
-        <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
+        <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
           <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
             Informations Générales
           </h3>
@@ -748,7 +733,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         </div>
 
         {/* Section Articles (désactivée si LIVREE) */}
-        <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm mt-6">
+        <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm mt-6">
           <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
             Articles
             {!articlesModifiables && (
@@ -879,28 +864,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
                   />
                 </div>
               </div>
-              {/* Sélection du lot pour cet article */}
-              {(item.article && item.depot) && (
-                <div className="grid grid-cols-1 gap-6 mt-4 border p-4 rounded-lg">
-                  <div className="flex flex-col">
-                    <label className="mb-1 text-sm font-medium text-gray-700">Lot (Batch Number) *</label>
-                    <select
-                      value={item.selectedLot}
-                      required
-                      className={getInputClass(item.selectedLot, !articlesModifiables ? 'bg-gray-200' : '')}
-                      onChange={(e) => updateItem(index, 'selectedLot', e.target.value)}
-                      disabled={!articlesModifiables}
-                    >
-                      <option value="">-- Choisir un lot --</option>
-                      {item.availableLots && item.availableLots.map(lot => (
-                        <option key={lot._id} value={lot._id}>
-                          {lot.batchNumber} - {lot.quantiteRestante} Kg dispo
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
+              {/* Note: La sélection des lots a été supprimée. */}
+              {/* Les lots seront gérés lors de la livraison via LivraisonPartielleModal */}
               {/* Indicateurs de stock */}
               <div className="mt-4">
                 {getStockStatus(item, index) && (
@@ -924,7 +889,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         </div>
 
         {/* Section Paiement & Informations Complémentaires */}
-        <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
+        <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
           <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
             Paiement & Informations Complémentaires
           </h3>
@@ -962,7 +927,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         {isCommandeLivree && (
           <>
             {/* Détails de la Commande (LIVREE) */}
-            <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
+            <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
               <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
                 Détails de la Commande
               </h3>
@@ -1067,7 +1032,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
             </div>
 
             {/* Champs Complémentaires (LIVREE) */}
-            <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
+            <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
               <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
                 Champs Complémentaires
               </h3>
@@ -1174,7 +1139,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
             {/* Section Charges Locales - Masquée pour commande locale */}
             {isCommandeLivree && !isCommandeLocale && (
               <>
-                <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
+                <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
                   <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
                     Charges Locales
                   </h3>
@@ -1223,7 +1188,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
         )}
 
          {/* Section Conditions de Vente */}
-         <div className="p-4 border border-gray-200 rounded-lg bg-indigo-50 shadow-sm">
+         <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
           <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
             Conditions de Vente
           </h3>
@@ -1253,7 +1218,12 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande }) => {
           <Button
             variant="secondary"
             size="lg"
-            onClick={onClose}
+            onClick={() => {
+              if (onClose) {
+                onClose(); // Pour compatibilité avec le mode modal
+              }
+              navigate('/commandes'); // Navigation vers la liste
+            }}
           >
             Annuler
           </Button>
