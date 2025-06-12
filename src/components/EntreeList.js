@@ -752,7 +752,7 @@ const exportToPDF = () => {
                         Détails
                       </Button>
                     </td>
-                    {/* <td className="px-4 py-3 text-center border border-gray-400">
+                    <td className="px-4 py-3 text-center border border-gray-400">
                       <Button
                         onClick={() => handleOpenFormToEdit(e)}
                         variant="warning"
@@ -760,7 +760,7 @@ const exportToPDF = () => {
                       >
                         Modifier
                       </Button>
-                    </td> */}
+                    </td>
                     <td className="px-4 py-3 text-center border border-gray-400">
                       <Button
                         onClick={() => generateBonDEntreePDF(e)}
