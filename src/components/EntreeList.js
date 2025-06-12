@@ -686,7 +686,7 @@ const exportToPDF = () => {
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Prix Total</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Coût Location</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Détails</th>
-                {/* <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Modifier</th> */}
+                <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Modifier</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Bon d'entrée</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Supprimer</th>
               </tr>
