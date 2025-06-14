@@ -5,7 +5,7 @@ import SortieDetails from './SortieDetails';
 import SortieForm from './SortieForm';
 import sortieService from '../services/sortieService';
 import { InformationCircleIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
-import { PrinterIcon, Package, Truck } from '@heroicons/react/24/outline';
+import { PrinterIcon } from '@heroicons/react/24/outline';
 import Pagination from './Pagination';
 import moment from 'moment';
 import 'moment/locale/fr';
@@ -14,7 +14,6 @@ import 'moment/locale/fr';
 import CustomDateRangePicker from './CustomDateRangePicker';
 
 // PDF generators
-import { generateBonDeCommandePDF, generateInvoicePDF, generatePackingListPDF } from './pdfGenerators';
 import { generateUnifiedSortiePDF } from '../services/unifiedDeliveryPDFService';
 
 const SortieList = () => {
@@ -103,23 +102,23 @@ const SortieList = () => {
 
   const formatDate = d => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
 
-  const openForm = () => setShowForm(true);
-  const closeForm = () => setShowForm(false);
-  const onSortieCreated = () => {
-    closeForm();
-    fetchData();
-  };
-
-  const showDetailsFor = s => { setDetailsSortie(s); setShowDetails(true); };
   const closeDetails = () => setShowDetails(false);
 
-  // Handler pour générer le PDF unifié
+  // Handler pour générer le PDF unifié avec toutes les données
   const handleGenerateUnifiedPDF = (sortie) => {
     try {
+      console.log('🔄 Génération du PDF unifié pour:', sortie.reference);
+      console.log('📋 Données commande disponibles:', sortie.commande ? 'Oui' : 'Non');
+      console.log('🚢 Données cargo disponibles:', sortie.commande?.cargo?.length || 0);
+      console.log('📦 Packing list dans les items:', sortie.items?.length || 0);
+      
+      // Utiliser le service unifié original avec toutes les données
       generateUnifiedSortiePDF(sortie);
+      
+      console.log('✅ PDF unifié généré avec succès');
     } catch (error) {
-      console.error('Erreur lors de la génération du PDF:', error);
-      alert('Erreur lors de la génération du PDF');
+      console.error('❌ Erreur lors de la génération du PDF:', error);
+      alert('Erreur lors de la génération du PDF: ' + error.message);
     }
   };
 

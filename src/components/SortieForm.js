@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Package, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Package, CheckCircle } from 'lucide-react';
 import Button from './Button';
 import FlashNotification from './FlashNotification';
 import sortieService from '../services/sortieService';

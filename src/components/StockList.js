@@ -1,5 +1,5 @@
 // frontend/src/components/StockList.js
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from '../api/axios';
 import Button from './Button';
 import {
@@ -30,7 +30,6 @@ export default function StockList() {
   const [selectedDepot, setSelectedDepot] = useState('');
 
   // Options pour les filtres
-  const [articleOptions, setArticleOptions] = useState([]);
   const [depotOptions, setDepotOptions] = useState([]);
 
   // Monnaie d'affichage et taux de conversion (les taux sont récupérés via l'API)
@@ -59,7 +58,41 @@ export default function StockList() {
   const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
 
   // Déterminer le nombre total de colonnes selon l'affichage (mobile ou non)
-  const numColumns = isMobile ? 5 : 9;
+  const numColumns = isMobile ? 5 : 10;
+
+  // Fonction utilitaire pour formater un article
+  const formatArticle = (a) => {
+    if (!a) return '—';
+    return [a.reference, a.specification, a.taille]
+      .filter(Boolean)
+      .join(' - ');
+  };
+
+  // Fonction de filtrage avec useCallback pour éviter les re-rendus
+  const filterStocks = useCallback(() => {
+    let result = [...stocks];
+  
+    if (selectedArticle !== '') {
+      result = result.filter(
+        (stock) => formatArticle(stock.article).toLowerCase().includes(selectedArticle.toLowerCase())
+      );
+    }
+  
+    if (selectedDepot !== '') {
+      result = result.filter(
+        (stock) => stock.depot?.intitule === selectedDepot
+      );
+    }
+  
+    // Trier par article alphabétiquement croissant
+    result.sort((a, b) =>
+      formatArticle(a.article)
+        .localeCompare(formatArticle(b.article), 'fr', { sensitivity: 'base' })
+    );
+  
+    setFiltered(result);
+    setCurrentPage(1);
+  }, [stocks, selectedArticle, selectedDepot]);
 
   useEffect(() => {
     fetchStocks();
@@ -68,16 +101,9 @@ export default function StockList() {
 
   useEffect(() => {
     filterStocks();
-  }, [stocks, selectedArticle, selectedDepot]);
+  }, [stocks, selectedArticle, selectedDepot, filterStocks]);
 
   useEffect(() => {
-    const articles = stocks
-      .map((s) => s.article)
-      .filter((a) => a)
-      .map((a) => formatArticle(a));
-    const uniqueArticles = [...new Set(articles)];
-    setArticleOptions(uniqueArticles);
-
     const depots = stocks
       .map((s) => s.depot?.intitule)
       .filter((d) => d);
@@ -165,38 +191,6 @@ export default function StockList() {
       maximumFractionDigits: 0,
       useGrouping: true
     }).format(num).replace(/\s/g, '\u00A0');
-  };
-
-  const formatArticle = (a) => {
-    if (!a) return '—';
-    return [a.reference, a.specification, a.taille]
-      .filter(Boolean)
-      .join(' - ');
-  };
-
-  const filterStocks = () => {
-    let result = [...stocks];
-  
-    if (selectedArticle !== '') {
-      result = result.filter(
-        (stock) => formatArticle(stock.article).toLowerCase().includes(selectedArticle.toLowerCase())
-      );
-    }
-  
-    if (selectedDepot !== '') {
-      result = result.filter(
-        (stock) => stock.depot?.intitule === selectedDepot
-      );
-    }
-  
-    // Trier par article alphabétiquement croissant
-    result.sort((a, b) =>
-      formatArticle(a.article)
-        .localeCompare(formatArticle(b.article), 'fr', { sensitivity: 'base' })
-    );
-  
-    setFiltered(result);
-    setCurrentPage(1);
   };
 
   // Calcul du CUMP global en devise d'affichage (moyenne pondérée sur la quantité)
@@ -474,28 +468,83 @@ export default function StockList() {
     doc.save(`stock_commercialisable_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
-  // Export Excel (avec formatage comptable français)
+  // Export Excel (avec formatage comptable français et design amélioré)
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(
-      filtered.map((stock) => {
-        const stockCurrency = stock.monnaie || 'USD';
-        const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
-        return {
-          'Article': formatArticle(stock.article),
-          'Dépôt': stock.depot?.intitule || '—',
-          'Quantité (Kg)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteKg),
-          'Cartons': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteKg / 20),
-          'Commercialisable (Kg)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteCommercialisableKg),
-          'Commercialisable (Cartons)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteCommercialisableKg / 20),
-          [`CUMP (${displayCurrency}/Tonne)`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.valeur * 1000 * factor),
-          'Coût de Revient': 'Calculer',
-        };
-      })
-    );
+    // Préparation des données avec calculs
+    const data = filtered.map((stock) => {
+      const stockCurrency = stock.monnaie || 'USD';
+      const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
+      const valeurKg = stock.valeur * factor; // Valeur par kg
+      const valeurTotale = (stock.quantiteKg || 0) * valeurKg; // Valeur totale de l'article
+      
+      return {
+        'Article': formatArticle(stock.article),
+        'Dépôt': stock.depot?.intitule || '—',
+        'Quantité (Kg)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteKg || 0),
+        'Cartons': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((stock.quantiteKg || 0) / 20),
+        'Commercialisable (Kg)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteCommercialisableKg || 0),
+        'Commercialisable (Cartons)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((stock.quantiteCommercialisableKg || 0) / 20),
+        [`Valeur kg (${displayCurrency})`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valeurKg),
+        [`Valeur Totale (${displayCurrency})`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valeurTotale),
+      };
+    });
 
+    // Ajouter une ligne de total
+    const totalValueInDisplay = filtered.reduce((acc, s) => {
+      const stockCurrency = s.monnaie || 'USD';
+      const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
+      return acc + (s.valeur * s.quantiteKg * factor);
+    }, 0);
+
+    // Ligne de séparation
+    data.push({
+      'Article': '',
+      'Dépôt': '',
+      'Quantité (Kg)': '',
+      'Cartons': '',
+      'Commercialisable (Kg)': '',
+      'Commercialisable (Cartons)': '',
+      [`Valeur kg (${displayCurrency})`]: '',
+      [`Valeur Totale (${displayCurrency})`]: ''
+    });
+
+    // Ligne de total
+    data.push({
+      'Article': '',
+      'Dépôt': '',
+      'Quantité (Kg)': '',
+      'Cartons': '',
+      'Commercialisable (Kg)': '',
+      'Commercialisable (Cartons)': '',
+      [`Valeur kg (${displayCurrency})`]: '*** TOTAL STOCK ***',
+      [`Valeur Totale (${displayCurrency})`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalValueInDisplay),
+      'Coût de Revient': '',
+    });
+
+    // Créer la feuille de calcul
+    const worksheet = XLSX.utils.json_to_sheet(data);
+
+    // Définir la largeur des colonnes pour une meilleure lisibilité
+    const colWidths = [
+      { wch: 50 }, // Article
+      { wch: 20 }, // Dépôt
+      { wch: 15 }, // Quantité (Kg)
+      { wch: 12 }, // Cartons
+      { wch: 20 }, // Commercialisable (Kg)
+      { wch: 25 }, // Commercialisable (Cartons)
+      { wch: 18 }, // Valeur kg
+      { wch: 25 }, // Valeur Totale
+      { wch: 15 }, // Coût de Revient
+    ];
+    worksheet['!cols'] = colWidths;
+
+    // Créer le classeur et ajouter la feuille
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock');
-    XLSX.writeFile(workbook, 'stock_report.xlsx');
+    
+    // Sauvegarder avec un nom incluant la date
+    const today = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `stock_report_${today}.xlsx`);
   };
 
   return (
@@ -726,7 +775,12 @@ export default function StockList() {
                   </th>
                   {!isMobile && (
                     <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
-                      CUMP ({displayCurrency}/Tonne)
+                      Valeur kg ({displayCurrency})
+                    </th>
+                  )}
+                  {!isMobile && (
+                    <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
+                      Valeur Totale ({displayCurrency})
                     </th>
                   )}
                   <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
@@ -786,7 +840,14 @@ export default function StockList() {
                       {!isMobile && (
                         <td className="px-4 py-3 text-center border border-gray-400">
                           <span className="bg-purple-800 px-3 py-1 rounded-full text-sm text-white">
-                            {formatNumber(s.valeur * 1000 * factor)}
+                            {formatNumber(s.valeur * factor)}
+                          </span>
+                        </td>
+                      )}
+                      {!isMobile && (
+                        <td className="px-4 py-3 text-center border border-gray-400">
+                          <span className="bg-orange-600 px-3 py-1 rounded-full text-sm text-white">
+                            {formatNumber((s.quantiteKg || 0) * s.valeur * factor)}
                           </span>
                         </td>
                       )}
