@@ -60,7 +60,7 @@ const CommandeList = () => {
   const [endDate, setEndDate] = useState(null);
 
   const [error, setError] = useState(null);
-  const [showForm, setShowForm] = useState(false);
+  // const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [detailsCommande, setDetailsCommande] = useState(null);
   
@@ -416,10 +416,10 @@ const CommandeList = () => {
     navigate('/commandes/nouvelle');
   };
   const handleCloseForm = () => {
-    setShowForm(false);
+    // setShowForm(false);
   };
   const handleCommandeCreatedOrUpdated = () => {
-    setShowForm(false);
+    // setShowForm(false);
     fetchData();
   };
   const handleEdit = (cmd) => {
