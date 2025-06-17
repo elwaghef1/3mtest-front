@@ -126,7 +126,10 @@ function BankAccountList() {
                   Code Swift
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
-                  Compte intermédiaire
+                  Banque Intermédiaire
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
+                  Swift Intermédiaire
                 </th>
                 <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
                   Actions

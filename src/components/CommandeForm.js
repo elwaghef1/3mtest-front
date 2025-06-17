@@ -482,7 +482,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     };
   };
 
-  // Fonction pour calculer et afficher le statut de stock d'un item
+    // Fonction pour calculer et afficher le statut de stock d'un item
   const getStockStatus = (item, index) => {
     const stockInfo = getStockInfo(item.article, item.depot);
     if (!stockInfo || !item.quantiteKg) return null;
@@ -490,23 +490,51 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     const qtyRequested = parseFloat(item.quantiteKg) || 0;
     const qtyAvailable = stockInfo.disponible;
     
-    if (qtyAvailable >= qtyRequested) {
+    // 🔧 CORRECTION: En mode édition, ne valider que la différence de quantité
+    let qtyToValidate = qtyRequested;
+    if (initialCommande && initialCommande.items && initialCommande.items[index]) {
+      const originalQty = parseFloat(initialCommande.items[index].quantiteKg) || 0;
+      const difference = qtyRequested - originalQty;
+      
+      // Si on diminue la quantité, pas besoin de validation de stock
+      if (difference <= 0) {
+        return {
+          type: 'success',
+          message: `✅ Modification OK (quantité ${difference < 0 ? 'réduite' : 'inchangée'})`,
+          color: 'text-green-600 bg-green-50'
+        };
+      }
+      
+      // Si on augmente, valider seulement l'augmentation
+      qtyToValidate = difference;
+    }
+    
+    if (qtyAvailable >= qtyToValidate) {
+      const message = initialCommande 
+        ? `✅ Modification OK (${qtyToValidate > 0 ? '+' + qtyToValidate : qtyToValidate} Kg, ${qtyAvailable} Kg disponibles)`
+        : `✅ Stock suffisant (${qtyAvailable} Kg disponibles)`;
       return {
         type: 'success',
-        message: `✅ Stock suffisant (${qtyAvailable} Kg disponibles)`,
+        message: message,
         color: 'text-green-600 bg-green-50'
       };
     } else if (qtyAvailable > 0) {
-      const missing = qtyRequested - qtyAvailable;
+      const missing = qtyToValidate - qtyAvailable;
+      const message = initialCommande
+        ? `⚠️ Stock insuffisant pour augmentation: ${qtyAvailable} Kg disponibles, ${missing} Kg manquants`
+        : `⚠️ Stock partiel: ${qtyAvailable} Kg disponibles, ${missing} Kg manquants`;
       return {
         type: 'warning', 
-        message: `⚠️ Stock partiel: ${qtyAvailable} Kg disponibles, ${missing} Kg manquants`,
+        message: message,
         color: 'text-orange-600 bg-orange-50'
       };
     } else {
+      const message = initialCommande
+        ? `❌ Impossible d'augmenter: stock indisponible (+${qtyToValidate} Kg demandés)`
+        : `❌ Stock indisponible (${qtyRequested} Kg demandés)`;
       return {
         type: 'error',
-        message: `❌ Stock indisponible (${qtyRequested} Kg demandés)`,
+        message: message,
         color: 'text-red-600 bg-red-50'
       };
     }
