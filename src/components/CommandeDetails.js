@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Button from './Button';
 import CargoAllocationModal from './CargoAllocationModal';
 import { downloadCargoPackingList, downloadAllCargoPackingLists } from '../services/cargoPackingListGenerator';
+import { generateCommandeDetailsPDF } from './pdfGenerators';
 import axios from '../api/axios';
 
 // Fonction utilitaire pour formater un article (détail)
@@ -358,6 +359,15 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
             disabled={loading}
           >
             {loading ? 'Chargement...' : 'Allouer Articles aux Cargos'}
+          </Button>
+          
+          {/* Bouton Détails de la Commande */}
+          <Button
+            onClick={() => generateCommandeDetailsPDF(commande)}
+            variant="info"
+            size="md"
+          >
+            Détails de la Commande
           </Button>
           
           {hasAllocations() && (

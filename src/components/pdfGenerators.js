@@ -521,8 +521,7 @@ export const generateProformaInvoicePDF = (commande) => {
       2: { halign: 'center' },
       3: { halign: 'center' },
       4: { halign: 'center' },
-      5: { halign: 'center' },
-      6: { halign: 'center' }
+      5: { halign: 'center' }
     }
   });
   const afterTableY = doc.lastAutoTable.finalY + 8;
@@ -581,4 +580,147 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
   doc.save(`invoice_${commande.reference}.pdf`);
+};
+
+// Fonction pour générer les Détails de la Commande (PDF)
+export const generateCommandeDetailsPDF = (commande) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 10;
+  const marginRight = 10;
+
+  doc.setLineHeightFactor(1.0);
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  let currentY = 15;
+  const infoX = marginLeft + 25;
+  doc.text("MSM Seafood", infoX, currentY);
+  currentY += 5;
+  doc.text("Zone idustrielle,", infoX, currentY);
+  currentY += 5;
+  doc.text("Dakhlet Nouâdhibou", infoX, currentY);
+  currentY += 5;
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+
+  // Titre principal
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text("DÉTAILS DE LA COMMANDE", pageWidth / 2, 20, { align: 'center' });
+
+  // Informations client uniquement
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  let infoBlockY = 40;
+  
+  doc.setFont(undefined, 'bold');
+  doc.text("INFORMATIONS CLIENT", marginLeft, infoBlockY);
+  doc.setFont(undefined, 'normal');
+  infoBlockY += 8;
+
+  // Référence commande
+  doc.text(`Référence: ${commande.reference || '-'}`, marginLeft, infoBlockY);
+  infoBlockY += 5;
+
+  // Date de commande
+  const commandeDate = commande.dateCommande
+    ? new Date(commande.dateCommande).toLocaleDateString('fr-FR')
+    : new Date().toLocaleDateString('fr-FR');
+  doc.text(`Date: ${commandeDate}`, marginLeft, infoBlockY);
+  infoBlockY += 8;
+  
+  // Informations client
+  const clientName = commande.client?.raisonSociale || '-';
+  const clientAddress = commande.client?.adresse || '-';
+  doc.setFont(undefined, 'bold');
+  doc.text(`CLIENT: ${clientName}`, marginLeft, infoBlockY);
+  doc.setFont(undefined, 'normal');
+  infoBlockY += 5;
+  doc.text(`Adresse: ${clientAddress}`, marginLeft, infoBlockY);
+  infoBlockY += 15;
+
+  // Tableau des articles simplifié
+  const tableColumnHeaders = [
+    "ARTICLE",
+    "QUANTITÉ (KG)",
+    "PRIX UNITAIRE",
+    "TOTAL"
+  ];
+
+  // Fonction pour formater un article
+  const formatArticle = (a) => {
+    if (!a) return '—';
+    const ref = a.reference || '';
+    const spec = a.specification || '';
+    const taille = a.taille || '';
+    const typeCarton = a.typeCarton || '';
+    return `${ref} - ${spec} - ${taille} - ${typeCarton}`;
+  };
+
+  // Regrouper les articles identiques (sans batch numbers)
+  const groupedItems = {};
+  commande.items?.forEach(item => {
+    const articleKey = formatArticle(item.article);
+    if (!groupedItems[articleKey]) {
+      groupedItems[articleKey] = {
+        article: item.article,
+        totalQuantite: 0,
+        prixUnitaire: item.prixUnitaire || 0,
+        totalPrix: 0
+      };
+    }
+    
+    // Additionner les quantités et prix
+    groupedItems[articleKey].totalQuantite += parseFloat(item.quantiteKg) || 0;
+    groupedItems[articleKey].totalPrix += parseFloat(item.prixTotal) || 0;
+  });
+
+  // Convertir en tableau pour le PDF
+  const tableData = Object.values(groupedItems).map(groupedItem => [
+    formatArticle(groupedItem.article),
+    groupedItem.totalQuantite.toString(),
+    `${groupedItem.prixUnitaire} ${commande.currency || 'EUR'}`,
+    `${groupedItem.totalPrix.toFixed(2)} ${commande.currency || 'EUR'}`
+  ]);
+
+  doc.autoTable({
+    head: [tableColumnHeaders],
+    body: tableData,
+    startY: infoBlockY,
+    margin: { left: marginLeft, right: marginRight },
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+    },
+    headStyles: {
+      fillColor: [52, 73, 94],
+      textColor: 255,
+      fontStyle: 'bold',
+    },
+    columnStyles: {
+      0: { cellWidth: 80 }, // Article - élargi
+      1: { cellWidth: 30, halign: 'center' }, // Quantité
+      2: { cellWidth: 35, halign: 'right' }, // Prix unitaire
+      3: { cellWidth: 35, halign: 'right' }, // Total
+    },
+  });
+
+  // Prix total
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFont(undefined, 'bold');
+  doc.setFontSize(12);
+  const totalText = `TOTAL: ${commande.prixTotal || '0'} ${commande.currency || 'EUR'}`;
+  doc.text(totalText, pageWidth - marginRight, finalY, { align: 'right' });
+
+  // Pied de page
+  const footerY = 280;
+  doc.setLineWidth(0.2);
+  doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'normal');
+  doc.text("+222 46 00 89 08", marginLeft, footerY);
+  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
+
+  doc.save(`details_commande_${commande.reference}.pdf`);
 };
