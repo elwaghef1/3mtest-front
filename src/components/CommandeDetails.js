@@ -395,7 +395,7 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
       <div className="flex justify-between items-center mt-8">
         <div className="flex space-x-3">
           {/* Bouton d'allocation cargo - affiché seulement si la commande n'est pas livrée */}
-          {commande.statutBonDeCommande !== 'LIVREE' && (
+          {/* {commande.statutBonDeCommande !== 'LIVREE' && (
             <Button
               onClick={() => setShowAllocationModal(true)}
               variant="primary"
@@ -404,7 +404,7 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
             >
               {loading ? 'Chargement...' : 'Allouer Articles aux Cargos'}
             </Button>
-          )}
+          )} */}
           
           {/* Bouton Créer le packing list - affiché seulement si la commande est livrée */}
           {commande.statutBonDeCommande === 'LIVREE' && commande.cargo && commande.cargo.length > 0 && (
