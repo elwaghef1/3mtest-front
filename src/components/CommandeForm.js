@@ -44,7 +44,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     statutBonDeCommande: 'EN_COURS', // EN_COURS ou LIVREE
     statutDePaiement: 'NON_PAYE',    // Calculé automatiquement
     montantPaye: '',
-    currency: 'EUR',
+    currency: 'EUR', // Sera mis à jour automatiquement selon le type
     numeroOP: '',
     destination: '',
     datePrevueDeChargement: '',
@@ -93,15 +93,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  // Détermine si la commande est LIVREE
-  // MODIFICATION: Permettre la modification des champs généraux mais pas des articles pour les commandes LIVREE
-  const isCommandeLivree = formData.statutBonDeCommande === 'LIVREE';
-  const isLivree = false; // Désactiver la restriction générale
-  const articlesModifiables = !isCommandeLivree; // Les articles ne sont plus modifiables si commande livrée
-
-  // Ajouter cette ligne pour définir isCommandeLocale
-  const isCommandeLocale = formData.typeCommande === 'LOCALE';
 
   // Effet pour charger la commande si on est en mode édition via URL
   useEffect(() => {
@@ -153,7 +144,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         statutBonDeCommande: initialCommande.statutBonDeCommande || 'EN_COURS',
         statutDePaiement: initialCommande.statutDePaiement || 'NON_PAYE',
         montantPaye: initialCommande.montantPaye || '',
-        currency: initialCommande.currency || 'EUR',
+        currency: initialCommande.currency || (initialCommande.typeCommande === 'LOCALE' ? 'MRU' : 'EUR'),
         numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
         destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
         datePrevueDeChargement: initialCommande.datePrevueDeChargement 
@@ -342,12 +333,48 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
   const handleChange = (e) => {
     const { name, value } = e.target;
     let updatedData = { ...formData, [name]: value };
+    
+    // Gestion spéciale pour le type de commande (seulement en création)
+    if (name === 'typeCommande' && !initialCommande) {
+      // Changer automatiquement la monnaie selon le type
+      updatedData.currency = value === 'LOCALE' ? 'MRU' : 'EUR';
+      
+      // Réinitialiser les champs d'export si on passe en locale
+      if (value === 'LOCALE') {
+        updatedData.numeroBooking = '';
+        updatedData.destination = '';
+        updatedData.numeroOP = '';
+        updatedData.noBonDeCommande = '';
+        updatedData.responsableDeStockInforme = 'NON';
+        updatedData.inspecteurInforme = 'NON';
+        updatedData.declaration = 'ETABLIE';
+      }
+    }
+    
     if (name === 'statutBonDeCommande' && value === 'LIVREE') {
       const today = new Date().toISOString().slice(0, 10);
       updatedData.datePrevueDeChargement = today;
     }
     setFormData(updatedData);
   };
+
+  // Effet pour gérer automatiquement la monnaie selon le type de commande (seulement en création)
+  useEffect(() => {
+    // Ne changer la monnaie automatiquement que lors de la création (pas en édition)
+    if (!initialCommande) {
+      if (formData.typeCommande === 'LOCALE' && formData.currency !== 'MRU') {
+        setFormData(prev => ({
+          ...prev,
+          currency: 'MRU'
+        }));
+      } else if (formData.typeCommande === 'NORMALE' && formData.currency === 'MRU') {
+        setFormData(prev => ({
+          ...prev,
+          currency: 'EUR'
+        }));
+      }
+    }
+  }, [formData.typeCommande, initialCommande]);
 
   // Recalcul automatique du total et du statut de paiement
   useEffect(() => {
@@ -544,12 +571,12 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     <div className="p-8 max-h-[90vh] overflow-y-auto">
       <h2 className="text-2xl font-bold mb-6">{initialCommande ? 'Modifier la Commande' : 'Nouvelle Commande'}</h2>
       
-      {/* Type de commande */}
-      <div className="mb-6 bg-white p-4 rounded-lg">
-        <label className="block text-sm font-bold text-gray-700 mb-2">
+      {/* Type de commande avec étiquette */}
+      <div className="mb-6 bg-white p-4 rounded-lg border border-gray-200">
+        <label className="block text-sm font-bold text-gray-700 mb-3">
           Type de commande <span className="text-red-500">*</span>
         </label>
-        <div className="flex gap-4">
+        <div className="flex gap-4 items-center">
           <label className="flex items-center">
             <input
               type="radio"
@@ -558,9 +585,14 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               checked={formData.typeCommande === 'NORMALE'}
               onChange={handleChange}
               className="mr-2"
-              disabled={isLivree || (initialCommande && initialCommande.typeCommande === 'LOCALE')}
+              disabled={!!initialCommande} // Désactiver en mode édition
             />
-            <span className="font-medium">Export</span>
+            <span className="font-medium mr-3">Export</span>
+            {formData.typeCommande === 'NORMALE' && (
+              <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full border border-blue-300">
+                🚢 COMMANDE EXPORT
+              </span>
+            )}
           </label>
           <label className="flex items-center">
             <input
@@ -570,11 +602,33 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               checked={formData.typeCommande === 'LOCALE'}
               onChange={handleChange}
               className="mr-2"
-              disabled={isLivree}
+              disabled={!!initialCommande} // Désactiver en mode édition
             />
-            <span className="font-medium">Locale</span>
+            <span className="font-medium mr-3">Locale</span>
+            {formData.typeCommande === 'LOCALE' && (
+              <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full border border-green-300">
+                🏠 COMMANDE LOCALE
+              </span>
+            )}
           </label>
         </div>
+        
+        {/* Message informatif selon le contexte */}
+        {initialCommande && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              <strong>Mode édition :</strong> Le type de commande ne peut pas être modifié après création.
+            </p>
+          </div>
+        )}
+        
+        {!initialCommande && formData.typeCommande === 'LOCALE' && (
+          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-sm text-green-700">
+              <strong>Commande locale :</strong> Monnaie automatiquement définie en MRU. 
+            </p>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -599,7 +653,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
             )}
 
             {/* Numéro Booking - Masqué pour commande locale */}
-            {!isCommandeLocale && (
+            {formData.typeCommande !== 'LOCALE' && (
               <div className="flex flex-col">
                 <label className="mb-1 text-sm font-medium text-gray-700">Numéro Booking</label>
                 <input
@@ -609,22 +663,25 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   className={getInputClass(formData.numeroBooking)}
                   value={formData.numeroBooking}
                   onChange={handleChange}
-                  disabled={isLivree}
+                  disabled={false}
                 />
               </div>
             )}
 
-            <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">No Bon de Commande</label>
-              <input
-                name="noBonDeCommande"
-                type="text"
-                placeholder="Saisissez le numéro de bon de commande"
-                className={getInputClass(formData.noBonDeCommande)}
-                value={formData.noBonDeCommande}
-                onChange={handleChange}
-              />
-            </div>
+            {/* No Bon de Commande - Masqué pour commande locale */}
+            {formData.typeCommande !== 'LOCALE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">No Bon de Commande</label>
+                <input
+                  name="noBonDeCommande"
+                  type="text"
+                  placeholder="Saisissez le numéro de bon de commande"
+                  className={getInputClass(formData.noBonDeCommande)}
+                  value={formData.noBonDeCommande}
+                  onChange={handleChange}
+                />
+              </div>
+            )}
 
             {/* Client */}
             <div className="flex flex-col">
@@ -635,7 +692,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 className={getInputClass(formData.client)}
                 value={formData.client}
                 onChange={handleChange}
-                disabled={isLivree}
+                disabled={false}
               >
                 <option value="">-- Choisir un client --</option>
                 {clients.map(c => (
@@ -645,7 +702,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
             </div>
 
             {/* Numéro OP - Masqué pour commande locale */}
-            {!isCommandeLocale && (
+            {formData.typeCommande !== 'LOCALE' && (
               <div className="flex flex-col">
                 <label className="mb-1 text-sm font-medium text-gray-700">Numéro OP</label>
                 <input
@@ -660,7 +717,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
             )}
 
             {/* Destination - Masqué pour commande locale */}
-            {!isCommandeLocale && (
+            {formData.typeCommande !== 'LOCALE' && (
               <div className="flex flex-col">
                 <label className="mb-1 text-sm font-medium text-gray-700">
                   Destination {formData.typeCommande !== 'LOCALE' && '*'}
@@ -671,7 +728,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   className={getInputClass(formData.destination)}
                   value={formData.destination}
                   onChange={handleChange}
-                  disabled={isLivree}
+                  disabled={false}
                 >
                   <option value="">-- Choisir un pays --</option>
                   {countries.map((country, idx) => (
@@ -692,7 +749,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 className={getInputClass(formData.bank)}
                 value={formData.bank}
                 onChange={handleChange}
-                disabled={isLivree}
+                disabled={false}
               >
                 <option value="">-- Choisir une banque --</option>
                 {banks.map(b => (
@@ -701,62 +758,70 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               </select>
             </div>
 
-            {/* Responsable de stock informé */}
-            <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Responsable de stock informé</label>
-              <select
-                name="responsableDeStockInforme"
-                className={getInputClass(formData.responsableDeStockInforme)}
-                value={formData.responsableDeStockInforme}
-                onChange={handleChange}
-                disabled={isLivree}
-              >
-                <option value="OUI">OUI</option>
-                <option value="NON">NON</option>
-              </select>
-            </div>
+            {/* Responsable de stock informé - Masqué pour commande locale */}
+            {formData.typeCommande !== 'LOCALE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Responsable de stock informé</label>
+                <select
+                  name="responsableDeStockInforme"
+                  className={getInputClass(formData.responsableDeStockInforme)}
+                  value={formData.responsableDeStockInforme}
+                  onChange={handleChange}
+                  disabled={false}
+                >
+                  <option value="OUI">OUI</option>
+                  <option value="NON">NON</option>
+                </select>
+              </div>
+            )}
 
-            {/* Inspecteur informé */}
-            <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Inspecteur informé</label>
-              <select
-                name="inspecteurInforme"
-                className={getInputClass(formData.inspecteurInforme)}
-                value={formData.inspecteurInforme}
-                onChange={handleChange}
-                disabled={isLivree}
-              >
-                <option value="OUI">OUI</option>
-                <option value="NON">NON</option>
-              </select>
-            </div>              <div className="flex flex-col">
+            {/* Inspecteur informé - Masqué pour commande locale */}
+            {formData.typeCommande !== 'LOCALE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Inspecteur informé</label>
+                <select
+                  name="inspecteurInforme"
+                  className={getInputClass(formData.inspecteurInforme)}
+                  value={formData.inspecteurInforme}
+                  onChange={handleChange}
+                  disabled={false}
+                >
+                  <option value="OUI">OUI</option>
+                  <option value="NON">NON</option>
+                </select>
+              </div>
+            )}              <div className="flex flex-col">
                 <label className="mb-1 text-sm font-medium text-gray-700">Etiquette</label>
                 <select
                   name="etiquette"
                   className={getInputClass(formData.etiquette)}
                   value={formData.etiquette}
                   onChange={handleChange}
-                  disabled={isLivree}
+                  disabled={false}
                 >
                   <option value="ETABLIE">Etablie</option>
                   <option value="APPROUVEE">Approuvée</option>
                   <option value="IMPRIME">Imprimé</option>
                 </select>
               </div>
-              <div className="flex flex-col">
+              
+              {/* Déclaration d'exportation - Masqué pour commande locale */}
+              {formData.typeCommande !== 'LOCALE' && (
+                <div className="flex flex-col">
                   <label className="mb-1 text-sm font-medium text-gray-700">Déclaration d'exportation</label>
                   <select
                     name="declaration"
                     className={getInputClass(formData.declaration)}
                     value={formData.declaration}
                     onChange={handleChange}
-                    disabled={isLivree}
+                    disabled={false}
                   >
                     <option value="ETABLIE">Etablie</option>
                     <option value="APPROUVEE">Approuvée</option>
                     <option value="IMPRIME">Imprimé</option>
                   </select>
                 </div>
+              )}
           </div>
         </div>
 
@@ -764,23 +829,23 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm mt-6">
           <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
             Articles
-            {!articlesModifiables && (
+            {formData.statutBonDeCommande === 'LIVREE' && (
               <span className="text-sm text-orange-600 font-normal ml-2">
                 (Non modifiables - Commande livrée)
               </span>
             )}
           </h3>
           {items.map((item, index) => (
-            <div key={index} className={`mb-6 last:mb-0 p-4 rounded shadow-sm ${!articlesModifiables ? 'bg-gray-100' : 'bg-gray-50'}`}>
+            <div key={index} className={`mb-6 last:mb-0 p-4 rounded shadow-sm ${formData.statutBonDeCommande === 'LIVREE' ? 'bg-gray-100' : 'bg-gray-50'}`}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                 <div className="flex flex-col">
                   <label className="mb-1 text-sm font-medium text-gray-700">Article *</label>
                   <select
                     value={item.article}
                     required
-                    className={getInputClass(item.article, !articlesModifiables ? 'bg-gray-200' : '')}
+                    className={getInputClass(item.article, formData.statutBonDeCommande === 'LIVREE' ? 'bg-gray-200' : '')}
                     onChange={(e) => updateItem(index, 'article', e.target.value)}
-                    disabled={!articlesModifiables}
+                    disabled={formData.statutBonDeCommande === 'LIVREE'}
                   >
                     <option value="">-- Choisir un article --</option>
                     {articles.map(a => {
@@ -795,9 +860,9 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   <select
                     value={item.depot}
                     required
-                    className={getInputClass(item.depot, !articlesModifiables ? 'bg-gray-200' : '')}
+                    className={getInputClass(item.depot, formData.statutBonDeCommande === 'LIVREE' ? 'bg-gray-200' : '')}
                     onChange={(e) => updateItem(index, 'depot', e.target.value)}
-                    disabled={!articlesModifiables}
+                    disabled={formData.statutBonDeCommande === 'LIVREE'}
                   >
                     <option value="">-- Choisir un dépôt --</option>
                     {depots.map(d => {
@@ -808,7 +873,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   </select>
                 </div>
                 <div className="flex justify-end">
-                  {items.length > 1 && articlesModifiables && (
+                  {items.length > 1 && formData.statutBonDeCommande !== 'LIVREE' && (
                     <Button
                       variant="danger"
                       size="sm"
@@ -820,7 +885,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 </div>
               </div>
               {/* Indicateur de stock */}
-              {item.article && item.depot && item.quantiteKg && !articlesModifiables && (() => {
+              {item.article && item.depot && item.quantiteKg && formData.statutBonDeCommande === 'LIVREE' && (() => {
                 const status = getStockStatus(item, index);
                 return status ? (
                   <div className={`mt-3 p-3 rounded-lg border ${status.color}`}>
@@ -845,13 +910,13 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                       type="number"
                       required
                       placeholder="0"
-                      className={getInputClass(item.quantiteKg, !articlesModifiables ? 'bg-gray-200' : '')}
+                      className={getInputClass(item.quantiteKg, formData.statutBonDeCommande === 'LIVREE' ? 'bg-gray-200' : '')}
                       value={item.quantiteKg}
                       onChange={(e) => updateItem(index, 'quantiteKg', e.target.value)}
-                      disabled={!articlesModifiables}
+                      disabled={formData.statutBonDeCommande === 'LIVREE'}
                     />
                     {/* Indicateur de stock en temps réel pour la création */}
-                    {articlesModifiables && item.article && item.depot && item.quantiteKg && (() => {
+                    {formData.statutBonDeCommande !== 'LIVREE' && item.article && item.depot && item.quantiteKg && (() => {
                       const status = getStockStatus(item, index);
                       return status && status.type !== 'success' ? (
                         <div className="absolute -bottom-6 left-0 text-xs text-orange-600">
@@ -867,10 +932,10 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                     type="number"
                     required
                     placeholder="0"
-                    className={getInputClass(item.prixUnitaire, !articlesModifiables ? 'bg-gray-200' : '')}
+                    className={getInputClass(item.prixUnitaire, formData.statutBonDeCommande === 'LIVREE' ? 'bg-gray-200' : '')}
                     value={item.prixUnitaire}
                     onChange={(e) => updateItem(index, 'prixUnitaire', e.target.value)}
-                    disabled={!articlesModifiables}
+                    disabled={formData.statutBonDeCommande === 'LIVREE'}
                   />
                 </div>
                 <div className="flex flex-col">
@@ -904,7 +969,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               </div>
             </div>
           ))}
-          {articlesModifiables && (
+          {formData.statutBonDeCommande !== 'LIVREE' && (
             <Button
               variant="info"
               size="sm"
@@ -936,23 +1001,28 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
             </div>
             {/* Devise */}
             <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Devise</label>
+              <label className="mb-1 text-sm font-medium text-gray-700">
+                Devise {formData.typeCommande === 'LOCALE' && (
+                  <span className="text-xs text-green-600 font-normal">(Automatique pour commande locale)</span>
+                )}
+              </label>
               <select
                 name="currency"
                 value={formData.currency}
                 onChange={handleChange}
                 className={getInputClass(formData.currency)}
-                disabled={isLivree}
+                disabled={false || formData.typeCommande === 'LOCALE'}
               >
                 <option value="EUR">€ Euro</option>
                 <option value="USD">$ Dollar</option>
+                <option value="MRU">MRU Ouguiya</option>
               </select>
             </div>
           </div>
         </div>
 
         {/* Si la commande est LIVREE */}
-        {isCommandeLivree && (
+        {formData.statutBonDeCommande === 'LIVREE' && (
           <>
             {/* Détails de la Commande (LIVREE) */}
             <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
@@ -1165,7 +1235,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
             </div>
 
             {/* Section Charges Locales - Masquée pour commande locale */}
-            {isCommandeLivree && !isCommandeLocale && (
+            {formData.statutBonDeCommande === 'LIVREE' && formData.typeCommande !== 'LOCALE' && (
               <>
                 <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
                   <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
@@ -1270,7 +1340,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
       {/* Boutons de téléchargement des PDF (uniquement en modification) */}
       {initialCommande && (
         <div className="mt-6 border-t pt-4 flex items-center gap-3 justify-end">
-          {!isCommandeLivree && (
+          {formData.statutBonDeCommande !== 'LIVREE' && (
             <Button
               variant="warning"
               size="md"
@@ -1279,7 +1349,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               Télécharger Proforma Invoice
             </Button>
           )}
-          {isCommandeLivree && (
+          {formData.statutBonDeCommande === 'LIVREE' && (
             <>
               <Button
                 variant="success"

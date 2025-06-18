@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Button from './Button';
 import CargoAllocationModal from './CargoAllocationModal';
+import PackingListForm from './PackingListForm';
 import { downloadCargoPackingList, downloadAllCargoPackingLists } from '../services/cargoPackingListGenerator';
 import { generateCommandeDetailsPDF } from './pdfGenerators';
 import axios from '../api/axios';
@@ -66,14 +67,31 @@ const DetailItem = ({ label, value, badge }) => (
 
 function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
   const [showAllocationModal, setShowAllocationModal] = useState(false);
+  const [showPackingListForm, setShowPackingListForm] = useState(false);
   const [loading, setLoading] = useState(false);
   // Fonctions de formatage par défaut si elles ne sont pas fournies
   const defaultFormatCurrency = (value, currency = 'EUR') => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 2,
-    }).format(value || 0);
+    // Gérer les différentes devises
+    let currencyCode = currency;
+    if (currency === 'MRU') {
+      currencyCode = 'MRU'; // Fallback car MRU n'est pas encore supporté par tous les navigateurs
+    }
+    
+    try {
+      return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+      }).format(value || 0);
+    } catch (error) {
+      // Fallback pour MRU ou autres devises non supportées
+      if (currency === 'MRU') {
+        return `${new Intl.NumberFormat('fr-FR', {
+          minimumFractionDigits: 2,
+        }).format(value || 0)} MRU`;
+      }
+      return `${value || 0} ${currency}`;
+    }
   };
 
   const defaultFormatNumber = (value) => {
@@ -163,6 +181,20 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
     return commande.cargo?.some(cargo => cargo.itemsAlloues && cargo.itemsAlloues.length > 0);
   };
 
+  // Fonction pour sauvegarder les données du packing list
+  const handleSavePackingList = async (packingData) => {
+    try {
+      await axios.put(`/commandes/${commande._id}/packing-list`, {
+        packingListData: packingData
+      });
+      
+      console.log('Packing list sauvegardé avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du packing list:', error);
+      throw error;
+    }
+  };
+
   // Carte affichant le total de la commande
   const totalCard = (
     <div className="bg-gray-200 p-6 rounded-lg text-center mb-8">
@@ -178,19 +210,24 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
   // Début du tableau des détails communs
   const details = [
     { label: 'Référence', value: commande.reference },
-    { label: 'Type de commande', value: commande.typeCommande === 'LOCALE' ? 'Locale' : 'Normale', badge: commande.typeCommande === 'LOCALE' ? 'bg-blue-600 text-white text-xs' : 'bg-green-600 text-white text-xs' },
-    { label: 'No Bon de Commande', value: commande.noBonDeCommande },
-    { label: 'Numéro Booking', value: commande.typeCommande === 'LOCALE' ? 'N/A (Commande locale)' : commande.numeroBooking },
-    { label: 'Numéro OP', value: commande.typeCommande === 'LOCALE' ? 'N/A (Commande locale)' : commande.numeroOP },
+    { label: 'Type de commande', value: commande.typeCommande === 'LOCALE' ? 'Locale' : 'Export', badge: commande.typeCommande === 'LOCALE' ? 'bg-green-600 text-white text-xs' : 'bg-blue-600 text-white text-xs' },
+    // Masquer certains champs pour les commandes locales
+    ...(commande.typeCommande !== 'LOCALE' ? [
+      { label: 'No Bon de Commande', value: commande.noBonDeCommande },
+      { label: 'Numéro Booking', value: commande.numeroBooking },
+      { label: 'Numéro OP', value: commande.numeroOP },
+    ] : []),
     { label: 'Client', value: commande.client?.raisonSociale },
     { label: 'Statut BC', value: commande.statutBonDeCommande, badge: getStatusColor(commande.statutBonDeCommande) },
     { label: 'Statut Paiement', value: commande.statutDePaiement, badge: getStatusColor(commande.statutDePaiement) },
     { label: 'Montant Payé', value: commande.montantPaye ? `${commande.montantPaye} ${commande.currency}` : null },
     { label: 'Reliquat', value: commande.reliquat ? `${commande.reliquat} ${commande.currency}` : null },
     { label: 'Devise', value: commande.currency },
-    { label: 'Destination', value: commande.typeCommande === 'LOCALE' ? 'N/A (Commande locale)' : commande.destination },
-    { label: 'Responsable de stock informé', value: commande.responsableDeStockInforme },
-    { label: 'Inspecteur informé', value: commande.inspecteurInforme },
+    ...(commande.typeCommande !== 'LOCALE' ? [
+      { label: 'Destination', value: commande.destination },
+      { label: 'Responsable de stock informé', value: commande.responsableDeStockInforme },
+      { label: 'Inspecteur informé', value: commande.inspecteurInforme },
+    ] : []),
   ];
 
   // Si la commande est LIVREE, ajouter les champs spécifiques
@@ -215,9 +252,15 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
     }
     
     details.push(
-      { label: 'Etiquette', value: commande.etiquette, badge: getStatusColor(commande.etiquette) },
-      { label: "Déclaration d'exportation", value: commande.declaration, badge: getStatusColor(commande.declaration) }
+      { label: 'Etiquette', value: commande.etiquette, badge: getStatusColor(commande.etiquette) }
     );
+    
+    // Ajouter "Déclaration d'exportation" seulement pour les commandes export
+    if (commande.typeCommande !== 'LOCALE') {
+      details.push(
+        { label: "Déclaration d'exportation", value: commande.declaration, badge: getStatusColor(commande.declaration) }
+      );
+    }
   }
 
   return (
@@ -351,15 +394,28 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
       </div>
       <div className="flex justify-between items-center mt-8">
         <div className="flex space-x-3">
-          {/* Boutons de gestion des allocations cargo */}
-          <Button
-            onClick={() => setShowAllocationModal(true)}
-            variant="primary"
-            size="md"
-            disabled={loading}
-          >
-            {loading ? 'Chargement...' : 'Allouer Articles aux Cargos'}
-          </Button>
+          {/* Bouton d'allocation cargo - affiché seulement si la commande n'est pas livrée */}
+          {commande.statutBonDeCommande !== 'LIVREE' && (
+            <Button
+              onClick={() => setShowAllocationModal(true)}
+              variant="primary"
+              size="md"
+              disabled={loading}
+            >
+              {loading ? 'Chargement...' : 'Allouer Articles aux Cargos'}
+            </Button>
+          )}
+          
+          {/* Bouton Créer le packing list - affiché seulement si la commande est livrée */}
+          {commande.statutBonDeCommande === 'LIVREE' && commande.cargo && commande.cargo.length > 0 && (
+            <Button
+              onClick={() => setShowPackingListForm(true)}
+              variant="success"
+              size="md"
+            >
+              Créer le Packing List
+            </Button>
+          )}
           
           {/* Bouton Détails de la Commande */}
           <Button
@@ -396,6 +452,14 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
         isOpen={showAllocationModal}
         onClose={() => setShowAllocationModal(false)}
         onSave={handleSaveAllocations}
+      />
+
+      {/* Modal de création du packing list */}
+      <PackingListForm
+        commande={commande}
+        isOpen={showPackingListForm}
+        onClose={() => setShowPackingListForm(false)}
+        onSave={handleSavePackingList}
       />
     </div>
   );

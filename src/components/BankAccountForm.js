@@ -9,6 +9,8 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
   const [iban, setIban] = useState('');
   const [codeSwift, setCodeSwift] = useState('');
   const [compteIntermediaire, setCompteIntermediaire] = useState('');
+  const [banqueIntermediaire, setBanqueIntermediaire] = useState('');
+  const [swiftIntermediaire, setSwiftIntermediaire] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -20,6 +22,8 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
       setIban(initialAccount.iban);
       setCodeSwift(initialAccount.codeSwift);
       setCompteIntermediaire(initialAccount.compteIntermediaire || '');
+      setBanqueIntermediaire(initialAccount.banqueIntermediaire || '');
+      setSwiftIntermediaire(initialAccount.swiftIntermediaire || '');
     }
   }, [initialAccount]);
 
@@ -28,12 +32,22 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
     setLoading(true);
     setErrorMessage('');
     try {
+      const accountData = { 
+        banque, 
+        titulaire, 
+        iban, 
+        codeSwift, 
+        compteIntermediaire,
+        banqueIntermediaire,
+        swiftIntermediaire
+      };
+      
       if (initialAccount) {
         // Mise à jour du compte existant
-        await axios.put(`/bankaccounts/${initialAccount._id}`, { banque, titulaire, iban, codeSwift, compteIntermediaire });
+        await axios.put(`/bankaccounts/${initialAccount._id}`, accountData);
       } else {
         // Création d'un nouveau compte
-        await axios.post('/bankaccounts', { banque, titulaire, iban, codeSwift, compteIntermediaire });
+        await axios.post('/bankaccounts', accountData);
       }
       onAccountCreated();
     } catch (err) {
@@ -123,6 +137,34 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
             value={compteIntermediaire}
             onChange={(e) => setCompteIntermediaire(e.target.value)}
             placeholder="Numéro de compte intermédiaire (optionnel)"
+            className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Banque Intermédiaire */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Banque intermédiaire
+          </label>
+          <input
+            type="text"
+            value={banqueIntermediaire}
+            onChange={(e) => setBanqueIntermediaire(e.target.value)}
+            placeholder="Nom de la banque intermédiaire (optionnel)"
+            className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Swift Intermédiaire */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Swift de la banque intermédiaire
+          </label>
+          <input
+            type="text"
+            value={swiftIntermediaire}
+            onChange={(e) => setSwiftIntermediaire(e.target.value)}
+            placeholder="Code Swift de la banque intermédiaire (optionnel)"
             className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
           />
         </div>

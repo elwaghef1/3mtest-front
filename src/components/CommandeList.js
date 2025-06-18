@@ -87,11 +87,27 @@ const CommandeList = () => {
 
   // Fonctions de formatage pour éviter les erreurs dans LivraisonPartielleModal
   const formatCurrency = (value, currency = 'EUR') => {
-    return new Intl.NumberFormat('fr-FR', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 2,
-    }).format(value || 0);
+    // Gérer les différentes devises
+    let currencyCode = currency;
+    if (currency === 'MRU') {
+      currencyCode = 'MRU'; // Fallback car MRU n'est pas encore supporté par tous les navigateurs
+    }
+    
+    try {
+      return new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency: currencyCode,
+        minimumFractionDigits: 2,
+      }).format(value || 0);
+    } catch (error) {
+      // Fallback pour MRU ou autres devises non supportées
+      if (currency === 'MRU') {
+        return `${new Intl.NumberFormat('fr-FR', {
+          minimumFractionDigits: 2,
+        }).format(value || 0)} MRU`;
+      }
+      return `${value || 0} ${currency}`;
+    }
   };
 
   const formatNumber = (value) => {
@@ -542,7 +558,7 @@ const CommandeList = () => {
       { header: 'Réf.', dataKey: 'reference', cellWidth: 18 },
       { header: 'Client', dataKey: 'client', cellWidth: 35 },
       { header: 'Articles', dataKey: 'itemsSummary', cellWidth: 45 },
-      { header: 'Dépôt', dataKey: 'depot', cellWidth: 25 },
+      { header: 'Type', dataKey: 'type', cellWidth: 25 },
       { header: 'Qte (Kg)', dataKey: 'quantiteKg', ...styles.numericCell, formatter: (v) => frenchNumber(v).replace('.', ',') },
       { header: 'Prix Total', dataKey: 'prixTotal', ...styles.currencyCell, formatter: (v) => `${frenchNumber(v)} €` },
       { header: 'Payé', dataKey: 'montantPaye', ...styles.currencyCell, formatter: (v) => `${frenchNumber(v)} €` },
@@ -553,7 +569,7 @@ const CommandeList = () => {
       ...cmd,
       client: cmd.client?.raisonSociale || 'N/A',
       itemsSummary: formatItemsSummary(cmd.items),
-      depot: cmd.depot?.intitule || 'N/A',
+      type: cmd.typeCommande === 'LOCALE' ? 'LOCALE' : 'EXPORT',
       quantiteKg: cmd.items ? cmd.items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0) : 0,
       prixUnitaire: cmd.prixUnitaire,
       prixTotal: cmd.prixTotal,
@@ -622,7 +638,7 @@ const CommandeList = () => {
       'No BC': cmd.noBonDeCommande || '',
       'Client': cmd.client?.raisonSociale || '',
       'Articles': formatItemsSummary(cmd.items),
-      'Dépôt': cmd.depot?.intitule || '',
+      'Type': cmd.typeCommande === 'LOCALE' ? 'LOCALE' : 'EXPORT',
       'Quantité (Kg)': cmd.items ? cmd.items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0) : 0,
       'Quantité Carton': cmd.quantiteCarton || 0,
       'Prix Unitaire': cmd.prixUnitaire || 0,
@@ -678,7 +694,7 @@ const CommandeList = () => {
       { header: 'Référence', dataKey: 'reference', width: 30 },
       { header: 'Client', dataKey: 'client', width: 40 },
       { header: 'Articles', dataKey: 'articles', width: 60 },
-      { header: 'Dépôt', dataKey: 'depot', width: 30 },
+      { header: 'Type', dataKey: 'type', width: 30 },
       { header: 'Quantité (Kg)', dataKey: 'quantiteKg', width: 25 },
       { header: 'Prix Total', dataKey: 'prixTotal', width: 30 },
       { header: 'Statut Paiement', dataKey: 'statutPaiement', width: 35 },
@@ -689,7 +705,7 @@ const CommandeList = () => {
       reference: cmd.reference,
       client: cmd.client?.raisonSociale || '—',
       articles: formatItemsSummary(cmd.items),
-      depot: cmd.depot?.intitule || '—',
+      type: cmd.typeCommande === 'LOCALE' ? 'LOCALE' : 'EXPORT',
       quantiteKg: cmd.items ? cmd.items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0) : 0,
       prixTotal: formatCurrency(cmd.prixTotal, cmd.currency || 'EUR'),
       statutPaiement: getPaymentBadge(cmd.statutDePaiement),
@@ -1065,15 +1081,37 @@ const CommandeList = () => {
             </div>
             <div className="bg-yellow-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-yellow-600">Valeur Totale</h3>
-              <p className="text-2xl font-bold text-yellow-900">
-                {formatCurrency(filtered.reduce((sum, cmd) => sum + (cmd.prixTotal || 0), 0))}
-              </p>
+              <div className="text-sm font-bold text-yellow-900">
+                {(() => {
+                  const totals = filtered.reduce((acc, cmd) => {
+                    const currency = cmd.currency || 'EUR';
+                    acc[currency] = (acc[currency] || 0) + (cmd.prixTotal || 0);
+                    return acc;
+                  }, {});
+                  return Object.entries(totals).map(([currency, total]) => (
+                    <div key={currency}>
+                      {formatCurrency(total, currency)}
+                    </div>
+                  ));
+                })()}
+              </div>
             </div>
             <div className="bg-red-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-red-600">Impayés</h3>
-              <p className="text-2xl font-bold text-red-900">
-                {formatCurrency(filtered.reduce((sum, cmd) => sum + (cmd.reliquat || 0), 0))}
-              </p>
+              <div className="text-sm font-bold text-red-900">
+                {(() => {
+                  const totals = filtered.reduce((acc, cmd) => {
+                    const currency = cmd.currency || 'EUR';
+                    acc[currency] = (acc[currency] || 0) + (cmd.reliquat || 0);
+                    return acc;
+                  }, {});
+                  return Object.entries(totals).map(([currency, total]) => (
+                    <div key={currency}>
+                      {formatCurrency(total, currency)}
+                    </div>
+                  ));
+                })()}
+              </div>
             </div>
           </div>
 
@@ -1102,11 +1140,21 @@ const CommandeList = () => {
                       </div>
                       <div>
                         <span className="text-gray-500">Prix:</span>
-                        <span className="ml-1 font-medium">{formatCurrency(commande.prixTotal)}</span>
+                        <span className="ml-1 font-medium">{formatCurrency(commande.prixTotal, commande.currency)}</span>
                       </div>
                       <div>
-                        <span className="text-gray-500">Dépôt:</span>
-                        <span className="ml-1">{commande.depot?.intitule || '—'}</span>
+                        <span className="text-gray-500">Type:</span>
+                        <span className="ml-1">
+                          {commande.typeCommande === 'LOCALE' ? (
+                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
+                              🏠 LOCALE
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                              🚢 EXPORT
+                            </span>
+                          )}
+                        </span>
                       </div>
                       <div>
                         <span className="text-gray-500">Date:</span>
@@ -1184,7 +1232,7 @@ const CommandeList = () => {
                       Client
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-[120px]">
-                      Dépôt
+                      Type
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                       Statut
@@ -1208,7 +1256,7 @@ const CommandeList = () => {
                     <tr key={commande._id} className="hover:bg-gray-50">
                       <td className="px-3 py-4 whitespace-nowrap max-w-[130px]">
                         <div className="truncate">
-                          <div className="text-sm font-medium text-gray-900 truncate">{commande.reference}</div>
+                          <div className="text-sm font-medium text-gray-900 truncate mb-1">{commande.reference}</div>
                           {commande.noBonDeCommande && (
                             <div className="text-xs text-gray-500 truncate">BC: {commande.noBonDeCommande}</div>
                           )}
@@ -1226,7 +1274,17 @@ const CommandeList = () => {
                         </div>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900 max-w-[120px]">
-                        <div className="truncate">{commande.depot?.intitule || '—'}</div>
+                        <div className="flex items-center justify-center">
+                          {commande.typeCommande === 'LOCALE' ? (
+                            <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full border border-green-300 whitespace-nowrap">
+                              🏠 LOCALE
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full border border-blue-300 whitespace-nowrap">
+                              🚢 EXPORT
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap">
                         <div className="space-y-1">

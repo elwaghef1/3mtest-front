@@ -3,6 +3,18 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import logoBase64 from './logoBase64';
 
+// Fonction utilitaire pour formater la monnaie dans les PDF
+const formatCurrencyForPDF = (value, currency = 'EUR') => {
+  const numValue = parseFloat(value) || 0;
+  if (currency === 'MRU') {
+    return `${numValue.toFixed(0)} MRU`;
+  } else if (currency === 'USD') {
+    return `$${numValue.toFixed(2)}`;
+  } else {
+    return `€${numValue.toFixed(2)}`;
+  }
+};
+
 // Fonction pour générer le Packing List
 export const generatePackingListPDF = (commande) => {
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -709,7 +721,7 @@ export const generateCommandeDetailsPDF = (commande) => {
   const finalY = doc.lastAutoTable.finalY + 10;
   doc.setFont(undefined, 'bold');
   doc.setFontSize(12);
-  const totalText = `TOTAL: ${commande.prixTotal || '0'} ${commande.currency || 'EUR'}`;
+  const totalText = `TOTAL: ${commande.prixTotal.toFixed(2) || '0'} ${commande.currency || 'EUR'}`;
   doc.text(totalText, pageWidth - marginRight, finalY, { align: 'right' });
 
   // Pied de page
