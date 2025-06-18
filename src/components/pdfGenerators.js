@@ -304,7 +304,7 @@ export const generateInvoicePDF = (commande) => {
   doc.text(clientAddress, marginLeft, infoBlockY);
   infoBlockY += 10;
   
-  // Tableau sans BATCH NUMBER et sans carton
+  // Tableau sans BATCH NUMBER et sans carton - AVEC REGROUPEMENT DES ARTICLES IDENTIQUES
   const tableColumnHeaders = [
     "PRODUCT",
     "SIZE",
@@ -313,27 +313,55 @@ export const generateInvoicePDF = (commande) => {
     `UNIT PRICE (${commande.currency || 'EUR'})`,
     `TOTAL PRICE (${commande.currency || 'EUR'})`
   ];
+
+  // Fonction pour formater un article
+  const formatArticle = (article) => {
+    if (!article) return '-';
+    return [article.reference, article.specification].filter(Boolean).join(" ");
+  };
+
+  // Regrouper les articles identiques
+  const groupedItems = {};
+  commande.items.forEach(item => {
+    const productKey = formatArticle(item.article);
+    const size = item.article?.taille || "-";
+    const unitPrice = item.prixUnitaire ? parseFloat(item.prixUnitaire) : 0;
+    
+    // Créer une clé unique basée sur le produit, la taille et le prix unitaire
+    const groupKey = `${productKey}-${size}-${unitPrice}`;
+    
+    if (!groupedItems[groupKey]) {
+      groupedItems[groupKey] = {
+        product: productKey,
+        size: size,
+        totalQuantity: 0,
+        unitPrice: unitPrice,
+        totalPrice: 0
+      };
+    }
+    
+    // Additionner les quantités et prix
+    const quantityKg = parseFloat(item.quantiteKg) || 0;
+    groupedItems[groupKey].totalQuantity += quantityKg;
+    groupedItems[groupKey].totalPrice += quantityKg * unitPrice;
+  });
+
+  // Convertir en tableau pour le PDF
   const tableRows = [];
   let totalQuantityKg = 0;
   let totalPrice = 0;
-  commande.items.forEach(item => {
-    const product = item.article
-      ? [item.article.reference, item.article.specification].filter(Boolean).join(" ")
-      : "-";
-    const size = item.article?.taille || "-";
-    const quantityKg = parseFloat(item.quantiteKg) || 0;
-    totalQuantityKg += quantityKg;
-    const unit = "Kg";
-    const unitPrice = item.prixUnitaire ? parseFloat(item.prixUnitaire) : 0;
-    const lineTotal = unitPrice * quantityKg;
-    totalPrice += lineTotal;
+
+  Object.values(groupedItems).forEach(groupedItem => {
+    totalQuantityKg += groupedItem.totalQuantity;
+    totalPrice += groupedItem.totalPrice;
+    
     tableRows.push([
-      product,
-      size,
-      unit,
-      quantityKg.toFixed(0),
-      unitPrice.toFixed(0),
-      lineTotal.toFixed(0)
+      groupedItem.product,
+      groupedItem.size,
+      "Kg",
+      groupedItem.totalQuantity.toFixed(0),
+      groupedItem.unitPrice.toFixed(0),
+      groupedItem.totalPrice.toFixed(0)
     ]);
   });
   
@@ -487,31 +515,61 @@ export const generateProformaInvoicePDF = (commande) => {
     `UNIT PRICE (${commande.currency || 'EUR'})`,
     `TOTAL PRICE (${commande.currency || 'EUR'})`
   ];
+
+  // Fonction pour formater un article
+  const formatArticle = (article) => {
+    if (!article) return '-';
+    return [article.reference, article.specification].filter(Boolean).join(" ");
+  };
+
+  // Regrouper les articles identiques (avec batch number)
+  const groupedItems = {};
+  commande.items.forEach(item => {
+    const productKey = formatArticle(item.article);
+    const batchNumber = (item.lot && item.lot.batchNumber) ? item.lot.batchNumber : "-";
+    const size = item.article?.taille || "-";
+    const unitPrice = item.prixUnitaire ? parseFloat(item.prixUnitaire) : 0;
+    
+    // Créer une clé unique basée sur le produit, batch number, taille et prix unitaire
+    const groupKey = `${productKey}-${batchNumber}-${size}-${unitPrice}`;
+    
+    if (!groupedItems[groupKey]) {
+      groupedItems[groupKey] = {
+        product: productKey,
+        batchNumber: batchNumber,
+        size: size,
+        totalQuantity: 0,
+        unitPrice: unitPrice,
+        totalPrice: 0
+      };
+    }
+    
+    // Additionner les quantités et prix
+    const quantityKg = parseFloat(item.quantiteKg) || 0;
+    groupedItems[groupKey].totalQuantity += quantityKg;
+    groupedItems[groupKey].totalPrice += quantityKg * unitPrice;
+  });
+
+  // Convertir en tableau pour le PDF
   const tableRows = [];
   let totalQuantityKg = 0;
   let totalPrice = 0;
-  commande.items.forEach(item => {
-    const product = item.article
-      ? [item.article.reference, item.article.specification].filter(Boolean).join(" ")
-      : "-";
-    const batchNumber = (item.lot && item.lot.batchNumber) ? item.lot.batchNumber : "-";
-    const size = item.article?.taille || "-";
-    const quantityKg = parseFloat(item.quantiteKg) || 0;
-    totalQuantityKg += quantityKg;
-    const unit = "Kg";
-    const unitPrice = item.prixUnitaire ? parseFloat(item.prixUnitaire) : 0;
-    const lineTotal = unitPrice * quantityKg;
-    totalPrice += lineTotal;
+
+  Object.values(groupedItems).forEach(groupedItem => {
+    totalQuantityKg += groupedItem.totalQuantity;
+    totalPrice += groupedItem.totalPrice;
+    
     tableRows.push([
-      product,
-      batchNumber,
-      size,
-      unit,
-      quantityKg.toFixed(0),
-      unitPrice.toFixed(0),
-      lineTotal.toFixed(0)
+      groupedItem.product,
+      groupedItem.batchNumber,
+      groupedItem.size,
+      "Kg",
+      groupedItem.totalQuantity.toFixed(0),
+      groupedItem.unitPrice.toFixed(0),
+      groupedItem.totalPrice.toFixed(0)
     ]);
   });
+
   tableRows.push([
     { content: "TOTAL", colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
     { content: totalQuantityKg.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } },
@@ -735,4 +793,177 @@ export const generateCommandeDetailsPDF = (commande) => {
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
 
   doc.save(`details_commande_${commande.reference}.pdf`);
+};
+
+// Fonction pour générer le Packing List à partir des données du formulaire
+export const generatePackingListFromFormPDF = (commande, packingData) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 10;
+  const marginRight = 10;
+
+  // =============================
+  // 1. En-tête avec logo
+  // =============================
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
+
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  let currentY = 15;
+  const infoX = marginLeft + 25;
+  doc.text("MSM Seafood", infoX, currentY);
+  currentY += 5;
+  doc.text("License: ABCD-1234", infoX, currentY);
+  currentY += 5;
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+
+  // =============================
+  // 2. Date et client
+  // =============================
+  const today = new Intl.DateTimeFormat('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(new Date()).replace(/(\d+)/, (match) => {
+    const day = parseInt(match);
+    return day === 1 ? '1er' : match;
+  }).toUpperCase();
+  doc.text(`Nouadhibou, ${today}`, pageWidth - marginRight, 20, { align: 'right' });
+
+  const clientName = commande.client?.raisonSociale || "Client Inconnu";
+  const clientAddress = commande.client?.adresse || "Adresse non renseignée";
+
+  doc.setFont(undefined, 'bold');
+  doc.text(clientName, pageWidth - marginRight, 32, { align: 'right' });
+  doc.setFont(undefined, 'normal');
+  doc.text(clientAddress, pageWidth - marginRight, 38, { align: 'right' });
+
+  // =============================
+  // 3. Titre & Références
+  // =============================
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'bold');
+  doc.text("PACKING LIST", pageWidth / 2, 55, { align: 'center' });
+
+  doc.setFontSize(9);
+  const refY = 70;
+  doc.text(`Réf: ${commande.reference || 'N/A'}`, marginLeft, refY);
+  doc.text(`Booking: ${commande.numeroBooking || 'N/A'}`, 169, refY);
+
+  // =============================
+  // 4. Tableau des données du formulaire
+  // =============================
+  const tableColumnHeaders = [
+    "Container N°",
+    "Seal N°",
+    "Size", 
+    "Marks",
+    "Prod",
+    "Date",
+    "Box",
+    "Num of Box",
+    "Net Weight",
+    "Gross Weight"
+  ];
+
+  // Calculer les totaux
+  const totals = {
+    totalBoxes: packingData.reduce((sum, row) => sum + (parseFloat(row.numOfBox) || 0), 0),
+    totalNetWeight: packingData.reduce((sum, row) => sum + (parseFloat(row.netWeight) || 0), 0),
+    totalGrossWeight: packingData.reduce((sum, row) => sum + (parseFloat(row.grossWeight) || 0), 0)
+  };
+
+  // Construire les lignes du tableau
+  const tableRows = packingData.map((row, index) => [
+    row.containerNo || 'N/A',
+    row.sealNo || 'N/A',
+    row.size || 'N/A',
+    row.marks || 'N/A',
+    row.prod || 'N/A',
+    row.date || 'N/A',
+    row.box || 'N/A',
+    row.numOfBox || '0',
+    `${row.netWeight || '0'} KG`,
+    `${row.grossWeight || '0'} KG`
+  ]);
+
+  // Ligne de total
+  tableRows.push([
+    { content: "TOTAL", colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+    { content: totals.totalBoxes.toString(), styles: { halign: 'center', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+    { content: `${totals.totalNetWeight.toFixed(2)} KG`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+    { content: `${totals.totalGrossWeight.toFixed(2)} KG`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [240, 240, 240] } }
+  ]);
+
+  doc.autoTable({
+    startY: 85,
+    head: [tableColumnHeaders],
+    body: tableRows,
+    theme: 'grid',
+    styles: { 
+      fontSize: 7, 
+      cellPadding: 1.5,
+      valign: 'middle'
+    },
+    headStyles: {
+      fillColor: [52, 73, 94],
+      textColor: 255,
+      fontStyle: 'bold',
+      fontSize: 7
+    },
+    margin: { left: marginLeft, right: marginRight },
+    tableWidth: 'auto',
+    columnStyles: {
+      0: { cellWidth: 18, halign: 'center' }, // Container N°
+      1: { cellWidth: 18, halign: 'center' }, // Seal N°
+      2: { cellWidth: 12, halign: 'center' }, // Size
+      3: { cellWidth: 25, halign: 'left' },   // Marks
+      4: { cellWidth: 15, halign: 'center' }, // Prod
+      5: { cellWidth: 20, halign: 'center' }, // Date
+      6: { cellWidth: 15, halign: 'center' }, // Box
+      7: { cellWidth: 18, halign: 'center' }, // Num of Box
+      8: { cellWidth: 22, halign: 'center' }, // Net Weight
+      9: { cellWidth: 22, halign: 'center' }  // Gross Weight
+    }
+  });
+
+  // =============================
+  // 5. Informations additionnelles (si nécessaire)
+  // =============================
+  const afterTableY = doc.lastAutoTable.finalY + 10;
+  
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'normal');
+  doc.text(`Destination: ${commande.destination || 'N/A'}`, marginLeft, afterTableY);
+  doc.text(`Type de commande: ${commande.typeCommande === 'LOCALE' ? 'Locale' : 'Export'}`, marginLeft, afterTableY + 5);
+
+  // =============================
+  // 6. VISAS SUR UNE SEULE LIGNE
+  // =============================
+  const signatureLineY = afterTableY + 25;
+  doc.setFontSize(9);
+  doc.text("Visa pointeur Smcp", marginLeft, signatureLineY, { align: 'left' });
+  doc.text("Visa du client", pageWidth / 2, signatureLineY, { align: 'center' });
+  doc.text("Visa Responsable usine", pageWidth - marginRight, signatureLineY, { align: 'right' });
+
+  // Lignes de signature
+  const lineY = signatureLineY + 15;
+  doc.setLineWidth(0.3);
+  doc.line(marginLeft, lineY, marginLeft + 50, lineY);
+  doc.line(pageWidth / 2 - 25, lineY, pageWidth / 2 + 25, lineY);
+  doc.line(pageWidth - marginRight - 50, lineY, pageWidth - marginRight, lineY);
+
+  // =============================
+  // 7. PIED DE PAGE
+  // =============================
+  const footerY = 280;
+  doc.setLineWidth(0.2);
+  doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
+  doc.setFontSize(8);
+  doc.text("+222 46 00 89 08", marginLeft, footerY);
+  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
+
+  // Sauvegarde du PDF
+  doc.save(`packing_list_${commande.reference}.pdf`);
 };

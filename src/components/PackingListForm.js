@@ -1,8 +1,7 @@
 // frontend/src/components/PackingListForm.js
 import React, { useState, useEffect } from 'react';
 import Button from './Button';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { generatePackingListFromFormPDF } from './pdfGenerators';
 
 const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
   const [packingData, setPackingData] = useState([]);
@@ -74,69 +73,6 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
     return totals;
   };
 
-  const generatePackingListPDF = () => {
-    const doc = new jsPDF();
-    const totals = calculateTotals();
-
-    // Header
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PACKING LIST', 105, 20, { align: 'center' });
-
-    // Informations de la commande
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Commande: ${commande.reference || 'N/A'}`, 20, 40);
-    doc.text(`Client: ${commande.client?.raisonSociale || 'N/A'}`, 20, 50);
-    doc.text(`Destination: ${commande.destination || 'N/A'}`, 20, 60);
-
-    // Tableau des données
-    const tableData = packingData.map((row, index) => [
-      index + 1,
-      row.containerNo,
-      row.sealNo,
-      row.size,
-      row.marks,
-      row.prod,
-      row.date,
-      row.box,
-      row.numOfBox,
-      row.netWeight,
-      row.grossWeight
-    ]);
-
-    // Ajouter la ligne des totaux
-    tableData.push([
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      'TOTAL',
-      totals.totalBoxes,
-      totals.totalNetWeight,
-      totals.totalGrossWeight
-    ]);
-
-    doc.autoTable({
-      head: [['#', 'Container N°', 'Seal N°', 'Size', 'Marks', 'Prod', 'Date', 'Box', 'Num of Box', 'Net Weight', 'Gross Weight']],
-      body: tableData,
-      startY: 80,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [66, 139, 202], textColor: 255 },
-      columnStyles: {
-        8: { halign: 'center' },
-        9: { halign: 'right' },
-        10: { halign: 'right' }
-      }
-    });
-
-    // Sauvegarder le PDF
-    doc.save(`Packing_List_${commande.reference || 'commande'}.pdf`);
-  };
-
   const handleSave = async () => {
     setLoading(true);
     try {
@@ -145,8 +81,8 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
         await onSave(packingData);
       }
       
-      // Générer le PDF
-      generatePackingListPDF();
+      // Générer le PDF avec la fonction des pdfGenerators
+      generatePackingListFromFormPDF(commande, packingData);
       
       alert('Packing list créé avec succès !');
       onClose();

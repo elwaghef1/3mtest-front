@@ -1358,13 +1358,13 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               >
                 Télécharger Facture
               </Button>
-              <Button
+              {/* <Button
                 variant="success"
                 size="md"
                 onClick={handleDownloadPackingList}
               >
                 Télécharger Packing List
-              </Button>
+              </Button> */}
               <Button
                 variant="success"
                 size="md"
