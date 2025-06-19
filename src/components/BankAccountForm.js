@@ -12,6 +12,7 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
   const [compteIntermediaire, setCompteIntermediaire] = useState('');
   const [banqueIntermediaire, setBanqueIntermediaire] = useState('');
   const [swiftIntermediaire, setSwiftIntermediaire] = useState('');
+  const [informationsSupplementaires, setInformationsSupplementaires] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -26,6 +27,7 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
       setCompteIntermediaire(initialAccount.compteIntermediaire || '');
       setBanqueIntermediaire(initialAccount.banqueIntermediaire || '');
       setSwiftIntermediaire(initialAccount.swiftIntermediaire || '');
+      setInformationsSupplementaires(initialAccount.informationsSupplementaires || '');
     }
   }, [initialAccount]);
 
@@ -42,7 +44,8 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
         type,
         compteIntermediaire,
         banqueIntermediaire,
-        swiftIntermediaire
+        swiftIntermediaire,
+        informationsSupplementaires
       };
       
       if (initialAccount) {
@@ -186,6 +189,20 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
             onChange={(e) => setSwiftIntermediaire(e.target.value)}
             placeholder="Code Swift de la banque intermédiaire (optionnel)"
             className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {/* Informations Supplémentaires */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Informations supplémentaires
+          </label>
+          <textarea
+            value={informationsSupplementaires}
+            onChange={(e) => setInformationsSupplementaires(e.target.value)}
+            placeholder="Ajoutez des informations supplémentaires concernant ce compte bancaire (optionnel)"
+            rows={4}
+            className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500 resize-vertical"
           />
         </div>
 

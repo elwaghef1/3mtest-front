@@ -134,6 +134,9 @@ function BankAccountList() {
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
                   Swift Intermédiaire
                 </th>
+                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
+                  Informations Supplémentaires
+                </th>
                 <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
                   Actions
                 </th>
@@ -161,6 +164,15 @@ function BankAccountList() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">
                     {account.swiftIntermediaire || '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">
+                    <div className="max-w-xs">
+                      {account.informationsSupplementaires ? (
+                        <span className="truncate block" title={account.informationsSupplementaires}>
+                          {account.informationsSupplementaires}
+                        </span>
+                      ) : '—'}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-center border border-gray-400">
                     <div className="flex justify-center space-x-2">
