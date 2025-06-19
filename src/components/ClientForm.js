@@ -1,31 +1,67 @@
 // frontend/src/components/ClientForm.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from '../api/axios';
 import Button from './Button';
 
-function ClientForm({ onClose, onClientCreated }) {
-  const [raisonSociale, setRaisonSociale] = useState('');
-  const [adresse, setAdresse] = useState('');
-  const [mail, setMail] = useState('');
-  const [numeroFacture, setNumeroFacture] = useState('');
+function ClientForm({ onClose, onClientCreated, initialClient }) {
+  const [formData, setFormData] = useState({
+    raisonSociale: '',
+    adresse: '',
+    mail: '',
+    numeroFacture: ''
+  });
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const isEditMode = Boolean(initialClient && initialClient._id);
+
+  useEffect(() => {
+    // Dès que l'on a l'id du client à éditer, on recharge ses données
+    if (isEditMode) {
+      axios.get(`/clients/${initialClient._id}`)
+        .then(res => {
+          const c = res.data;
+          setFormData({
+            raisonSociale: c.raisonSociale || '',
+            adresse:       c.adresse       || '',
+            mail:          c.mail          || '',
+            numeroFacture: c.numeroFacture || ''
+          });
+        })
+        .catch(err => {
+          console.error('Erreur chargement client en édition :', err);
+          setErrorMessage("Impossible de charger les données du client.");
+        });
+    } else {
+      // mode création : on remet à zéro
+      setFormData({
+        raisonSociale: '',
+        adresse:       '',
+        mail:          '',
+        numeroFacture: ''
+      });
+    }
+  }, [initialClient?._id]);  // ne se déclenche que si l'id change
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setErrorMessage('');
     try {
-      await axios.post('/clients', {
-        raisonSociale,
-        adresse,
-        mail,
-        numeroFacture,
-      });
+      if (isEditMode) {
+        await axios.put(`/clients/${initialClient._id}`, formData);
+      } else {
+        await axios.post('/clients', formData);
+      }
       onClientCreated();
     } catch (err) {
-      console.error('Erreur création client:', err);
-      setErrorMessage('Erreur lors de la création du client.');
+      console.error('Erreur lors de la sauvegarde du client :', err);
+      setErrorMessage(`Erreur lors de la ${isEditMode ? 'modification' : 'création'} du client.`);
     } finally {
       setLoading(false);
     }
@@ -33,7 +69,9 @@ function ClientForm({ onClose, onClientCreated }) {
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold mb-6">Nouveau Client</h2>
+      <h2 className="text-2xl font-bold mb-6">
+        {isEditMode ? 'Modifier le Client' : 'Nouveau Client'}
+      </h2>
 
       {errorMessage && (
         <div className="bg-red-100 text-red-700 p-4 rounded-lg mb-6">
@@ -42,9 +80,7 @@ function ClientForm({ onClose, onClientCreated }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Ligne 1 : Raison Sociale & Adresse */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Raison Sociale */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
               Raison Sociale *
@@ -53,13 +89,12 @@ function ClientForm({ onClose, onClientCreated }) {
               className="w-full border border-gray-300 rounded-md shadow-sm p-2 
                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               type="text"
-              value={raisonSociale}
-              onChange={(e) => setRaisonSociale(e.target.value)}
+              name="raisonSociale"
+              value={formData.raisonSociale}
+              onChange={handleChange}
               required
             />
           </div>
-
-          {/* Adresse */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
               Adresse
@@ -68,15 +103,14 @@ function ClientForm({ onClose, onClientCreated }) {
               className="w-full border border-gray-300 rounded-md shadow-sm p-2 
                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               type="text"
-              value={adresse}
-              onChange={(e) => setAdresse(e.target.value)}
+              name="adresse"
+              value={formData.adresse}
+              onChange={handleChange}
             />
           </div>
         </div>
 
-        {/* Ligne 2 : Mail & N° Facture */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Mail */}
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">
               Mail
@@ -85,27 +119,13 @@ function ClientForm({ onClose, onClientCreated }) {
               className="w-full border border-gray-300 rounded-md shadow-sm p-2 
                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               type="email"
-              value={mail}
-              onChange={(e) => setMail(e.target.value)}
+              name="mail"
+              value={formData.mail}
+              onChange={handleChange}
             />
           </div>
-
-          {/* N° Facture */}
-          {/* <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              N° Facture
-            </label>
-            <input
-              className="w-full border border-gray-300 rounded-md shadow-sm p-2
-                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              type="text"
-              value={numeroFacture}
-              onChange={(e) => setNumeroFacture(e.target.value)}
-            />
-          </div> */}
         </div>
 
-        {/* Boutons */}
         <div className="flex justify-end space-x-4 mt-8">
           <Button
             variant="secondary"
@@ -121,7 +141,7 @@ function ClientForm({ onClose, onClientCreated }) {
             disabled={loading}
             loading={loading}
           >
-            Enregistrer
+            {isEditMode ? 'Mettre à jour' : 'Enregistrer'}
           </Button>
         </div>
       </form>

@@ -967,3 +967,215 @@ export const generatePackingListFromFormPDF = (commande, packingData) => {
   // Sauvegarde du PDF
   doc.save(`packing_list_${commande.reference}.pdf`);
 };
+
+// Fonction pour générer la Demande de Certification (Certificat d'Origine)
+export const generateCertificationRequestPDF = (commande) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 15;
+  const marginRight = 15;
+
+  // =============================
+  // 1. En-tête du document
+  // =============================
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text("DEMANDE DE CERTIFICATION", pageWidth / 2, 20, { align: 'center' });
+
+  // Numéro du document
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  doc.text(`N°: ${commande.reference || 'N/A'}`, pageWidth - marginRight, 30, { align: 'right' });
+
+  // =============================
+  // 2. Informations de l'expéditeur
+  // =============================
+  let currentY = 45;
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.text("Nom et adresse de l'expéditeur:", marginLeft, currentY);
+  doc.setFont(undefined, 'normal');
+  currentY += 5;
+  doc.text("Nom: MSM SEAFOOD SARL", marginLeft + 5, currentY);
+  currentY += 4;
+  doc.text("Adresse: Zone industrielle, Dakhlet Nouâdhibou, Mauritanie", marginLeft + 5, currentY);
+  currentY += 4;
+  doc.text("P.O: MSM SEAFOOD SARL", marginLeft + 5, currentY);
+  currentY += 4;
+  doc.text("Tél: +222 46 00 89 08", marginLeft + 5, currentY);
+
+  // =============================
+  // 3. Informations du transporteur
+  // =============================
+  currentY += 10;
+  doc.setFont(undefined, 'bold');
+  doc.text("Moyen de transport:", marginLeft, currentY);
+  doc.setFont(undefined, 'normal');
+  currentY += 5;
+  doc.text(`Navire: ${commande.numeroBooking || 'À définir'}`, marginLeft + 5, currentY);
+  currentY += 4;
+  doc.text(`N° de conteneur: ${commande.cargo?.[0]?.noDeConteneur || 'À définir'}`, marginLeft + 5, currentY);
+  currentY += 4;
+  doc.text(`Destination: ${commande.destination || 'À définir'}`, marginLeft + 5, currentY);
+
+  // =============================
+  // 4. Pays d'origine et destination
+  // =============================
+  currentY += 10;
+  doc.setFont(undefined, 'bold');
+  doc.text("Pays:", marginLeft, currentY);
+  doc.setFont(undefined, 'normal');
+  currentY += 5;
+  doc.text("Origine du produit: MAURITANIE", marginLeft + 5, currentY);
+  currentY += 4;
+  doc.text(`Pays de destination: ${commande.destination || 'À définir'}`, marginLeft + 5, currentY);
+
+  // =============================
+  // 5. Tableau des marchandises
+  // =============================
+  currentY += 15;
+  doc.setFont(undefined, 'bold');
+  doc.text("Description des marchandises:", marginLeft, currentY);
+
+  // Regrouper les articles identiques
+  const groupedItems = {};
+  commande.items?.forEach(item => {
+    const productKey = item.article ? 
+      [item.article.reference, item.article.specification].filter(Boolean).join(" ") : 
+      "Produit non spécifié";
+    const size = item.article?.taille || "-";
+    const groupKey = `${productKey}-${size}`;
+    
+    if (!groupedItems[groupKey]) {
+      groupedItems[groupKey] = {
+        product: productKey,
+        size: size,
+        totalQuantity: 0,
+        unit: "KG"
+      };
+    }
+    
+    groupedItems[groupKey].totalQuantity += parseFloat(item.quantiteKg) || 0;
+  });
+
+  // Tableau des produits
+  const tableData = Object.values(groupedItems).map(item => [
+    item.product,
+    item.size,
+    `${item.totalQuantity.toFixed(0)} ${item.unit}`,
+    "Mauritanie" // Origine
+  ]);
+
+  doc.autoTable({
+    startY: currentY + 5,
+    head: [["DÉSIGNATION", "TAILLE", "QUANTITÉ", "ORIGINE"]],
+    body: tableData,
+    theme: 'grid',
+    styles: { 
+      fontSize: 8, 
+      cellPadding: 3,
+      valign: 'middle'
+    },
+    headStyles: {
+      fillColor: [200, 200, 200],
+      textColor: 0,
+      fontStyle: 'bold'
+    },
+    margin: { left: marginLeft, right: marginRight },
+    columnStyles: {
+      0: { cellWidth: 70 },
+      1: { cellWidth: 30, halign: 'center' },
+      2: { cellWidth: 40, halign: 'center' },
+      3: { cellWidth: 40, halign: 'center' }
+    }
+  });
+
+  // =============================
+  // 6. Informations de certification
+  // =============================
+  currentY = doc.lastAutoTable.finalY + 15;
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.text("CERTIFICATION:", marginLeft, currentY);
+  doc.setFont(undefined, 'normal');
+  currentY += 8;
+
+  const certificationText = [
+    "Je certifie que les marchandises désignées ci-dessus sont originaires de",
+    "Mauritanie et satisfont aux conditions prévues par les accords commerciaux",
+    "en vigueur pour l'exportation vers le pays de destination."
+  ];
+
+  certificationText.forEach((line, index) => {
+    doc.text(line, marginLeft, currentY + (index * 5));
+  });
+
+  // =============================
+  // 7. Date et lieu
+  // =============================
+  currentY += 25;
+  const today = new Intl.DateTimeFormat('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(new Date()).replace(/(\d+)/, (match) => {
+    const day = parseInt(match);
+    return day === 1 ? '1er' : match;
+  });
+
+  doc.text(`Fait à Nouadhibou, le ${today}`, marginLeft, currentY);
+
+  // =============================
+  // 8. Signatures et cachets
+  // =============================
+  currentY += 20;
+  
+  // Signature de l'exportateur
+  doc.setFont(undefined, 'bold');
+  doc.text("Signature de l'exportateur:", marginLeft, currentY);
+  doc.setFont(undefined, 'normal');
+  doc.text("MSM SEAFOOD SARL", marginLeft, currentY + 10);
+  
+  // Ligne de signature
+  doc.setLineWidth(0.3);
+  doc.line(marginLeft, currentY + 20, marginLeft + 60, currentY + 20);
+
+  // Visa des autorités compétentes
+  doc.setFont(undefined, 'bold');
+  doc.text("Visa des autorités compétentes:", pageWidth - marginRight - 60, currentY);
+  doc.setFont(undefined, 'normal');
+  
+  // Cadre pour le cachet
+  doc.rect(pageWidth - marginRight - 50, currentY + 5, 45, 30);
+  doc.setFontSize(8);
+  doc.text("Cachet et signature", pageWidth - marginRight - 47, currentY + 20);
+  doc.text("des autorités", pageWidth - marginRight - 40, currentY + 25);
+
+  // =============================
+  // 9. Notes et références
+  // =============================
+  currentY += 45;
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'normal');
+  doc.text(`Référence commande: ${commande.reference}`, marginLeft, currentY);
+  currentY += 4;
+  doc.text(`Date de commande: ${commande.dateCommande ? 
+    new Date(commande.dateCommande).toLocaleDateString('fr-FR') : 
+    'Non spécifiée'}`, marginLeft, currentY);
+  currentY += 4;
+  doc.text(`Client: ${commande.client?.raisonSociale || 'Non spécifié'}`, marginLeft, currentY);
+
+  // =============================
+  // 10. Pied de page
+  // =============================
+  const footerY = 280;
+  doc.setLineWidth(0.2);
+  doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
+  doc.setFontSize(8);
+  doc.text("MSM SEAFOOD SARL", marginLeft, footerY);
+  doc.text("Zone industrielle, Dakhlet Nouâdhibou, Mauritanie", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("+222 46 00 89 08", pageWidth - marginRight, footerY, { align: 'right' });
+
+  // Sauvegarde du PDF
+  doc.save(`demande_certification_${commande.reference}.pdf`);
+};

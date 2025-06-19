@@ -42,10 +42,13 @@ const DetailItem = ({ label, value, badge }) => (
 );
 
 function TransfertDetails({ transfert, onClose }) {
+  // Déterminer si c'est un transfert multiple
+  const isMultiple = transfert.isMultiple && transfert.items && transfert.items.length > 0;
+
   return (
     <div className="max-w-6xl mx-auto p-8 bg-white rounded-lg shadow-lg border border-gray-200">
       <h2 className="text-3xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-green-500">
-        Détails du transfert
+        Détails du transfert 
       </h2>
 
       {/* Carte récapitulative */}
@@ -76,7 +79,7 @@ function TransfertDetails({ transfert, onClose }) {
           <thead>
             <tr className="bg-gray-200">
               <th className="border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 text-left">
-                Article transféré
+                Article(s) transféré(s)
               </th>
               <th className="border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 text-center">
                 Quantité (Kg)
@@ -87,33 +90,86 @@ function TransfertDetails({ transfert, onClose }) {
             </tr>
           </thead>
           <tbody>
-            <tr className="hover:bg-gray-50 transition-colors">
-              <td className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                {transfert.article ? formatArticle(transfert.article) : '—'}
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
-                <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
-                  {transfert.quantiteKg || '—'}
-                </span>
-              </td>
-              <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
-                <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full font-medium">
-                  {transfert.quantiteCarton || (transfert.quantiteKg ? (transfert.quantiteKg / 20).toFixed(2) : '—')}
-                </span>
-              </td>
-            </tr>
+            {isMultiple ? (
+              // Affichage pour transfert multiple
+              transfert.items.map((item, index) => (
+                <tr key={index} className="hover:bg-gray-50 transition-colors">
+                  <td className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
+                    {item.article ? formatArticle(item.article) : '—'}
+                  </td>
+                  <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
+                    <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+                      {item.quantiteKg || '—'}
+                    </span>
+                  </td>
+                  <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
+                    <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full font-medium">
+                      {item.quantiteCarton || (item.quantiteKg ? (item.quantiteKg / 20).toFixed(2) : '—')}
+                    </span>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              // Affichage pour transfert simple
+              <tr className="hover:bg-gray-50 transition-colors">
+                <td className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
+                  {transfert.article ? formatArticle(transfert.article) : '—'}
+                </td>
+                <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
+                  <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">
+                    {transfert.quantiteKg || '—'}
+                  </span>
+                </td>
+                <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
+                  <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full font-medium">
+                    {transfert.quantiteCarton || (transfert.quantiteKg ? (transfert.quantiteKg / 20).toFixed(2) : '—')}
+                  </span>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
 
+      {/* Résumé total pour les transferts multiples */}
+      {isMultiple && (
+        <div className="mb-8 bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg border border-blue-200">
+          <h4 className="text-lg font-bold mb-2 text-gray-800">Résumé du transfert multiple</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Nombre d'articles</p>
+              <p className="text-xl font-bold text-blue-600">{transfert.items.length}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Quantité totale (Kg)</p>
+              <p className="text-xl font-bold text-green-600">{transfert.quantiteKg || '—'}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-600">Quantité totale (Cartons)</p>
+              <p className="text-xl font-bold text-orange-600">
+                {transfert.quantiteCarton || (transfert.quantiteKg ? (transfert.quantiteKg / 20).toFixed(2) : '—')}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Détails des lots si disponibles */}
-      {transfert.detailsLots && transfert.detailsLots.length > 0 && (
+      {(
+        (transfert.detailsLots && transfert.detailsLots.length > 0) ||
+        (isMultiple && transfert.items && transfert.items.some(item => item.detailsLots && item.detailsLots.length > 0))
+      ) && (
         <div className="mb-8">
           <h4 className="text-lg font-bold mb-4 text-gray-800">Lots transférés</h4>
           <div className="overflow-x-auto">
             <table className="min-w-full border-collapse border border-gray-300">
               <thead>
                 <tr className="bg-blue-50">
+                  {isMultiple && (
+                    <th className="border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 text-left">
+                      Article
+                    </th>
+                  )}
                   <th className="border border-gray-300 px-4 py-3 text-sm font-medium text-gray-600 text-left">
                     Batch Number
                   </th>
@@ -123,18 +179,41 @@ function TransfertDetails({ transfert, onClose }) {
                 </tr>
               </thead>
               <tbody>
-                {transfert.detailsLots.map((lot, idx) => (
-                  <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                    <td className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
-                      {lot.batchNumber || '—'}
-                    </td>
-                    <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
-                      <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
-                        {lot.quantiteTransferee || '—'} Kg
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {isMultiple ? (
+                  // Affichage pour transfert multiple
+                  transfert.items.map((item, itemIndex) => 
+                    item.detailsLots && item.detailsLots.length > 0 ? 
+                      item.detailsLots.map((lot, lotIndex) => (
+                        <tr key={`${itemIndex}-${lotIndex}`} className="hover:bg-gray-50 transition-colors">
+                          <td className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
+                            {item.article ? formatArticle(item.article) : '—'}
+                          </td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
+                            {lot.batchNumber || '—'}
+                          </td>
+                          <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
+                            <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
+                              {lot.quantiteTransferee || '—'} Kg
+                            </span>
+                          </td>
+                        </tr>
+                      )) : null
+                  ).filter(Boolean)
+                ) : (
+                  // Affichage pour transfert simple
+                  transfert.detailsLots.map((lot, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                      <td className="border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-700">
+                        {lot.batchNumber || '—'}
+                      </td>
+                      <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
+                        <span className="inline-block bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">
+                          {lot.quantiteTransferee || '—'} Kg
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

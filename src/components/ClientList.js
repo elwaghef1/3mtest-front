@@ -4,7 +4,7 @@ import axios from '../api/axios';
 import Button from './Button';
 import ClientForm from './ClientForm';
 import Pagination from './Pagination';
-import { PlusIcon, PencilIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
+import { PlusIcon, PencilIcon, TrashIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 
 function ClientList() {
   const [clients, setClients] = useState([]);
@@ -42,29 +42,47 @@ function ClientList() {
     }
   };
 
-  // Ajouter une logique de filtrage si nécessaire
-  const filterClients = () => {
-    // Exemple de filtre simple (à adapter selon vos besoins)
-    setFiltered([...clients]);
-  };
-
   const handleOpenFormToCreate = () => {
     setEditingClient(null);
     setShowForm(true);
   };
 
-  const handleOpenFormToEdit = (client) => {
-    setEditingClient(client);
-    setShowForm(true);
+  const handleOpenFormToEdit = async (client) => {
+    try {
+      setLoading(true);
+      setError(null);
+      // On récupère les toutes dernières données du client
+      const response = await axios.get(`/clients/${client._id}`);
+      setEditingClient(response.data);
+      setShowForm(true);
+    } catch (err) {
+      console.error('Erreur chargement client pour édition :', err);
+      setError('Impossible de charger le client pour modification');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCloseForm = () => {
     setShowForm(false);
+    setEditingClient(null);
   };
 
   const handleClientCreatedOrUpdated = () => {
     setShowForm(false);
     fetchClients();
+  };
+
+  const handleDeleteClient = async (clientId) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce client ?')) {
+      try {
+        await axios.delete(`/clients/${clientId}`);
+        fetchClients();
+      } catch (err) {
+        console.error('Erreur lors de la suppression du client :', err);
+        setError('Erreur lors de la suppression du client');
+      }
+    }
   };
 
   return (
@@ -82,21 +100,18 @@ function ClientList() {
         </Button>
       </div>
 
-      {/* Affichage erreur éventuelle */}
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-4">
           {error}
         </div>
       )}
 
-      {/* État de chargement */}
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin inline-block w-8 h-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
           <p className="mt-2 text-gray-600">Chargement en cours...</p>
         </div>
       ) : clients.length === 0 ? (
-        // Aucun client
         <div className="text-center py-12 bg-white rounded-lg border">
           <InformationCircleIcon className="h-12 w-12 mx-auto text-gray-400" />
           <h3 className="mt-4 text-lg font-medium">Aucun client trouvé</h3>
@@ -105,7 +120,6 @@ function ClientList() {
           </p>
         </div>
       ) : (
-        // Tableau
         <div className="overflow-x-auto rounded-lg border shadow-sm">
           <table className="min-w-full border-collapse border border-gray-400">
             <thead className="bg-gray-50">
@@ -119,14 +133,14 @@ function ClientList() {
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
                   Mail
                 </th>
+                <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white">
               {currentItems.map((client) => (
-                <tr
-                  key={client._id}
-                  className="hover:bg-gray-50 transition-colors"
-                >
+                <tr key={client._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">
                     {client.raisonSociale}
                   </td>
@@ -136,25 +150,42 @@ function ClientList() {
                   <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
                     {client.mail}
                   </td>
+                  <td className="px-4 py-3 text-center border border-gray-400">
+                    <div className="flex justify-center space-x-2">
+                      <Button
+                        onClick={() => handleOpenFormToEdit(client)}
+                        variant="warning"
+                        size="sm"
+                        leftIcon={<PencilIcon className="h-4 w-4" />}
+                        title="Modifier"
+                      />
+                      <Button
+                        onClick={() => handleDeleteClient(client._id)}
+                        variant="danger"
+                        size="sm"
+                        leftIcon={<TrashIcon className="h-4 w-4" />}
+                        title="Supprimer"
+                      />
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
       )}
 
-    {filtered.length > 0 && (
-          <Pagination
-            currentPage={currentPage}
-            itemsPerPage={itemsPerPage}
-            totalItems={filtered.length}
-            onPageChange={setCurrentPage}
-            onItemsPerPageChange={setItemsPerPage}
-          />
-        )}
+      {filtered.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          itemsPerPage={itemsPerPage}
+          totalItems={filtered.length}
+          onPageChange={setCurrentPage}
+          onItemsPerPageChange={setItemsPerPage}
+        />
+      )}
 
-      {/* Modal Form */}
+      {/* Modal Form sans prop key */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">

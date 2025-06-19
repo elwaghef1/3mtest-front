@@ -88,7 +88,7 @@ function TransfertList() {
     setShowDetailsModal(false);
   };
 
-  // Formatage d'article
+  // Formatage d'article (support transferts simples et multiples)
   const formatArticle = (a) => {
     if (!a) return '—';
     const ref = a.reference || '';
@@ -96,6 +96,20 @@ function TransfertList() {
     const taille = a.taille || '';
     const tCarton = a.typeCarton || '';
     return [ref, spec, taille, tCarton].filter(Boolean).join(' - ');
+  };
+
+  // Formatage pour transferts multiples
+  const formatTransfertArticles = (transfert) => {
+    if (transfert.isMultiple && transfert.items && transfert.items.length > 0) {
+      if (transfert.items.length === 1) {
+        return formatArticle(transfert.items[0].article);
+      } else {
+        const firstArticle = formatArticle(transfert.items[0].article);
+        return `${firstArticle} + ${transfert.items.length - 1} autre(s)`;
+      }
+    } else {
+      return formatArticle(transfert.article);
+    }
   };
 
   // ------------------------------
@@ -155,7 +169,7 @@ function TransfertList() {
       date: t.dateTransfert
         ? new Date(t.dateTransfert).toLocaleDateString()
         : '—',
-      article: formatArticle(t.article),
+      article: formatTransfertArticles(t),
       depotDepart: t.depotDepart?.intitule || '—',
       depotArrivee: t.depotArrivee?.intitule || '—',
       quantiteKg: t.quantiteKg,
@@ -218,7 +232,7 @@ function TransfertList() {
       Date: t.dateTransfert
         ? new Date(t.dateTransfert).toLocaleDateString()
         : '—',
-      Article: formatArticle(t.article),
+      Article: formatTransfertArticles(t),
       'Dépôt Départ': t.depotDepart?.intitule || '—',
       'Dépôt Arrivée': t.depotArrivee?.intitule || '—',
       'Quantité (Kg)': t.quantiteKg,
@@ -228,6 +242,7 @@ function TransfertList() {
       Pointeur: t.pointeur || '—',
       'Moyen Transfert': t.moyenDeTransfert || '—',
       Immatricule: t.immatricule || '—',
+      Type: t.isMultiple ? 'Multiple' : 'Simple',
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(worksheetData);
@@ -412,7 +427,12 @@ function TransfertList() {
                       : '—'}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
-                    {formatArticle(t.article)}
+                    {formatTransfertArticles(t)}
+                    {t.isMultiple && (
+                      <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        Multiple
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
                     {t.depotDepart?.intitule || '—'}
@@ -476,7 +496,7 @@ function TransfertList() {
       {/* Modal Form */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <TransfertForm
               onClose={handleCloseForm}
               onTransfertCreated={handleTransfertCreatedOrUpdated}

@@ -4,7 +4,7 @@ import Button from './Button';
 import CargoAllocationModal from './CargoAllocationModal';
 import PackingListForm from './PackingListForm';
 import { downloadCargoPackingList, downloadAllCargoPackingLists } from '../services/cargoPackingListGenerator';
-import { generateCommandeDetailsPDF } from './pdfGenerators';
+import { generateCommandeDetailsPDF, generateCertificationRequestPDF } from './pdfGenerators';
 import axios from '../api/axios';
 
 // Fonction utilitaire pour formater un article (détail)
@@ -425,6 +425,17 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
           >
             Détails de la Commande
           </Button>
+          
+          {/* Bouton Certificat d'Origine - affiché seulement pour les commandes export livrées */}
+          {commande.statutBonDeCommande === 'LIVREE' && commande.typeCommande !== 'LOCALE' && (
+            <Button
+              onClick={() => generateCertificationRequestPDF(commande)}
+              variant="warning"
+              size="md"
+            >
+              Certificat d'Origine
+            </Button>
+          )}
           
           {hasAllocations() && (
             <Button
