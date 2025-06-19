@@ -14,6 +14,9 @@ import * as XLSX from 'xlsx';
 // Logo base64 (fichier séparé)
 import logoBase64 from './logoBase64';
 
+// Import du générateur de PDF centralisé
+import { generateBonDeTransfertPDF } from './pdfGenerators';
+
 function TransfertList() {
   const [transferts, setTransferts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -249,86 +252,6 @@ function TransfertList() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Transferts');
     XLSX.writeFile(workbook, 'transferts_report.xlsx');
-  };
-
-  // Impression d’un bon de transfert PDF (optionnel, code existant)
-  const generateBonDeTransfertPDF = (transfer) => {
-    const doc = new jsPDF('p', 'mm', 'a5');
-
-    // En-tête
-    doc.addImage(logoBase64, 'PNG', 10, 10, 30, 30);
-    doc.setFontSize(18);
-    doc.text('MSM SEAFOOD', 45, 20);
-    doc.setFontSize(12);
-    doc.text('RC 576', 45, 28);
-    doc.text('Agrément Sanitaire NO 02 133', 45, 34);
-
-    const dateStr = new Date().toLocaleDateString('fr-FR');
-    doc.text(`Date: ${dateStr}`, 150, 20);
-
-    doc.setFontSize(16);
-    doc.text('Bon de Transfert', 105, 50, { align: 'center' });
-
-    // Table
-    const headers = [
-      [
-        'Article',
-        'Dépôt Départ',
-        'Dépôt Arrivée',
-        'Quantité (Kg)',
-        'Quantité (Carton)',
-        'Pointeur',
-      ],
-    ];
-    const articleStr = transfer.article
-      ? formatArticle(transfer.article)
-      : 'Article non trouvé';
-    const depotDepartStr = transfer.depotDepart
-      ? transfer.depotDepart.intitule
-      : '—';
-    const depotArriveeStr = transfer.depotArrivee
-      ? transfer.depotArrivee.intitule
-      : '—';
-    const quantiteKg = transfer.quantiteKg || '—';
-    const quantiteCarton = transfer.quantiteKg
-      ? (transfer.quantiteKg / 20).toFixed(2)
-      : '—';
-    const pointeurStr = transfer.pointeur || '—';
-
-    const rows = [
-      [
-        articleStr,
-        depotDepartStr,
-        depotArriveeStr,
-        quantiteKg,
-        quantiteCarton,
-        pointeurStr,
-      ],
-    ];
-
-    doc.autoTable({
-      startY: 60,
-      head: headers,
-      body: rows,
-      theme: 'grid',
-      styles: { fontSize: 10 },
-      headStyles: {
-        fillColor: 'gray',
-        textColor: 'white',
-        fontStyle: 'bold',
-      },
-    });
-
-    // Signatures
-    const finalY = doc.lastAutoTable.finalY || 70;
-    doc.setFontSize(12);
-    doc.text('Signature pointeur:', 10, finalY + 15);
-    doc.text('Signature responsable:', 80, finalY + 15);
-
-    doc.line(10, finalY + 17, 70, finalY + 17);
-    doc.line(80, finalY + 17, 140, finalY + 17);
-
-    doc.save(`bon_transfert_${transfer._id}.pdf`);
   };
 
   return (

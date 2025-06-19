@@ -126,6 +126,9 @@ function BankAccountList() {
                   Code Swift
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
+                  Type
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
                   Banque Intermédiaire
                 </th>
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">
@@ -143,6 +146,16 @@ function BankAccountList() {
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">{account.titulaire}</td>
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">{account.iban}</td>
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">{account.codeSwift}</td>
+                  <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      account.type === 'MRU' ? 'bg-green-100 text-green-800' :
+                      account.type === 'EURO' ? 'bg-blue-100 text-blue-800' :
+                      account.type === 'USD' ? 'bg-purple-100 text-purple-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {account.type || 'EURO'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">
                     {account.banqueIntermediaire || '—'}
                   </td>

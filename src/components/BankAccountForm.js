@@ -8,6 +8,7 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
   const [titulaire, setTitulaire] = useState('');
   const [iban, setIban] = useState('');
   const [codeSwift, setCodeSwift] = useState('');
+  const [type, setType] = useState('MRU');
   const [compteIntermediaire, setCompteIntermediaire] = useState('');
   const [banqueIntermediaire, setBanqueIntermediaire] = useState('');
   const [swiftIntermediaire, setSwiftIntermediaire] = useState('');
@@ -21,6 +22,7 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
       setTitulaire(initialAccount.titulaire);
       setIban(initialAccount.iban);
       setCodeSwift(initialAccount.codeSwift);
+      setType(initialAccount.type || 'MRU');
       setCompteIntermediaire(initialAccount.compteIntermediaire || '');
       setBanqueIntermediaire(initialAccount.banqueIntermediaire || '');
       setSwiftIntermediaire(initialAccount.swiftIntermediaire || '');
@@ -36,7 +38,8 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
         banque, 
         titulaire, 
         iban, 
-        codeSwift, 
+        codeSwift,
+        type,
         compteIntermediaire,
         banqueIntermediaire,
         swiftIntermediaire
@@ -125,6 +128,23 @@ function BankAccountForm({ onClose, onAccountCreated, initialAccount = null }) {
             required
             className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+
+        {/* Type de compte */}
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">
+            Type de compte *
+          </label>
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+            required
+            className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="MRU">MRU</option>
+            <option value="EURO">EURO</option>
+            <option value="USD">USD</option>
+          </select>
         </div>
 
         {/* Compte Intermédiaire */}

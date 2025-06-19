@@ -6,6 +6,7 @@ import { generatePackingListFromFormPDF } from './pdfGenerators';
 const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
   const [packingData, setPackingData] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [selectedArticles, setSelectedArticles] = useState({});
 
   // Initialiser les données du packing list basées sur les cargos de la commande
   useEffect(() => {
@@ -15,36 +16,45 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
         const totalQuantity = cargo.itemsAlloues ? 
           cargo.itemsAlloues.reduce((sum, item) => sum + (item.quantiteAllouee || 0), 0) : 0;
         
+        // Calculer Num of Box = Net Weight / 20
         const numOfBoxes = Math.ceil(totalQuantity / 20);
         const netWeight = totalQuantity;
-        const grossWeight = netWeight + (1 * numOfBoxes);
+        
+        // Calculer Gross Weight = Num of Box * poids carton
+        const poidsCarton = parseFloat(cargo.poidsCarton) || 20; // Utiliser le poids carton du cargo
+        const grossWeight = numOfBoxes * poidsCarton;
 
-        // Obtenir la taille à partir du premier article du cargo
-        const firstItem = cargo.itemsAlloues && cargo.itemsAlloues.length > 0 ? 
-          cargo.itemsAlloues[0] : null;
-        const size = firstItem && firstItem.article ? firstItem.article.taille : '';
-
-        // Obtenir le mois courant
-        const currentDate = new Date();
-        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 
-                       'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-        const currentMonth = `${months[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+        // Obtenir les tailles de tous les articles du cargo
+        const sizes = cargo.itemsAlloues ? 
+          cargo.itemsAlloues
+            .filter(item => item.article && item.article.taille)
+            .map(item => item.article.taille)
+            .filter((size, index, self) => self.indexOf(size) === index) // Éliminer les doublons
+            .join(', ') : '';
 
         return {
           containerNo: cargo.noDeConteneur || '',
           sealNo: cargo.noPlomb || '',
-          size: size || '',
-          marks: '', // À remplir par l'utilisateur
+          size: sizes || '',
+          marks: '', // Sera rempli par la sélection d'articles
           prod: '', // À remplir par l'utilisateur
-          date: currentMonth,
+          date: '24 MONTHS FROM DATE OF PRODUCTION', // Valeur automatique
           box: '', // À remplir par l'utilisateur
           numOfBox: numOfBoxes,
           netWeight: netWeight,
-          grossWeight: grossWeight
+          grossWeight: grossWeight,
+          poidsCarton: poidsCarton // Stocker le poids carton pour les calculs
         };
       });
       
       setPackingData(initialData);
+      
+      // Initialiser les articles sélectionnés pour chaque cargo
+      const initialSelectedArticles = {};
+      commande.cargo.forEach((cargo, index) => {
+        initialSelectedArticles[index] = [];
+      });
+      setSelectedArticles(initialSelectedArticles);
     }
   }, [commande, isOpen]);
 
@@ -54,13 +64,38 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
     
     // Recalculer automatiquement si nécessaire
     if (field === 'netWeight') {
-      const numOfBoxes = newData[index].numOfBox || 0;
-      newData[index].grossWeight = parseFloat(value) + (1 * numOfBoxes);
+      const numOfBoxes = Math.ceil(parseFloat(value) / 20) || 0;
+      const poidsCarton = newData[index].poidsCarton || 20;
+      newData[index].numOfBox = numOfBoxes;
+      newData[index].grossWeight = numOfBoxes * poidsCarton;
     } else if (field === 'numOfBox') {
-      const netWeight = newData[index].netWeight || 0;
-      newData[index].grossWeight = netWeight + (1 * parseFloat(value));
+      const poidsCarton = newData[index].poidsCarton || 20;
+      newData[index].grossWeight = parseFloat(value) * poidsCarton;
     }
     
+    setPackingData(newData);
+  };
+
+  // Nouvelle fonction pour gérer la sélection d'articles multiples
+  const handleArticleSelection = (cargoIndex, selectedOptions) => {
+    const newSelectedArticles = { ...selectedArticles };
+    newSelectedArticles[cargoIndex] = selectedOptions;
+    setSelectedArticles(newSelectedArticles);
+
+    // Mettre à jour les champs marks et size automatiquement
+    const newData = [...packingData];
+    
+    // Remplir marks avec les intitulés séparés par des virgules
+    const marks = selectedOptions.map(option => option.intitule).join(', ');
+    newData[cargoIndex].marks = marks;
+
+    // Remplir size avec les tailles séparées par des virgules
+    const sizes = selectedOptions
+      .map(option => option.taille)
+      .filter((size, index, self) => self.indexOf(size) === index) // Éliminer les doublons
+      .join(', ');
+    newData[cargoIndex].size = sizes;
+
     setPackingData(newData);
   };
 
@@ -96,10 +131,91 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
 
   const getArticleOptions = () => {
     if (!commande.items) return [];
-    return commande.items.map(item => ({
-      value: item.article?.reference || '',
-      label: `${item.article?.reference || ''} - ${item.article?.specification || ''}`
-    }));
+    return commande.items
+      .filter(item => item.article && item.article.intitule) // S'assurer que l'article a un intitulé
+      .map(item => ({
+        value: item.article._id,
+        intitule: item.article.intitule,
+        taille: item.article.taille || '',
+        label: item.article.intitule // Afficher seulement l'intitulé
+      }));
+  };
+
+  // Composant pour la sélection multiple d'articles
+  const ArticleMultiSelect = ({ cargoIndex, selectedOptions, onSelectionChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const options = getArticleOptions();
+
+    // Fermer le menu quand on clique en dehors
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (isOpen && !event.target.closest('.multi-select-container')) {
+          setIsOpen(false);
+        }
+      };
+
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }, [isOpen]);
+
+    const toggleOption = (option) => {
+      const isSelected = selectedOptions.some(selected => selected.value === option.value);
+      let newSelection;
+      
+      if (isSelected) {
+        newSelection = selectedOptions.filter(selected => selected.value !== option.value);
+      } else {
+        newSelection = [...selectedOptions, option];
+      }
+      
+      onSelectionChange(newSelection);
+    };
+
+    return (
+      <div className="relative multi-select-container">
+        <div
+          className="w-full p-1 text-sm border border-gray-300 rounded cursor-pointer min-h-[24px] flex items-center hover:bg-gray-50"
+          onClick={() => setIsOpen(!isOpen)}
+        >
+          {selectedOptions.length === 0 ? (
+            <span className="text-gray-500">Sélectionner les articles...</span>
+          ) : (
+            <span className="text-xs">{selectedOptions.length} article(s) sélectionné(s)</span>
+          )}
+          <span className="ml-auto">▼</span>
+        </div>
+        
+        {isOpen && (
+          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
+            {options.length === 0 ? (
+              <div className="p-2 text-sm text-gray-500">Aucun article disponible</div>
+            ) : (
+              options.map((option, optIndex) => {
+                const isSelected = selectedOptions.some(selected => selected.value === option.value);
+                return (
+                  <div
+                    key={optIndex}
+                    className={`p-2 text-sm cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0 ${
+                      isSelected ? 'bg-blue-50 text-blue-800' : ''
+                    }`}
+                    onClick={() => toggleOption(option)}
+                  >
+                    <span className={isSelected ? 'font-semibold' : ''}>
+                      {isSelected ? '✓ ' : ''}{option.label}
+                    </span>
+                    {option.taille && (
+                      <span className="text-gray-500 ml-2">({option.taille})</span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   const totals = calculateTotals();
@@ -107,11 +223,11 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-7xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Créer le Packing List</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+      <div className="bg-white rounded-lg max-w-[95vw] w-full h-[95vh] overflow-y-auto">
+        <div className="p-4 h-full flex flex-col">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-800">Créer le Packing List</h2>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
@@ -120,27 +236,27 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
             </button>
           </div>
 
-          <div className="mb-4">
+          <div className="mb-3">
             <p className="text-sm text-gray-600">
               Commande: <strong>{commande.reference}</strong> | 
               Client: <strong>{commande.client?.raisonSociale}</strong>
             </p>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="flex-1 overflow-auto">
             <table className="w-full border-collapse border border-gray-300">
-              <thead>
+              <thead className="sticky top-0 bg-gray-100 z-10">
                 <tr className="bg-gray-100">
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Container N°</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Seal N°</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Size</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Marks</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Prod</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Date</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Box</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Num of Box</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Net Weight</th>
-                  <th className="border border-gray-300 px-2 py-2 text-sm font-semibold">Gross Weight</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Container N°</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Seal N°</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Size</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Articles</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Prod</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Expiry Date</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Box</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Num of Box</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Net Weight</th>
+                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Gross Weight</th>
                 </tr>
               </thead>
               <tbody>
@@ -166,23 +282,17 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
                       <input
                         type="text"
                         value={row.size}
-                        onChange={(e) => handleInputChange(index, 'size', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none"
+                        readOnly
+                        className="w-full p-1 text-sm border-none outline-none bg-gray-50"
+                        title="Rempli automatiquement à partir des articles sélectionnés"
                       />
                     </td>
                     <td className="border border-gray-300 p-1">
-                      <select
-                        value={row.marks}
-                        onChange={(e) => handleInputChange(index, 'marks', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none"
-                      >
-                        <option value="">Sélectionner un article</option>
-                        {getArticleOptions().map((option, optIndex) => (
-                          <option key={optIndex} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      <ArticleMultiSelect
+                        cargoIndex={index}
+                        selectedOptions={selectedArticles[index] || []}
+                        onSelectionChange={(selection) => handleArticleSelection(index, selection)}
+                      />
                     </td>
                     <td className="border border-gray-300 p-1">
                       <input
@@ -197,8 +307,9 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
                       <input
                         type="text"
                         value={row.date}
-                        onChange={(e) => handleInputChange(index, 'date', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none"
+                        readOnly
+                        className="w-full p-1 text-sm border-none outline-none bg-gray-50 font-semibold"
+                        title="Valeur automatique: 24 MONTHS FROM DATE OF PRODUCTION"
                       />
                     </td>
                     <td className="border border-gray-300 p-1">
@@ -214,9 +325,9 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
                       <input
                         type="number"
                         value={row.numOfBox}
-                        onChange={(e) => handleInputChange(index, 'numOfBox', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none text-center"
-                        step="1"
+                        readOnly
+                        className="w-full p-1 text-sm border-none outline-none text-center bg-gray-50"
+                        title="Calculé automatiquement: Net Weight ÷ 20"
                       />
                     </td>
                     <td className="border border-gray-300 p-1">
@@ -232,9 +343,9 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
                       <input
                         type="number"
                         value={row.grossWeight}
-                        onChange={(e) => handleInputChange(index, 'grossWeight', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none text-right"
-                        step="0.01"
+                        readOnly
+                        className="w-full p-1 text-sm border-none outline-none text-right bg-gray-50"
+                        title="Calculé automatiquement: Num of Box × Poids Carton"
                       />
                     </td>
                   </tr>
@@ -250,7 +361,7 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
             </table>
           </div>
 
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end space-x-3 mt-4 pt-4 border-t bg-white">
             <Button
               onClick={onClose}
               variant="secondary"

@@ -569,13 +569,14 @@ export const generateProformaInvoicePDF = (commande) => {
       groupedItem.totalPrice.toFixed(0)
     ]);
   });
-
+  
   tableRows.push([
     { content: "TOTAL", colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
     { content: totalQuantityKg.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } },
     "",
     { content: totalPrice.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } }
   ]);
+  
   doc.autoTable({
     startY: infoBlockY,
     head: [tableColumnHeaders],
@@ -594,6 +595,7 @@ export const generateProformaInvoicePDF = (commande) => {
       5: { halign: 'center' }
     }
   });
+  
   const afterTableY = doc.lastAutoTable.finalY + 8;
 
   // Utilisation des conditions de vente depuis la commande
@@ -1178,4 +1180,254 @@ export const generateCertificationRequestPDF = (commande) => {
 
   // Sauvegarde du PDF
   doc.save(`demande_certification_${commande.reference}.pdf`);
+};
+
+// Fonction pour générer le Bon de Transfert PDF (simple ou multiple)
+export const generateBonDeTransfertPDF = (transfer) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 15;
+  const marginRight = 15;
+
+  // =============================
+  // 1. En-tête avec logo
+  // =============================
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 25, 25);
+
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'bold');
+  let currentY = 15;
+  const infoX = marginLeft + 30;
+  doc.text("MSM SEAFOOD", infoX, currentY);
+  currentY += 6;
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  currentY += 4;
+  doc.text("+222 46 00 89 08", infoX, currentY);
+  currentY += 4;
+  doc.text("Zone idustrielle, Dakhlet Nouâdhibou", infoX, currentY);
+
+  // =============================
+  // 2. Date et numéro de transfert
+  // =============================
+  const dateStr = transfer.dateTransfert 
+    ? new Date(transfer.dateTransfert).toLocaleDateString('fr-FR')
+    : new Date().toLocaleDateString('fr-FR');
+  
+  doc.setFontSize(10);
+  doc.text(`Date: ${dateStr}`, pageWidth - marginRight, 20, { align: 'right' });
+  doc.text(`N° Transfert: ${transfer._id}`, pageWidth - marginRight, 28, { align: 'right' });
+
+  // =============================
+  // 3. Titre
+  // =============================
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  const title = transfer.isMultiple ? 'BON DE TRANSFERT' : 'BON DE TRANSFERT';
+  doc.text(title, pageWidth / 2, 55, { align: 'center' });
+
+  // =============================
+  // 4. Informations générales
+  // =============================
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  let infoY = 75;
+  
+  doc.setFont(undefined, 'bold');
+  doc.text('Informations Générales:', marginLeft, infoY);
+  doc.setFont(undefined, 'normal');
+  infoY += 8;
+  
+  doc.text(`Dépôt de Départ: ${transfer.depotDepart?.intitule || 'N/A'}`, marginLeft, infoY);
+  infoY += 6;
+  doc.text(`Dépôt d'Arrivée: ${transfer.depotArrivee?.intitule || 'N/A'}`, marginLeft, infoY);
+  infoY += 6;
+  doc.text(`Pointeur: ${transfer.pointeur || 'N/A'}`, marginLeft, infoY);
+  infoY += 6;
+  doc.text(`Moyen de Transport: ${transfer.moyenDeTransfert || 'N/A'}`, marginLeft, infoY);
+  if (transfer.immatricule) {
+    infoY += 6;
+    doc.text(`Immatricule: ${transfer.immatricule}`, marginLeft, infoY);
+  }
+
+  // =============================
+  // 5. Tableau des articles
+  // =============================
+  let tableStartY = infoY + 15;
+  
+  if (transfer.isMultiple && transfer.items && transfer.items.length > 0) {
+    // Transfert multiple
+    doc.setFont(undefined, 'bold');
+    doc.text('Détail des Articles Transférés:', marginLeft, tableStartY);
+    tableStartY += 8;
+    
+    const headers = [
+      'Article',
+      'Référence',
+      'Taille',
+      'Quantité (Kg)',
+      'Quantité (Cartons)',
+      'Batch Number'
+    ];
+
+    const rows = transfer.items.map(item => {
+      const article = item.article || {};
+      const articleName = [
+        article.reference || 'N/A',
+        article.specification || '',
+        article.intitule || ''
+      ].filter(Boolean).join(' - ');
+      
+      const batchNumbers = item.detailsLots 
+        ? item.detailsLots.map(lot => lot.batchNumber).filter(Boolean).join(', ')
+        : 'N/A';
+      
+      return [
+        articleName,
+        article.reference || 'N/A',
+        article.taille || 'N/A',
+        item.quantiteKg?.toString() || '0',
+        item.quantiteCarton?.toFixed(2) || '0',
+        batchNumbers
+      ];
+    });
+
+    // Ligne de total
+    const totalKg = transfer.quantiteKg || 0;
+    const totalCartons = transfer.quantiteCarton || 0;
+    rows.push([
+      { content: 'TOTAL', styles: { fontStyle: 'bold' } },
+      '',
+      '',
+      { content: totalKg.toString(), styles: { fontStyle: 'bold' } },
+      { content: totalCartons.toFixed(2), styles: { fontStyle: 'bold' } },
+      ''
+    ]);
+
+    doc.autoTable({
+      startY: tableStartY,
+      head: [headers],
+      body: rows,
+      theme: 'grid',
+      styles: { 
+        fontSize: 8,
+        cellPadding: 3
+      },
+      headStyles: {
+        fillColor: [64, 64, 64],
+        textColor: 'white',
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 35 }
+      }
+    });
+  } else {
+    // Transfert simple
+    doc.setFont(undefined, 'bold');
+    doc.text('Détail du Transfert:', marginLeft, tableStartY);
+    tableStartY += 8;
+    
+    const headers = [
+      'Article',
+      'Référence',
+      'Taille',
+      'Quantité (Kg)',
+      'Quantité (Cartons)',
+      'Batch Number'
+    ];
+
+    const article = transfer.article || {};
+    const articleName = [
+      article.reference || 'N/A',
+      article.specification || '',
+      article.intitule || ''
+    ].filter(Boolean).join(' - ');
+    
+    const batchNumbers = transfer.detailsLots 
+      ? transfer.detailsLots.map(lot => lot.batchNumber).filter(Boolean).join(', ')
+      : 'N/A';
+    
+    const rows = [[
+      articleName,
+      article.reference || 'N/A',
+      article.taille || 'N/A',
+      transfer.quantiteKg?.toString() || '0',
+      transfer.quantiteCarton?.toFixed(2) || (transfer.quantiteKg ? (transfer.quantiteKg / 20).toFixed(2) : '0'),
+      batchNumbers
+    ]];
+
+    doc.autoTable({
+      startY: tableStartY,
+      head: [headers],
+      body: rows,
+      theme: 'grid',
+      styles: { 
+        fontSize: 9,
+        cellPadding: 4
+      },
+      headStyles: {
+        fillColor: [64, 64, 64],
+        textColor: 'white',
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 20 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 25 },
+        5: { cellWidth: 35 }
+      }
+    });
+  }
+
+  // =============================
+  // 6. Signatures
+  // =============================
+  const finalY = doc.lastAutoTable.finalY || tableStartY + 30;
+  const signatureY = finalY + 20;
+  
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.text('Signatures:', marginLeft, signatureY);
+  
+  doc.setFont(undefined, 'normal');
+  const sig1Y = signatureY + 15;
+  const sig2Y = signatureY + 15;
+  
+  doc.text('Pointeur:', marginLeft, sig1Y);
+  doc.text('Signature Responsable:', pageWidth / 2, sig1Y);
+  
+  // Lignes de signature
+  doc.line(marginLeft, sig1Y + 15, marginLeft + 60, sig1Y + 15);
+  doc.line(pageWidth / 2, sig2Y + 15, pageWidth / 2 + 60, sig2Y + 15);
+  
+  const sig3Y = sig1Y + 25;
+  // doc.text('Responsable Dépôt Arrivée:', marginLeft, sig3Y);
+  // doc.line(marginLeft, sig3Y + 15, marginLeft + 60, sig3Y + 15);
+
+  // =============================
+  // 7. Notes/Observations
+  // =============================
+  // const notesY = sig3Y + 25;
+  // doc.setFont(undefined, 'bold');
+  // doc.text('Observations:', marginLeft, notesY);
+  // doc.setFont(undefined, 'normal');
+  
+  // // Cadre pour les observations
+  // doc.rect(marginLeft, notesY + 5, pageWidth - marginLeft - marginRight, 20);
+
+  // Sauvegarde
+  const fileName = transfer.isMultiple 
+    ? `bon_transfert_multiple_${transfer._id}.pdf`
+    : `bon_transfert_${transfer._id}.pdf`;
+  
+  doc.save(fileName);
 };
