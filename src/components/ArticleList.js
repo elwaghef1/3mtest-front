@@ -84,6 +84,7 @@ function ArticleList() {
     const columns = [
       { header: 'Référence', dataKey: 'reference' },
       { header: 'Code', dataKey: 'intitule' },
+      { header: 'Nom scientifique', dataKey: 'nomScientifique' },
       { header: 'Spécification', dataKey: 'specification' },
       { header: 'Taille', dataKey: 'taille' },
       { header: 'Type Carton', dataKey: 'typeCarton' },
@@ -93,6 +94,7 @@ function ArticleList() {
     const rows = articles.map((a) => ({
       reference: a.reference,
       intitule: a.intitule,
+      nomScientifique: a.nomScientifique || '—',
       specification: a.specification || '—',
       taille: a.taille || '—',
       typeCarton: a.typeCarton || '—',
@@ -137,6 +139,7 @@ function ArticleList() {
     const worksheetData = articles.map((a) => ({
       'Référence': a.reference,
       'Code': a.intitule,
+      'Nom scientifique': a.nomScientifique || '—',
       'Spécification': a.specification || '—',
       'Taille': a.taille || '—',
       'Type Carton': a.typeCarton || '—',
@@ -210,6 +213,9 @@ function ArticleList() {
                   Code
                 </th>
                 <th className="px-4 py-3 text-left font-bold text-gray-700 border border-gray-400">
+                  Nom scientifique
+                </th>
+                <th className="px-4 py-3 text-left font-bold text-gray-700 border border-gray-400">
                   Spécification
                 </th>
                 <th className="px-4 py-3 text-left font-bold text-gray-700 border border-gray-400">
@@ -231,6 +237,7 @@ function ArticleList() {
                 <tr key={a._id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 border border-gray-400">{a.reference}</td>
                   <td className="px-4 py-3 border border-gray-400">{a.intitule}</td>
+                  <td className="px-4 py-3 border border-gray-400">{a.nomScientifique || '—'}</td>
                   <td className="px-4 py-3 border border-gray-400">{a.specification || '—'}</td>
                   <td className="px-4 py-3 border border-gray-400">{a.taille || '—'}</td>
                   <td className="px-4 py-3 border border-gray-400">{a.typeCarton || '—'}</td>

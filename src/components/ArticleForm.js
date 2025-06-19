@@ -5,6 +5,7 @@ import Button from './Button';
 function ArticleForm({ article, onClose, onArticleCreated }) {
   const [reference, setReference] = useState('');
   const [intitule, setIntitule] = useState('');
+  const [nomScientifique, setNomScientifique] = useState('');
   const [specification, setSpecification] = useState('');
   const [taille, setTaille] = useState('');
   const [typeCarton, setTypeCarton] = useState('');
@@ -18,6 +19,7 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
     if (article) {
       setReference(article.reference || '');
       setIntitule(article.intitule || '');
+      setNomScientifique(article.nomScientifique || '');
       setSpecification(article.specification || '');
       setTaille(article.taille || '');
       setTypeCarton(article.typeCarton || '');
@@ -26,6 +28,7 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
     } else {
       setReference('');
       setIntitule('');
+      setNomScientifique('');
       setSpecification('');
       setTaille('');
       setTypeCarton('');
@@ -41,6 +44,7 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
     const payload = {
       reference,
       intitule,
+      nomScientifique,
       specification,
       taille,
       typeCarton,
@@ -86,6 +90,16 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
             required
             value={intitule}
             onChange={(e) => setIntitule(e.target.value)}
+          />
+        </div>
+        <div>
+          <label>Nom scientifique</label>
+          <input
+            className="w-full border px-2 py-1"
+            type="text"
+            value={nomScientifique}
+            onChange={(e) => setNomScientifique(e.target.value)}
+            placeholder="ex: Sardina pilchardus"
           />
         </div>
         <div>
