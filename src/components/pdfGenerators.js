@@ -360,8 +360,8 @@ export const generateInvoicePDF = (commande) => {
       groupedItem.size,
       "Kg",
       groupedItem.totalQuantity.toFixed(0),
-      groupedItem.unitPrice.toFixed(0),
-      groupedItem.totalPrice.toFixed(0)
+      groupedItem.unitPrice.toFixed(2),
+      groupedItem.totalPrice.toFixed(2)
     ]);
   });
   
@@ -369,7 +369,7 @@ export const generateInvoicePDF = (commande) => {
     { content: "TOTAL", colSpan: 3, styles: { halign: 'right', fontStyle: 'bold' } },
     { content: totalQuantityKg.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } },
     "",
-    { content: totalPrice.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } }
+    { content: totalPrice.toFixed(3), styles: { halign: 'center', fontStyle: 'bold' } }
   ]);
   
   doc.autoTable({
@@ -565,8 +565,8 @@ export const generateProformaInvoicePDF = (commande) => {
       groupedItem.size,
       "Kg",
       groupedItem.totalQuantity.toFixed(0),
-      groupedItem.unitPrice.toFixed(0),
-      groupedItem.totalPrice.toFixed(0)
+      groupedItem.unitPrice.toFixed(2),
+      groupedItem.totalPrice.toFixed(2)
     ]);
   });
   
@@ -574,7 +574,7 @@ export const generateProformaInvoicePDF = (commande) => {
     { content: "TOTAL", colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
     { content: totalQuantityKg.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } },
     "",
-    { content: totalPrice.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } }
+    { content: totalPrice.toFixed(3), styles: { halign: 'center', fontStyle: 'bold' } }
   ]);
   
   doc.autoTable({
