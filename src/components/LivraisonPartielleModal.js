@@ -503,13 +503,19 @@ const LivraisonPartielleModal = ({
   const handleConfirmerLivraison = async () => {
     setLoading(true);
     try {
+      // CORRECTION CRITIQUE : Inclure TOUS les articles de la commande dans l'envoi
+      // même ceux à 0kg pour que le backend sache qu'ils ne sont pas livrés
       const itemsALivrer = livraisonItems.filter(item => item.pourLivraison && item.quantiteLivree > 0);
+      const itemsNonLivres = livraisonItems.filter(item => !item.pourLivraison || item.quantiteLivree === 0);
       
       if (itemsALivrer.length === 0) {
         alert('❌ Aucun article sélectionné pour la livraison');
         setLoading(false);
         return;
       }
+      
+      console.log('📋 Articles à livrer:', itemsALivrer.map(i => `${i.article.intitule}: ${i.quantiteLivree}kg`));
+      console.log('📋 Articles NON livrés:', itemsNonLivres.map(i => `${i.article.intitule}: ${i.quantiteRestante}kg restants`));
 
       // NOUVELLE VALIDATION: Vérifier la compatibilité des lots AVANT l'envoi
       const erreursCompatibilite = validerCompatibiliteLots(itemsALivrer);
@@ -572,6 +578,15 @@ const LivraisonPartielleModal = ({
             batchNumber: lot.batchNumber,
             quantite: lot.quantite
           }))
+        })),
+        // NOUVELLE PROPRIÉTÉ CRITIQUE : Informer le backend des articles non livrés
+        // pour qu'il sache que la commande doit rester en statut PARTIELLEMENT_LIVREE
+        itemsNonLivres: itemsNonLivres.map(item => ({
+          itemId: item._id,
+          articleId: item.article._id || item.article,
+          depotId: item.depot._id || item.depot,
+          quantiteRestante: item.quantiteRestante,
+          raison: 'non_livré_intentionnellement'
         }))
       };
 
@@ -584,6 +599,19 @@ const LivraisonPartielleModal = ({
       
       // Afficher un message de succès avec détails des lots
       let successMessage = `✅ Livraison partielle effectuée avec succès!\nRéférence: ${resume.referenceLivraison}\nQuantité livrée: ${resume.quantiteLivree} kg`;
+      
+      // Ajouter des informations sur le statut de la commande
+      if (resume.statutCommandeOriginale === 'PARTIELLEMENT_LIVREE') {
+        successMessage += `\n\n🔄 Statut commande mère: PARTIELLEMENT LIVRÉE`;
+        if (resume.articlesRestants > 0) {
+          successMessage += `\n📦 Articles restants à livrer: ${resume.articlesRestants}`;
+        }
+        if (resume.articlesNonLivres > 0) {
+          successMessage += `\n❌ Articles non livrés: ${resume.articlesNonLivres}`;
+        }
+      } else if (resume.statutCommandeOriginale === 'LIVREE') {
+        successMessage += `\n\n✅ Statut commande mère: ENTIÈREMENT LIVRÉE`;
+      }
       
       successMessage += '\n\n📦 Distribution par lots:';
       itemsALivrer.forEach(item => {
