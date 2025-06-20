@@ -1325,7 +1325,7 @@ const CommandeList = () => {
                             Modifier
                           </Button>
                           {/* Bouton de livraison avec indication si désactivé */}
-                          {/* <Button
+                          <Button
                             onClick={() => handleShowLivraisonPartielle(commande)}
                             className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs leading-4 font-medium rounded-md ${
                               canDeliver(commande)
@@ -1337,7 +1337,7 @@ const CommandeList = () => {
                           >
                             <TruckIcon className="h-4 w-4 mr-1" />
                             Livrer
-                          </Button> */}
+                          </Button>
                           {/* Bouton de suppression - toujours affiché mais grisé pour les commandes livrées */}
                           <Button
                             onClick={() => canDeleteCommande(commande) ? handleShowDeleteModal(commande) : null}
