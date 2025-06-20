@@ -263,17 +263,73 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
   // Note: La gestion des lots a été supprimée de la création de commande
   // Les lots seront gérés lors de la livraison via LivraisonPartielleModal
 
+  // Fonction pour vérifier les doublons article/dépôt
+  const checkDuplicateArticleDepot = (articleId, depotId, currentIndex) => {
+    if (!articleId || !depotId) return false;
+    
+    return items.some((item, index) => 
+      index !== currentIndex && 
+      item.article === articleId && 
+      item.depot === depotId
+    );
+  };
+
+  // Fonction pour obtenir les articles déjà utilisés dans un dépôt
+  const getUsedArticlesInDepot = (depotId, currentIndex) => {
+    if (!depotId) return [];
+    
+    return items
+      .map((item, index) => ({ ...item, index }))
+      .filter(item => 
+        item.index !== currentIndex && 
+        item.depot === depotId && 
+        item.article
+      )
+      .map(item => item.article);
+  };
+
   // Mise à jour d’un item
   const updateItem = (index, field, value) => {
     const updatedItems = [...items];
+    
+    // Vérification spéciale pour les champs article et depot
+    if (field === 'article' || field === 'depot') {
+      const articleId = field === 'article' ? value : updatedItems[index].article;
+      const depotId = field === 'depot' ? value : updatedItems[index].depot;
+      
+      // Vérifier s'il y a un doublon
+      if (articleId && depotId && checkDuplicateArticleDepot(articleId, depotId, index)) {
+        // Afficher un message d'erreur
+        const article = articles.find(a => a._id === articleId);
+        const depot = depots.find(d => d._id === depotId);
+        const articleName = article?.intitule || 'Article inconnu';
+        const depotName = depot?.intitule || 'Dépôt inconnu';
+        
+        setErrorMessage(`❌ L'article "${articleName}" est déjà ajouté pour le dépôt "${depotName}". Veuillez modifier la quantité existante au lieu d'ajouter une nouvelle ligne.`);
+        
+        // Optionnel: faire défiler vers l'item existant pour le mettre en évidence
+        setTimeout(() => {
+          setErrorMessage('');
+        }, 5000);
+        
+        return; // Ne pas mettre à jour l'item
+      }
+    }
+    
     updatedItems[index][field] = value;
+    
     if (field === 'quantiteKg' || field === 'prixUnitaire') {
       const quantiteKg = parseFloat(updatedItems[index].quantiteKg) || 0;
       const prixUnitaire = parseFloat(updatedItems[index].prixUnitaire) || 0;
       updatedItems[index].quantiteCarton = quantiteKg / 20;
       updatedItems[index].prixTotal = prixUnitaire * quantiteKg;
     }
-    // Note: La gestion des lots a été supprimée lors de la création de commande
+    
+    // Effacer le message d'erreur s'il y en a un
+    if (errorMessage) {
+      setErrorMessage('');
+    }
+    
     setItems(updatedItems);
   };
 
@@ -395,20 +451,66 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     }));
   }, [items, formData.montantPaye]);
 
+  // Fonction pour vérifier les stocks insuffisants
+  const checkInsufficientStock = () => {
+    const stockIssues = [];
+    items.forEach((item, index) => {
+      if (item.article && item.depot && item.quantiteKg) {
+        const status = getStockStatus(item, index);
+        if (status && (status.type === 'warning' || status.type === 'error')) {
+          const article = articles.find(a => a._id === item.article);
+          const depot = depots.find(d => d._id === item.depot);
+          const stockInfo = getStockInfo(item.article, item.depot);
+          
+          stockIssues.push({
+            article: article?.intitule || 'Article inconnu',
+            depot: depot?.intitule || 'Dépôt inconnu',
+            quantiteCommande: parseFloat(item.quantiteKg),
+            stockDisponible: stockInfo?.disponible || 0,
+            quantiteManquante: Math.max(0, parseFloat(item.quantiteKg) - (stockInfo?.disponible || 0)),
+            type: status.type
+          });
+        }
+      }
+    });
+    return stockIssues;
+  };
+
+  // État pour gérer la modal d'avertissement
+  const [showStockWarning, setShowStockWarning] = useState(false);
+  const [stockIssues, setStockIssues] = useState([]);
+
   // Soumission du formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
-    setLoading(true);
     
     // Validation supplémentaire pour les commandes non locales
     if (formData.typeCommande !== 'LOCALE') {
       if (!formData.destination) {
         setErrorMessage('La destination est obligatoire pour les commandes export');
-        setLoading(false);
         return;
       }
     }
+
+    // Vérification des stocks insuffisants (uniquement pour les nouvelles commandes)
+    if (!initialCommande) {
+      const issues = checkInsufficientStock();
+      if (issues.length > 0) {
+        setStockIssues(issues);
+        setShowStockWarning(true);
+        return; // Arrêter ici et afficher la modal d'avertissement
+      }
+    }
+
+    // Procéder à la soumission si pas de problèmes de stock
+    await submitForm();
+  };
+
+  // Fonction pour soumettre le formulaire après confirmation
+  const submitForm = async () => {
+    setLoading(true);
+    
     
     try {
       const payload = {
@@ -570,6 +672,24 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
   return (
     <div className="p-8 max-h-[90vh] overflow-y-auto">
       <h2 className="text-2xl font-bold mb-6">{initialCommande ? 'Modifier la Commande' : 'Nouvelle Commande'}</h2>
+      
+      {/* Message d'erreur */}
+      {errorMessage && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-red-700 font-medium">{errorMessage}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ...existing code... */}
       
       {/* Type de commande avec étiquette */}
       <div className="mb-6 bg-white p-4 rounded-lg border border-gray-200">
@@ -849,9 +969,21 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   >
                     <option value="">-- Choisir un article --</option>
                     {articles.map(a => {
-                      // const label = `${a.reference || ''} - ${a.specification || ''} - ${a.taille || ''} - ${a.typeCarton || ''}`;
                       const label = `${a.intitule}`;
-                      return <option key={a._id} value={a._id}>{label}</option>;
+                      const usedArticles = getUsedArticlesInDepot(item.depot, index);
+                      const isAlreadyUsed = usedArticles.includes(a._id);
+                      const optionLabel = isAlreadyUsed ? `${label} (Déjà ajouté)` : label;
+                      
+                      return (
+                        <option 
+                          key={a._id} 
+                          value={a._id}
+                          disabled={isAlreadyUsed}
+                          style={isAlreadyUsed ? { color: '#9CA3AF', fontStyle: 'italic' } : {}}
+                        >
+                          {optionLabel}
+                        </option>
+                      );
                     })}
                   </select>
                 </div>
@@ -1422,6 +1554,103 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               <p className="text-sm text-blue-800">
                 💡 <strong>Information:</strong> Vous serez automatiquement notifié lorsque les articles manquants seront disponibles en stock.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal d'avertissement pour stock insuffisant */}
+      {showStockWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="text-center mb-6">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-orange-100 mb-4">
+                <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                ⚠️ Stock Insuffisant Détecté
+              </h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Certains articles de votre commande n'ont pas de stock suffisant. 
+                Votre commande sera créée avec des <strong>quantités manquantes</strong>.
+              </p>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {stockIssues.map((issue, index) => (
+                <div key={index} className={`p-4 rounded-lg border ${
+                  issue.type === 'error' 
+                    ? 'bg-red-50 border-red-200' 
+                    : 'bg-orange-50 border-orange-200'
+                }`}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900 mb-2">
+                        {issue.article}
+                      </h4>
+                      <div className="text-sm text-gray-600 space-y-1">
+                        <p><span className="font-medium">Dépôt:</span> {issue.depot}</p>
+                        <p><span className="font-medium">Quantité commandée:</span> {issue.quantiteCommande} Kg</p>
+                        <p><span className="font-medium">Stock disponible:</span> {issue.stockDisponible} Kg</p>
+                        <p className={`font-medium ${issue.type === 'error' ? 'text-red-600' : 'text-orange-600'}`}>
+                          <span className="font-medium">Quantité manquante:</span> {issue.quantiteManquante} Kg
+                        </p>
+                      </div>
+                    </div>
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      issue.type === 'error' 
+                        ? 'bg-red-100 text-red-800' 
+                        : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {issue.type === 'error' ? 'Stock indisponible' : 'Stock partiel'}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-6 6a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h4 className="text-sm font-medium text-blue-800">
+                    Comment cela fonctionne-t-il ?
+                  </h4>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Votre commande sera créée avec le statut <strong>"EN_ATTENTE_STOCK"</strong></li>
+                      <li>Les quantités manquantes seront automatiquement suivies</li>
+                      <li>Dès qu'un stock suffisant sera disponible, vous serez notifié</li>
+                      <li>La commande passera automatiquement au statut <strong>"COMPLET"</strong></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-4">
+              <Button
+                variant="secondary"
+                onClick={() => setShowStockWarning(false)}
+              >
+                Annuler
+              </Button>
+              <Button
+                variant="warning"
+                onClick={() => {
+                  setShowStockWarning(false);
+                  submitForm();
+                }}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                Confirmer la commande manquante
+              </Button>
             </div>
           </div>
         </div>
