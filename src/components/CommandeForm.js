@@ -968,23 +968,36 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                     disabled={formData.statutBonDeCommande === 'LIVREE'}
                   >
                     <option value="">-- Choisir un article --</option>
-                    {articles.map(a => {
-                      const label = `${a.intitule}`;
-                      const usedArticles = getUsedArticlesInDepot(item.depot, index);
-                      const isAlreadyUsed = usedArticles.includes(a._id);
-                      const optionLabel = isAlreadyUsed ? `${label} (Déjà ajouté)` : label;
-                      
-                      return (
-                        <option 
-                          key={a._id} 
-                          value={a._id}
-                          disabled={isAlreadyUsed}
-                          style={isAlreadyUsed ? { color: '#9CA3AF', fontStyle: 'italic' } : {}}
-                        >
-                          {optionLabel}
-                        </option>
-                      );
-                    })}
+                    {articles
+                      .sort((a, b) => {
+                        // Tri par ordre alphabétique basé sur l'intitulé
+                        const labelA = a.intitule || '';
+                        const labelB = b.intitule || '';
+                        return labelA.localeCompare(labelB);
+                      })
+                      .map(a => {
+                        // Construction du label complet avec toutes les informations
+                        const parts = [];
+                        if (a.reference) parts.push(a.reference);
+                        if (a.specification) parts.push(`- ${a.specification}`);
+                        if (a.taille) parts.push(`- ${a.taille}`);
+                        const label = parts.join(' ');
+                        
+                        const usedArticles = getUsedArticlesInDepot(item.depot, index);
+                        const isAlreadyUsed = usedArticles.includes(a._id);
+                        const optionLabel = isAlreadyUsed ? `${label} (Déjà ajouté)` : label;
+                        
+                        return (
+                          <option 
+                            key={a._id} 
+                            value={a._id}
+                            disabled={isAlreadyUsed}
+                            style={isAlreadyUsed ? { color: '#9CA3AF', fontStyle: 'italic' } : {}}
+                          >
+                            {optionLabel}
+                          </option>
+                        );
+                      })}
                   </select>
                 </div>
                 <div className="flex flex-col">
