@@ -8,6 +8,7 @@ export default function AdjustStockModal({ isOpen, onClose, stock, onAdjusted })
   const [lots, setLots]                     = useState([]);
   const [selectedLot, setSelectedLot]       = useState('');
   const [error, setError]                   = useState('');
+  const [isSubmitting, setIsSubmitting]     = useState(false);
 
   // à l’ouverture du modal : charger les lots
   useEffect(() => {
@@ -18,36 +19,41 @@ export default function AdjustStockModal({ isOpen, onClose, stock, onAdjusted })
       setError('');
       axios.get(`/entrees/lots/${stock.depot._id}/${stock.article._id}`)
         .then(res => setLots(res.data))
-        .catch(err => setError('Impossible de charger les lots'));
+        .catch(() => setError('Impossible de charger les lots'));
     }
   }, [isOpen, stock]);
 
   const handleSubmit = async e => {
     e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
     try {
       const payload = { quantiteDelta: parseFloat(quantiteDelta) };
 
+      // Vérification et construction du payload
       if (quantiteDelta > 0) {
-        // Si c'est un ajout, on demande de sélectionner un lot pour ajouter la quantité
         if (!selectedLot) {
-          return setError('Vous devez choisir un lot pour un ajout');
+          setError('Vous devez choisir un lot pour un ajout');
+          return;
         }
         payload.lotId = selectedLot;
-        payload.prixUnitaire = parseFloat(prixUnitaire); // prix unitaire pour l'ajout
+        payload.prixUnitaire = parseFloat(prixUnitaire);
       } else {
-        // Cas de retrait, on garde l'ancienne logique
         if (!selectedLot) {
-          return setError('Vous devez choisir un lot pour un retrait');
+          setError('Vous devez choisir un lot pour un retrait');
+          return;
         }
         payload.lotId = selectedLot;
       }
 
-      // Envoie de la requête pour ajuster le stock
+      // Envoi de la requête
       await axios.patch(`/stock/${stock._id}/adjust`, payload);
       onAdjusted();
       onClose();
     } catch (err) {
       setError(err.response?.data?.error || 'Erreur lors de l’ajustement');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -62,19 +68,27 @@ export default function AdjustStockModal({ isOpen, onClose, stock, onAdjusted })
           <div>
             <label className="block text-sm mb-1">Quantité à ajuster (Kg):</label>
             <input
-              type="number" step="0.01" value={quantiteDelta}
+              type="number"
+              step="0.01"
+              value={quantiteDelta}
               onChange={e => setQuantiteDelta(e.target.value)}
-              className="w-full border p-2 rounded" required
+              className="w-full border p-2 rounded"
+              required
+              disabled={isSubmitting}
             />
           </div>
 
           {quantiteDelta !== 0 && (
             <div>
-              <label className="block text-sm mb-1">{quantiteDelta > 0 ? "Choisir un lot pour ajouter :" : "Choisir un lot pour retirer :"}</label>
+              <label className="block text-sm mb-1">
+                {quantiteDelta > 0 ? "Choisir un lot pour ajouter :" : "Choisir un lot pour retirer :"}
+              </label>
               <select
                 value={selectedLot}
                 onChange={e => setSelectedLot(e.target.value)}
-                className="w-full border p-2 rounded" required
+                className="w-full border p-2 rounded"
+                required
+                disabled={isSubmitting}
               >
                 <option value="">-- Sélectionnez un lot --</option>
                 {lots.map(l => (
@@ -90,19 +104,34 @@ export default function AdjustStockModal({ isOpen, onClose, stock, onAdjusted })
             <div>
               <label className="block text-sm mb-1">Prix unitaire (pour ajout) :</label>
               <input
-                type="number" step="0.01" value={prixUnitaire}
+                type="number"
+                step="0.01"
+                value={prixUnitaire}
                 onChange={e => setPrixUnitaire(e.target.value)}
-                className="w-full border p-2 rounded" required
+                className="w-full border p-2 rounded"
+                required
+                disabled={isSubmitting}
               />
             </div>
           )}
 
           <div className="flex justify-end space-x-2">
-            <Button type="button" onClick={onClose} variant="secondary" size="sm">
+            <Button
+              type="button"
+              onClick={onClose}
+              variant="secondary"
+              size="sm"
+              disabled={isSubmitting}
+            >
               Annuler
             </Button>
-            <Button type="submit" variant="primary" size="sm">
-              Valider
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'En cours...' : 'Valider'}
             </Button>
           </div>
         </form>

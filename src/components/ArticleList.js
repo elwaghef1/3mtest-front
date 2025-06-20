@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from '../api/axios';
 import Button from './Button';
 import ArticleForm from './ArticleForm';
@@ -11,6 +12,7 @@ import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 function ArticleList() {
+  const navigate = useNavigate();
   const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,6 +57,10 @@ function ArticleList() {
   const handleEditArticle = (article) => {
     setEditingArticle(article);
     setShowForm(true);
+  };
+
+  const handleViewMovements = (article) => {
+    navigate(`/articles/${article._id}/mouvements`);
   };
 
   const handleCloseForm = () => setShowForm(false);
@@ -247,13 +253,22 @@ function ArticleList() {
                       : '—'}
                   </td>
                   <td className="px-4 py-3 border border-gray-400">
-                    <Button
-                      onClick={() => handleEditArticle(a)}
-                      variant="warning"
-                      size="sm"
-                    >
-                      Modifier
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button
+                        onClick={() => handleEditArticle(a)}
+                        variant="warning"
+                        size="sm"
+                      >
+                        Modifier
+                      </Button>
+                      <Button
+                        onClick={() => handleViewMovements(a)}
+                        variant="info"
+                        size="sm"
+                      >
+                        Mouvements
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

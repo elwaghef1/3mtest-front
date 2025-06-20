@@ -28,6 +28,7 @@ import LotList from './components/LotList.js';
 import BankAccountList from './components/BankAccountList.js';
 import QuantiteManquanteList from './components/QuantiteManquanteList.js';
 import QuantiteManquanteDashboard from './components/QuantiteManquanteDashboard.js';
+import ArticleMovements from './components/ArticleMovements.js';
 
 function App() {
   return (
@@ -128,6 +129,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <ArticleList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/articles/:articleId/mouvements"
+              element={
+                <PrivateRoute>
+                  <ArticleMovements />
                 </PrivateRoute>
               }
             />
