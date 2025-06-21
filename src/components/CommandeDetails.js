@@ -264,7 +264,7 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-8 bg-white rounded-lg shadow-lg border border-gray-200">
+    <div className="max-w-8xl mx-auto p-8 bg-white rounded-lg shadow-lg border border-gray-200">
       <h2 className="text-3xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-red-700 to-purple-500">
         Détails de la Commande
       </h2>
@@ -276,9 +276,9 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
               <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-left">
                 Référence
               </th>
-              <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-center">
+              {/* <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-center">
                 Batch Number
-              </th>
+              </th> */}
               <th className="border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 text-center">
                 Quantité (Kg)
               </th>
@@ -297,9 +297,9 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
                   <td className="border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 whitespace-nowrap">
                     {formatArticle(item.article)}
                   </td>
-                  <td className="border border-gray-300 px-2 py-1 text-xs text-gray-700 whitespace-nowrap text-center">
+                  {/* <td className="border border-gray-300 px-2 py-1 text-xs text-gray-700 whitespace-nowrap text-center">
                     <strong>{item.lot && item.lot.batchNumber ? item.lot.batchNumber : '—'}</strong>
-                  </td>
+                  </td> */}
                   <td className="border border-gray-300 px-2 py-1 text-xs text-gray-700 whitespace-nowrap">
                     {item.quantiteKg || '—'}
                   </td>
