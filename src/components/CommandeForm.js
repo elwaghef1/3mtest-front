@@ -36,6 +36,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
   // État initial du formulaire
   const [formData, setFormData] = useState({
     reference: '',
+    numeroFacture: '', // Nouveau champ - généré automatiquement
+    numeroFactureProforma: '', // Nouveau champ - généré automatiquement
     typeCommande: 'NORMALE', // Nouveau champ
     numeroBooking: '',
     cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
@@ -125,6 +127,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
       console.log('Initial commande typeCommande:', initialCommande.typeCommande); // Debug log
       setFormData({
         reference: initialCommande.reference || '',
+        numeroFacture: initialCommande.numeroFacture || '',
+        numeroFactureProforma: initialCommande.numeroFactureProforma || '',
         typeCommande: initialCommande.typeCommande || 'NORMALE',
         numeroBooking: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroBooking || ''),
         cargo: Array.isArray(initialCommande.cargo) 
@@ -768,6 +772,34 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   readOnly
                   className="p-2 border rounded bg-gray-100"
                   value={formData.reference}
+                />
+              </div>
+            )}
+
+            {/* Numéro de Facture (lecture seule) */}
+            {formData.numeroFacture && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Numéro de Facture</label>
+                <input
+                  name="numeroFacture"
+                  type="text"
+                  readOnly
+                  className="p-2 border rounded bg-gray-100"
+                  value={formData.numeroFacture}
+                />
+              </div>
+            )}
+
+            {/* Numéro de Facture Proforma (lecture seule) */}
+            {formData.numeroFactureProforma && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Numéro de Facture Proforma</label>
+                <input
+                  name="numeroFactureProforma"
+                  type="text"
+                  readOnly
+                  className="p-2 border rounded bg-gray-100"
+                  value={formData.numeroFactureProforma}
                 />
               </div>
             )}

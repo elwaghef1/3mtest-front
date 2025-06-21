@@ -309,6 +309,14 @@ export const generateInvoicePDF = (commande) => {
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("COMMERCIAL INVOICE", pageWidth / 2, 20, { align: 'center' });
+  
+  // Ajouter le numéro de facture juste en dessous du titre
+  if (commande.numeroFacture) {
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`#${commande.numeroFacture}`, pageWidth / 2, 27, { align: 'center' });
+  }
+  
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
   let infoBlockY = 40;
@@ -512,6 +520,14 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("PROFORMA INVOICE", pageWidth / 2, 20, { align: 'center' });
+  
+  // Ajouter le numéro de facture proforma juste en dessous du titre
+  if (commande.numeroFactureProforma) {
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`#${commande.numeroFactureProforma}`, pageWidth / 2, 27, { align: 'center' });
+  }
+  
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
   let infoBlockY = 35;
@@ -916,7 +932,7 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
               `${article.reference || ''} ${article.specification || ''}`.trim() || 'N/A',
               article.prodDate || 'N/A',
               { content: expiryDate || 'N/A', rowSpan: rowSpanCount, styles: { valign: 'middle', halign: 'center' } },
-              article.box || '1*20KG',
+              article.box || '2*10KG',
               qty.toString(),
               `${netWeight.toFixed(2)} KG`,
               `${grossWeight.toFixed(2)} KG`

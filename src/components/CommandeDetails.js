@@ -210,6 +210,8 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
   // Début du tableau des détails communs
   const details = [
     { label: 'Référence', value: commande.reference },
+    { label: 'Numéro de Facture', value: commande.numeroFacture, badge: commande.numeroFacture ? 'bg-blue-600 text-white text-xs' : null },
+    { label: 'Numéro de Facture Proforma', value: commande.numeroFactureProforma, badge: commande.numeroFactureProforma ? 'bg-purple-600 text-white text-xs' : null },
     { label: 'Type de commande', value: commande.typeCommande === 'LOCALE' ? 'Locale' : 'Export', badge: commande.typeCommande === 'LOCALE' ? 'bg-green-600 text-white text-xs' : 'bg-blue-600 text-white text-xs' },
     // Masquer certains champs pour les commandes locales
     ...(commande.typeCommande !== 'LOCALE' ? [

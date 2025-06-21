@@ -1010,7 +1010,7 @@ const LivraisonPartielleModal = ({
                                 <div className="text-sm text-red-800">
                                   <p className="font-medium mb-1">⚠️ Gestion des lots obligatoire :</p>
                                   <p>Vous devez obligatoirement sélectionner les lots d'où proviennent les {formatNumberFunc(item.quantiteRestante)} kg à livrer.</p>
-                                  <p className="text-xs mt-1">Exemple : 40kg du Lot 30303 + 260kg du Lot 04993 = 300kg total</p>
+                                  {/* <p className="text-xs mt-1">Exemple : 40kg du Lot 30303 + 260kg du Lot 04993 = 300kg total</p> */}
                                 </div>
                               </div>
                             </div>

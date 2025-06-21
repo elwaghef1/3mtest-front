@@ -52,6 +52,8 @@ const CommandeList = () => {
   const [searchRef, setSearchRef] = useState('');
   // Remplacement du champ booking par numeroBooking
   const [searchNumeroBooking, setSearchNumeroBooking] = useState('');
+  // Nouveau champ de recherche par numéro de facture
+  const [searchNumeroFacture, setSearchNumeroFacture] = useState('');
   // Nouveau filtre pour le statut de commande
   const [selectedStatus, setSelectedStatus] = useState('');
 
@@ -189,7 +191,7 @@ const CommandeList = () => {
   // Filtrage dès qu'un des filtres change
   useEffect(() => {
     filterCommandes();
-  }, [commandes, selectedClient, searchRef, searchNumeroBooking, startDate, endDate, selectedStatus]);
+  }, [commandes, selectedClient, searchRef, searchNumeroBooking, searchNumeroFacture, startDate, endDate, selectedStatus]);
 
   const fetchData = async () => {
     try {
@@ -287,6 +289,12 @@ const CommandeList = () => {
         cmd.numeroBooking?.toLowerCase().includes(searchNumeroBooking.toLowerCase())
       );
     }
+    if (searchNumeroFacture) {
+      result = result.filter((cmd) =>
+        cmd.numeroFacture?.toLowerCase().includes(searchNumeroFacture.toLowerCase()) ||
+        cmd.numeroFactureProforma?.toLowerCase().includes(searchNumeroFacture.toLowerCase())
+      );
+    }
     if (selectedStatus) {
       result = result.filter((cmd) => cmd.statutBonDeCommande === selectedStatus);
     }
@@ -304,6 +312,7 @@ const CommandeList = () => {
     setSelectedClient('');
     setSearchRef('');
     setSearchNumeroBooking('');
+    setSearchNumeroFacture('');
     setSelectedStatus('');
     setStartDate(null);
     setEndDate(null);
@@ -1007,6 +1016,16 @@ const CommandeList = () => {
             />
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de Facture</label>
+            <input
+              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+              type="text"
+              placeholder="Recherche par n° facture/proforma"
+              value={searchNumeroFacture}
+              onChange={(e) => setSearchNumeroFacture(e.target.value)}
+            />
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Statut</label>
             <select
               className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
@@ -1125,6 +1144,12 @@ const CommandeList = () => {
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-medium text-gray-900">{commande.reference}</h3>
+                        {commande.numeroFacture && (
+                          <p className="text-xs text-blue-600 font-medium">Facture: {commande.numeroFacture}</p>
+                        )}
+                        {commande.numeroFactureProforma && (
+                          <p className="text-xs text-purple-600 font-medium">Proforma: {commande.numeroFactureProforma}</p>
+                        )}
                         <p className="text-sm text-gray-600">{commande.client?.raisonSociale}</p>
                       </div>
                       <div className="flex flex-col space-y-2">
@@ -1257,6 +1282,12 @@ const CommandeList = () => {
                       <td className="px-3 py-4 whitespace-nowrap max-w-[130px]">
                         <div className="truncate">
                           <div className="text-sm font-medium text-gray-900 truncate mb-1">{commande.reference}</div>
+                          {commande.numeroFacture && (
+                            <div className="text-xs text-blue-600 truncate font-medium">Fact: {commande.numeroFacture}</div>
+                          )}
+                          {commande.numeroFactureProforma && (
+                            <div className="text-xs text-purple-600 truncate font-medium">Prof: {commande.numeroFactureProforma}</div>
+                          )}
                           {commande.noBonDeCommande && (
                             <div className="text-xs text-gray-500 truncate">BC: {commande.noBonDeCommande}</div>
                           )}
