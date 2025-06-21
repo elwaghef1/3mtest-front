@@ -67,8 +67,8 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
       taille: selectedArticle.taille,
       quantiteCarton: Math.ceil(selectedArticle.quantiteKg / 20) || 1,
       selected: true,
-      prodDate: 'May2025',
-      box: '1*20KG'
+      prodDate: 'JUNE2025',
+      box: '2*10KG'
     };
 
     container.articles.push(newArticle);
