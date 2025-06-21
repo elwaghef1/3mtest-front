@@ -1,123 +1,188 @@
 // frontend/src/components/PackingListForm.js
 import React, { useState, useEffect } from 'react';
 import Button from './Button';
+import './PackingListForm.css';
 import { generatePackingListFromFormPDF } from './pdfGenerators';
 
 const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
-  const [packingData, setPackingData] = useState([]);
+  const [containerData, setContainerData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedArticles, setSelectedArticles] = useState({});
 
-  // Initialiser les données du packing list basées sur les cargos de la commande
+  // Initialiser les données du packing list basées sur les containers de la commande
   useEffect(() => {
     if (commande && commande.cargo && isOpen) {
       const initialData = commande.cargo.map((cargo, index) => {
-        // Calculer les totaux pour ce cargo
-        const totalQuantity = cargo.itemsAlloues ? 
-          cargo.itemsAlloues.reduce((sum, item) => sum + (item.quantiteAllouee || 0), 0) : 0;
-        
-        // Calculer Num of Box = Net Weight / 20
-        const numOfBoxes = Math.ceil(totalQuantity / 20);
-        const netWeight = totalQuantity;
-        
-        // Calculer Gross Weight = Num of Box * poids carton
-        const poidsCarton = parseFloat(cargo.poidsCarton) || 20; // Utiliser le poids carton du cargo
-        const grossWeight = numOfBoxes * poidsCarton;
-
-        // Obtenir les tailles de tous les articles du cargo
-        const sizes = cargo.itemsAlloues ? 
-          cargo.itemsAlloues
-            .filter(item => item.article && item.article.taille)
-            .map(item => item.article.taille)
-            .filter((size, index, self) => self.indexOf(size) === index) // Éliminer les doublons
-            .join(', ') : '';
-
         return {
-          containerNo: cargo.noDeConteneur || '',
-          sealNo: cargo.noPlomb || '',
-          size: sizes || '',
-          marks: '', // Sera rempli par la sélection d'articles
-          prod: '', // À remplir par l'utilisateur
-          date: '24 MONTHS FROM DATE OF PRODUCTION', // Valeur automatique
-          box: '', // À remplir par l'utilisateur
-          numOfBox: numOfBoxes,
-          netWeight: netWeight,
-          grossWeight: grossWeight,
-          poidsCarton: poidsCarton // Stocker le poids carton pour les calculs
+          containerInfo: {
+            containerNo: cargo.noDeConteneur || '',
+            sealNo: cargo.noPlomb || '',
+            areDeConteneur: cargo.areDeConteneur || '20KG CARTON',
+            poidsCarton: parseFloat(cargo.poidsCarton) || 22
+          },
+          articles: [], // Commencer avec une liste vide, les articles seront ajoutés via le bouton "+"
+          prod: 'MAY2025', // Valeur par défaut pour le container (peut être supprimée)
+          expiryDate: '24 MONTHS FROM DATE OF PRODUCTION' // Expiry date unique pour tout le container
         };
       });
       
-      setPackingData(initialData);
-      
-      // Initialiser les articles sélectionnés pour chaque cargo
-      const initialSelectedArticles = {};
-      commande.cargo.forEach((cargo, index) => {
-        initialSelectedArticles[index] = [];
-      });
-      setSelectedArticles(initialSelectedArticles);
+      setContainerData(initialData);
     }
   }, [commande, isOpen]);
 
-  const handleInputChange = (index, field, value) => {
-    const newData = [...packingData];
-    newData[index] = { ...newData[index], [field]: value };
+  // Obtenir les articles disponibles pour ajouter à un container
+  const getAvailableArticles = () => {
+    if (!commande || !commande.items) return [];
     
-    // Recalculer automatiquement si nécessaire
-    if (field === 'netWeight') {
-      const numOfBoxes = Math.ceil(parseFloat(value) / 20) || 0;
-      const poidsCarton = newData[index].poidsCarton || 20;
-      newData[index].numOfBox = numOfBoxes;
-      newData[index].grossWeight = numOfBoxes * poidsCarton;
-    } else if (field === 'numOfBox') {
-      const poidsCarton = newData[index].poidsCarton || 20;
-      newData[index].grossWeight = parseFloat(value) * poidsCarton;
+    return commande.items.map(item => ({
+      id: item.article._id,
+      reference: item.article.reference || 'N/A',
+      specification: item.article.specification || '',
+      taille: item.article.taille || 'M',
+      quantiteKg: item.quantiteKg || 0
+    }));
+  };
+
+  // Ajouter un article à un container
+  const addArticleToContainer = (containerIndex, selectedArticleId) => {
+    const availableArticles = getAvailableArticles();
+    const selectedArticle = availableArticles.find(art => art.id === selectedArticleId);
+    
+    if (!selectedArticle) return;
+
+    const newData = [...containerData];
+    const container = newData[containerIndex];
+    
+    // Vérifier si l'article n'est pas déjà dans ce container
+    const articleExists = container.articles.some(art => art.id === selectedArticle.id);
+    if (articleExists) {
+      alert('Cet article est déjà dans ce container.');
+      return;
     }
-    
-    setPackingData(newData);
-  };
 
-  // Nouvelle fonction pour gérer la sélection d'articles multiples
-  const handleArticleSelection = (cargoIndex, selectedOptions) => {
-    const newSelectedArticles = { ...selectedArticles };
-    newSelectedArticles[cargoIndex] = selectedOptions;
-    setSelectedArticles(newSelectedArticles);
-
-    // Mettre à jour les champs marks et size automatiquement
-    const newData = [...packingData];
-    
-    // Remplir marks avec les intitulés séparés par des virgules
-    const marks = selectedOptions.map(option => option.intitule).join(', ');
-    newData[cargoIndex].marks = marks;
-
-    // Remplir size avec les tailles séparées par des virgules
-    const sizes = selectedOptions
-      .map(option => option.taille)
-      .filter((size, index, self) => self.indexOf(size) === index) // Éliminer les doublons
-      .join(', ');
-    newData[cargoIndex].size = sizes;
-
-    setPackingData(newData);
-  };
-
-  const calculateTotals = () => {
-    const totals = {
-      totalBoxes: packingData.reduce((sum, row) => sum + (parseFloat(row.numOfBox) || 0), 0),
-      totalNetWeight: packingData.reduce((sum, row) => sum + (parseFloat(row.netWeight) || 0), 0),
-      totalGrossWeight: packingData.reduce((sum, row) => sum + (parseFloat(row.grossWeight) || 0), 0)
+    // Ajouter l'article avec les propriétés par défaut
+    const newArticle = {
+      id: selectedArticle.id,
+      reference: selectedArticle.reference,
+      specification: selectedArticle.specification,
+      taille: selectedArticle.taille,
+      quantiteCarton: Math.ceil(selectedArticle.quantiteKg / 20) || 1,
+      selected: true,
+      prodDate: 'May2025',
+      box: '1*20KG'
     };
-    return totals;
+
+    container.articles.push(newArticle);
+    setContainerData(newData);
+  };
+
+  // Supprimer un article d'un container
+  const removeArticleFromContainer = (containerIndex, articleIndex) => {
+    const newData = [...containerData];
+    newData[containerIndex].articles.splice(articleIndex, 1);
+    setContainerData(newData);
+  };
+
+  // Fonction pour basculer la sélection d'un article
+  const toggleArticleSelection = (containerIndex, articleIndex) => {
+    const newData = [...containerData];
+    newData[containerIndex].articles[articleIndex].selected = !newData[containerIndex].articles[articleIndex].selected;
+    setContainerData(newData);
+  };
+
+  // Fonction pour mettre à jour le nombre de cartons d'un article
+  const updateArticleCartons = (containerIndex, articleIndex, newCartons) => {
+    const newData = [...containerData];
+    newData[containerIndex].articles[articleIndex].quantiteCarton = parseInt(newCartons) || 0;
+    setContainerData(newData);
+  };
+
+  // Fonction pour mettre à jour les propriétés d'un article
+  const updateArticleProperty = (containerIndex, articleIndex, property, value) => {
+    const newData = [...containerData];
+    newData[containerIndex].articles[articleIndex][property] = value;
+    setContainerData(newData);
+  };
+
+  // Fonction pour mettre à jour les informations d'un container
+  const updateContainerInfo = (containerIndex, field, value) => {
+    const newData = [...containerData];
+    newData[containerIndex].containerInfo[field] = value;
+    setContainerData(newData);
+  };
+
+  // Fonction pour mettre à jour les dates de production/expiration
+  const updateContainerDates = (containerIndex, field, value) => {
+    const newData = [...containerData];
+    newData[containerIndex][field] = value;
+    setContainerData(newData);
+  };
+
+  // Calculer les totaux pour un container
+  const calculateContainerTotals = (containerIndex) => {
+    const container = containerData[containerIndex];
+    if (!container) return { numOfBox: 0, netWeight: 0, grossWeight: 0 };
+
+    const selectedArticles = container.articles.filter(article => article.selected);
+    const totalBoxes = selectedArticles.reduce((sum, article) => sum + article.quantiteCarton, 0);
+    const netWeight = totalBoxes * 20; // 20kg par carton
+    const grossWeight = totalBoxes * container.containerInfo.poidsCarton;
+
+    return {
+      numOfBox: totalBoxes,
+      netWeight: netWeight,
+      grossWeight: grossWeight
+    };
+  };
+
+  // Calculer les totaux généraux
+  const calculateGrandTotals = () => {
+    let totalBoxes = 0;
+    let totalNetWeight = 0;
+    let totalGrossWeight = 0;
+
+    containerData.forEach((_, index) => {
+      const containerTotals = calculateContainerTotals(index);
+      totalBoxes += containerTotals.numOfBox;
+      totalNetWeight += containerTotals.netWeight;
+      totalGrossWeight += containerTotals.grossWeight;
+    });
+
+    return {
+      totalBoxes,
+      totalNetWeight,
+      totalGrossWeight
+    };
   };
 
   const handleSave = async () => {
     setLoading(true);
     try {
+      // Préparer les données au format attendu pour la sauvegarde
+      const packingData = containerData.map(container => {
+        const totals = calculateContainerTotals(containerData.indexOf(container));
+        const selectedArticles = container.articles.filter(article => article.selected);
+        
+        return {
+          containerNo: container.containerInfo.containerNo,
+          sealNo: container.containerInfo.sealNo,
+          size: selectedArticles.map(a => a.taille).filter(Boolean).join(', '),
+          marks: selectedArticles.map(a => `${a.reference} ${a.specification}`).join('\n'),
+          prod: container.prod,
+          date: container.expiryDate,
+          box: container.containerInfo.areDeConteneur,
+          numOfBox: totals.numOfBox,
+          netWeight: totals.netWeight,
+          grossWeight: totals.grossWeight
+        };
+      });
+
       // Sauvegarder les données du packing list dans la commande
       if (onSave) {
         await onSave(packingData);
       }
       
       // Générer le PDF avec la fonction des pdfGenerators
-      generatePackingListFromFormPDF(commande, packingData);
+      generatePackingListFromFormPDF(commande, containerData);
       
       alert('Packing list créé avec succès !');
       onClose();
@@ -129,102 +194,13 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
     }
   };
 
-  const getArticleOptions = () => {
-    if (!commande.items) return [];
-    return commande.items
-      .filter(item => item.article && item.article.intitule) // S'assurer que l'article a un intitulé
-      .map(item => ({
-        value: item.article._id,
-        intitule: item.article.intitule,
-        taille: item.article.taille || '',
-        label: item.article.intitule // Afficher seulement l'intitulé
-      }));
-  };
-
-  // Composant pour la sélection multiple d'articles
-  const ArticleMultiSelect = ({ cargoIndex, selectedOptions, onSelectionChange }) => {
-    const [isOpen, setIsOpen] = useState(false);
-    const options = getArticleOptions();
-
-    // Fermer le menu quand on clique en dehors
-    useEffect(() => {
-      const handleClickOutside = (event) => {
-        if (isOpen && !event.target.closest('.multi-select-container')) {
-          setIsOpen(false);
-        }
-      };
-
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }, [isOpen]);
-
-    const toggleOption = (option) => {
-      const isSelected = selectedOptions.some(selected => selected.value === option.value);
-      let newSelection;
-      
-      if (isSelected) {
-        newSelection = selectedOptions.filter(selected => selected.value !== option.value);
-      } else {
-        newSelection = [...selectedOptions, option];
-      }
-      
-      onSelectionChange(newSelection);
-    };
-
-    return (
-      <div className="relative multi-select-container">
-        <div
-          className="w-full p-1 text-sm border border-gray-300 rounded cursor-pointer min-h-[24px] flex items-center hover:bg-gray-50"
-          onClick={() => setIsOpen(!isOpen)}
-        >
-          {selectedOptions.length === 0 ? (
-            <span className="text-gray-500">Sélectionner les articles...</span>
-          ) : (
-            <span className="text-xs">{selectedOptions.length} article(s) sélectionné(s)</span>
-          )}
-          <span className="ml-auto">▼</span>
-        </div>
-        
-        {isOpen && (
-          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
-            {options.length === 0 ? (
-              <div className="p-2 text-sm text-gray-500">Aucun article disponible</div>
-            ) : (
-              options.map((option, optIndex) => {
-                const isSelected = selectedOptions.some(selected => selected.value === option.value);
-                return (
-                  <div
-                    key={optIndex}
-                    className={`p-2 text-sm cursor-pointer hover:bg-gray-100 border-b border-gray-100 last:border-b-0 ${
-                      isSelected ? 'bg-blue-50 text-blue-800' : ''
-                    }`}
-                    onClick={() => toggleOption(option)}
-                  >
-                    <span className={isSelected ? 'font-semibold' : ''}>
-                      {isSelected ? '✓ ' : ''}{option.label}
-                    </span>
-                    {option.taille && (
-                      <span className="text-gray-500 ml-2">({option.taille})</span>
-                    )}
-                  </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const totals = calculateTotals();
+  const grandTotals = calculateGrandTotals();
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
-      <div className="bg-white rounded-lg max-w-[95vw] w-full h-[95vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-[98vw] w-full h-[95vh] overflow-y-auto">
         <div className="p-4 h-full flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-gray-800">Créer le Packing List</h2>
@@ -243,122 +219,537 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
             </p>
           </div>
 
-          <div className="flex-1 overflow-auto">
-            <table className="w-full border-collapse border border-gray-300">
-              <thead className="sticky top-0 bg-gray-100 z-10">
-                <tr className="bg-gray-100">
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Container N°</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Seal N°</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Size</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Articles</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Prod</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Expiry Date</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Box</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Num of Box</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Net Weight</th>
-                  <th className="border border-gray-300 px-2 py-1 text-xs font-semibold">Gross Weight</th>
-                </tr>
-              </thead>
-              <tbody>
-                {packingData.map((row, index) => (
-                  <tr key={index}>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="text"
-                        value={row.containerNo}
-                        onChange={(e) => handleInputChange(index, 'containerNo', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="text"
-                        value={row.sealNo}
-                        onChange={(e) => handleInputChange(index, 'sealNo', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="text"
-                        value={row.size}
-                        readOnly
-                        className="w-full p-1 text-sm border-none outline-none bg-gray-50"
-                        title="Rempli automatiquement à partir des articles sélectionnés"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <ArticleMultiSelect
-                        cargoIndex={index}
-                        selectedOptions={selectedArticles[index] || []}
-                        onSelectionChange={(selection) => handleArticleSelection(index, selection)}
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="text"
-                        value={row.prod}
-                        onChange={(e) => handleInputChange(index, 'prod', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none"
-                        placeholder="Prod"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="text"
-                        value={row.date}
-                        readOnly
-                        className="w-full p-1 text-sm border-none outline-none bg-gray-50 font-semibold"
-                        title="Valeur automatique: 24 MONTHS FROM DATE OF PRODUCTION"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="text"
-                        value={row.box}
-                        onChange={(e) => handleInputChange(index, 'box', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none"
-                        placeholder="Box"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="number"
-                        value={row.numOfBox}
-                        readOnly
-                        className="w-full p-1 text-sm border-none outline-none text-center bg-gray-50"
-                        title="Calculé automatiquement: Net Weight ÷ 20"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="number"
-                        value={row.netWeight}
-                        onChange={(e) => handleInputChange(index, 'netWeight', e.target.value)}
-                        className="w-full p-1 text-sm border-none outline-none text-right"
-                        step="0.01"
-                      />
-                    </td>
-                    <td className="border border-gray-300 p-1">
-                      <input
-                        type="number"
-                        value={row.grossWeight}
-                        readOnly
-                        className="w-full p-1 text-sm border-none outline-none text-right bg-gray-50"
-                        title="Calculé automatiquement: Num of Box × Poids Carton"
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {/* Ligne des totaux */}
-                <tr className="bg-gray-100 font-semibold">
-                  <td colSpan="7" className="border border-gray-300 p-2 text-right">TOTAL:</td>
-                  <td className="border border-gray-300 p-2 text-center">{totals.totalBoxes}</td>
-                  <td className="border border-gray-300 p-2 text-right">{totals.totalNetWeight.toFixed(2)}</td>
-                  <td className="border border-gray-300 p-2 text-right">{totals.totalGrossWeight.toFixed(2)}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="flex-1 overflow-auto space-y-6">
+            {/* Totaux Généraux */}
+            <div className="bg-gray-800 text-white p-4 rounded-lg">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold">TOTAUX GÉNÉRAUX</h3>
+                <div className="text-right">
+                  <div className="text-lg">
+                    <span className="font-bold">Cartons:</span> {grandTotals.totalBoxes} | 
+                    <span className="font-bold ml-4">Net Weight:</span> {grandTotals.totalNetWeight}kg | 
+                    <span className="font-bold ml-4">Gross Weight:</span> {grandTotals.totalGrossWeight.toFixed(2)}kg
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tableau Récapitulatif Éditable Style Packing List */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mt-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 text-center">
+                PACKING LIST - FORMULAIRE ÉDITABLE
+              </h3>
+              
+              <div className="overflow-x-auto">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#334155' }}>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '120px'
+                      }}>
+                        Container N°
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '120px'
+                      }}>
+                        Seal Number
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '80px'
+                      }}>
+                        Taille
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '150px'
+                      }}>
+                        Marks
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '100px'
+                      }}>
+                        Prod Date
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '140px'
+                      }}>
+                        Expiry Date
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '100px'
+                      }}>
+                        Box
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '80px'
+                      }}>
+                        Num of Box
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '100px'
+                      }}>
+                        Net Weight
+                      </th>
+                      <th style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center', 
+                        fontWeight: 'bold',
+                        color: 'white',
+                        width: '100px'
+                      }}>
+                        Gross Weight
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {containerData.map((container, containerIndex) => {
+                      const selectedArticles = container.articles.filter(art => art.selected);
+                      const availableArticles = getAvailableArticles();
+                      const rows = [];
+                      
+                      // Afficher le container même s'il n'y a pas d'articles
+                      if (selectedArticles.length === 0) {
+                        rows.push(
+                          <tr key={`empty-${containerIndex}`}>
+                            {/* Container N° */}
+                            <td style={{ 
+                              border: '1px solid #000', 
+                              padding: '8px', 
+                              textAlign: 'center',
+                              verticalAlign: 'middle',
+                              backgroundColor: '#f8fafc'
+                            }}>
+                              <input
+                                type="text"
+                                value={container.containerInfo.containerNo}
+                                onChange={(e) => updateContainerInfo(containerIndex, 'containerNo', e.target.value)}
+                                className="w-full text-center text-xs border-0 bg-transparent font-semibold"
+                                style={{ fontSize: '11px' }}
+                              />
+                            </td>
+                            
+                            {/* Seal Number */}
+                            <td style={{ 
+                              border: '1px solid #000', 
+                              padding: '8px', 
+                              textAlign: 'center',
+                              verticalAlign: 'middle',
+                              backgroundColor: '#f8fafc'
+                            }}>
+                              <input
+                                type="text"
+                                value={container.containerInfo.sealNo}
+                                onChange={(e) => updateContainerInfo(containerIndex, 'sealNo', e.target.value)}
+                                className="w-full text-center text-xs border-0 bg-transparent font-semibold"
+                                style={{ fontSize: '11px' }}
+                              />
+                            </td>
+                            
+                            {/* Cellules vides avec bouton d'ajout */}
+                            <td style={{ 
+                              border: '1px solid #000', 
+                              padding: '8px', 
+                              textAlign: 'center'
+                            }} colSpan="4">
+                              <div className="flex items-center justify-center space-x-2">
+                                <select
+                                  data-container={containerIndex}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      addArticleToContainer(containerIndex, e.target.value);
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                  className="text-xs border border-gray-300 rounded px-2 py-1"
+                                  style={{ fontSize: '10px', minWidth: '150px' }}
+                                >
+                                  <option value="">Ajouter un article...</option>
+                                  {availableArticles.map(art => (
+                                    <option key={art.id} value={art.id}>
+                                      {art.reference} - {art.specification}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => {
+                                    const select = document.querySelector(`select[data-container="${containerIndex}"]`);
+                                    if (select && select.value) {
+                                      addArticleToContainer(containerIndex, select.value);
+                                      select.value = '';
+                                    }
+                                  }}
+                                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-bold"
+                                  style={{ fontSize: '12px' }}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+                            
+                            {/* Expiry Date */}
+                            <td style={{ 
+                              border: '1px solid #000', 
+                              padding: '8px', 
+                              textAlign: 'center',
+                              verticalAlign: 'middle',
+                              backgroundColor: '#f8fafc'
+                            }}>
+                              <textarea
+                                value={container.expiryDate}
+                                onChange={(e) => updateContainerDates(containerIndex, 'expiryDate', e.target.value)}
+                                className="w-full text-center text-xs border-0 bg-transparent resize-none"
+                                style={{ fontSize: '9px', height: '50px' }}
+                                rows={4}
+                              />
+                            </td>
+                            
+                            {/* Cellules totales vides */}
+                            <td style={{ 
+                              border: '1px solid #000', 
+                              padding: '8px', 
+                              textAlign: 'center',
+                              backgroundColor: '#f1f5f9'
+                            }} colSpan="3">
+                              <span style={{ fontSize: '10px', color: '#666' }}>Aucun article</span>
+                            </td>
+                          </tr>
+                        );
+                      } else {
+                        // Afficher les articles existants
+                        selectedArticles.forEach((article, articleIndex) => {
+                          const isFirstRow = articleIndex === 0;
+                          const rowSpan = selectedArticles.length + 1; // +1 pour la ligne "Ajouter"
+                          
+                          rows.push(
+                            <tr key={`${containerIndex}-${articleIndex}`}>
+                              {/* Container N° - Éditable sur première ligne uniquement */}
+                              {isFirstRow && (
+                                <td style={{ 
+                                  border: '1px solid #000', 
+                                  padding: '4px', 
+                                  textAlign: 'center',
+                                  verticalAlign: 'middle',
+                                  backgroundColor: '#f8fafc'
+                                }} rowSpan={rowSpan}>
+                                  <input
+                                    type="text"
+                                    value={container.containerInfo.containerNo}
+                                    onChange={(e) => updateContainerInfo(containerIndex, 'containerNo', e.target.value)}
+                                    className="w-full text-center text-xs border-0 bg-transparent font-semibold"
+                                    style={{ fontSize: '11px' }}
+                                  />
+                                </td>
+                              )}
+                              
+                              {/* Seal Number - Éditable sur première ligne uniquement */}
+                              {isFirstRow && (
+                                <td style={{ 
+                                  border: '1px solid #000', 
+                                  padding: '4px', 
+                                  textAlign: 'center',
+                                  verticalAlign: 'middle',
+                                  backgroundColor: '#f8fafc'
+                                }} rowSpan={rowSpan}>
+                                  <input
+                                    type="text"
+                                    value={container.containerInfo.sealNo}
+                                    onChange={(e) => updateContainerInfo(containerIndex, 'sealNo', e.target.value)}
+                                    className="w-full text-center text-xs border-0 bg-transparent font-semibold"
+                                    style={{ fontSize: '11px' }}
+                                  />
+                                </td>
+                              )}
+                              
+                              {/* Taille - Éditable pour chaque article */}
+                              <td style={{ 
+                                border: '1px solid #000', 
+                                padding: '4px', 
+                                textAlign: 'center'
+                              }}>
+                                <div className="flex items-center justify-between">
+                                  <input
+                                    type="text"
+                                    value={article.taille}
+                                    onChange={(e) => updateArticleProperty(containerIndex, articleIndex, 'taille', e.target.value)}
+                                    className="w-full text-center text-xs border-0 bg-white"
+                                    style={{ fontSize: '11px' }}
+                                  />
+                                  <button
+                                    onClick={() => removeArticleFromContainer(containerIndex, articleIndex)}
+                                    className="ml-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold"
+                                    title="Supprimer cet article"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </td>
+                              
+                              {/* Marks - Éditable pour chaque article */}
+                              <td style={{ 
+                                border: '1px solid #000', 
+                                padding: '4px', 
+                                textAlign: 'left'
+                              }}>
+                                <div style={{ fontSize: '10px' }}>
+                                  <input
+                                    type="text"
+                                    value={article.reference}
+                                    onChange={(e) => updateArticleProperty(containerIndex, articleIndex, 'reference', e.target.value)}
+                                    className="w-full text-xs border-0 bg-white mb-1 font-semibold"
+                                    style={{ fontSize: '10px' }}
+                                  />
+                                  <input
+                                    type="text"
+                                    value={article.specification}
+                                    onChange={(e) => updateArticleProperty(containerIndex, articleIndex, 'specification', e.target.value)}
+                                    className="w-full text-xs border-0 bg-white"
+                                    style={{ fontSize: '9px' }}
+                                  />
+                                </div>
+                              </td>
+                              
+                              {/* Prod Date - Éditable pour chaque article */}
+                              <td style={{ 
+                                border: '1px solid #000', 
+                                padding: '4px', 
+                                textAlign: 'center'
+                              }}>
+                                <input
+                                  type="text"
+                                  value={article.prodDate}
+                                  onChange={(e) => updateArticleProperty(containerIndex, articleIndex, 'prodDate', e.target.value)}
+                                  className="w-full text-center text-xs border-0 bg-white"
+                                  style={{ fontSize: '11px' }}
+                                />
+                              </td>
+                              
+                              {/* Expiry Date - Un seul champ pour tout le container */}
+                              {isFirstRow && (
+                                <td style={{ 
+                                  border: '1px solid #000', 
+                                  padding: '4px', 
+                                  textAlign: 'center',
+                                  verticalAlign: 'middle',
+                                  backgroundColor: '#f8fafc'
+                                }} rowSpan={rowSpan}>
+                                  <textarea
+                                    value={container.expiryDate}
+                                    onChange={(e) => updateContainerDates(containerIndex, 'expiryDate', e.target.value)}
+                                    className="w-full text-center text-xs border-0 bg-transparent resize-none"
+                                    style={{ fontSize: '9px', height: '50px' }}
+                                    rows={4}
+                                  />
+                                </td>
+                              )}
+                              
+                              {/* Box - Éditable pour chaque article */}
+                              <td style={{ 
+                                border: '1px solid #000', 
+                                padding: '4px', 
+                                textAlign: 'center'
+                              }}>
+                                <input
+                                  type="text"
+                                  value={article.box}
+                                  onChange={(e) => updateArticleProperty(containerIndex, articleIndex, 'box', e.target.value)}
+                                  className="w-full text-center text-xs border-0 bg-white"
+                                  style={{ fontSize: '10px' }}
+                                />
+                              </td>
+                              
+                              {/* Num of Box - Éditable pour chaque article */}
+                              <td style={{ 
+                                border: '1px solid #000', 
+                                padding: '4px', 
+                                textAlign: 'center'
+                              }}>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={article.quantiteCarton}
+                                  onChange={(e) => updateArticleCartons(containerIndex, articleIndex, e.target.value)}
+                                  className="w-full text-center text-xs border-0 bg-white"
+                                  style={{ fontSize: '11px' }}
+                                />
+                              </td>
+                              
+                              {/* Net Weight - Calculé automatiquement */}
+                              <td style={{ 
+                                border: '1px solid #000', 
+                                padding: '4px', 
+                                textAlign: 'center',
+                                backgroundColor: '#f1f5f9'
+                              }}>
+                                <span style={{ fontSize: '11px', fontWeight: 'bold' }}>
+                                  {(article.quantiteCarton * 20).toFixed(0)} KG
+                                </span>
+                              </td>
+                              
+                              {/* Gross Weight - Calculé automatiquement */}
+                              <td style={{ 
+                                border: '1px solid #000', 
+                                padding: '4px', 
+                                textAlign: 'center',
+                                backgroundColor: '#f1f5f9'
+                              }}>
+                                <span style={{ fontSize: '11px', fontWeight: 'bold' }}>
+                                  {(article.quantiteCarton * container.containerInfo.poidsCarton).toFixed(1)} KG
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        });
+
+                        // Ajouter la ligne "Ajouter un article" après les articles existants
+                        rows.push(
+                          <tr key={`add-${containerIndex}`} style={{ backgroundColor: '#f8fafc' }}>
+                            {/* Les cellules Container/Seal/Expiry sont déjà occupées par rowSpan */}
+                            <td style={{ 
+                              border: '1px solid #000', 
+                              padding: '6px', 
+                              textAlign: 'center'
+                            }} colSpan="5">
+                              <div className="flex items-center justify-center space-x-2">
+                                <select
+                                  data-container={containerIndex}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      addArticleToContainer(containerIndex, e.target.value);
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                  className="text-xs border border-gray-300 rounded px-2 py-1"
+                                  style={{ fontSize: '10px', minWidth: '200px' }}
+                                >
+                                  <option value="">Ajouter un autre article...</option>
+                                  {availableArticles.filter(art => 
+                                    !container.articles.some(existingArt => existingArt.id === art.id)
+                                  ).map(art => (
+                                    <option key={art.id} value={art.id}>
+                                      {art.reference} - {art.specification}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => {
+                                    const select = document.querySelector(`select[data-container="${containerIndex}"]`);
+                                    if (select && select.value) {
+                                      addArticleToContainer(containerIndex, select.value);
+                                      select.value = '';
+                                    }
+                                  }}
+                                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-xs font-bold"
+                                  style={{ fontSize: '12px' }}
+                                >
+                                  + Article
+                                </button>
+                              </div>
+                            </td>
+                            
+                            {/* Colonnes de totaux vides pour cette ligne */}
+                            <td style={{ 
+                              border: '1px solid #000', 
+                              padding: '6px', 
+                              textAlign: 'center',
+                              backgroundColor: '#f8fafc'
+                            }} colSpan="3">
+                              <span style={{ fontSize: '9px', color: '#666' }}>Ajouter articles</span>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return rows;
+                    })}
+                    
+                    {/* Ligne TOTAL */}
+                    <tr style={{ backgroundColor: '#1e293b', color: 'white' }}>
+                      <td style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        color: 'white'
+                      }} colSpan="7">
+                        TOTAL
+                      </td>
+                      <td style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        color: 'white'
+                      }}>
+                        {grandTotals.totalBoxes}
+                      </td>
+                      <td style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        color: 'white'
+                      }}>
+                        {grandTotals.totalNetWeight} KG
+                      </td>
+                      <td style={{ 
+                        border: '2px solid #000', 
+                        padding: '12px 8px', 
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        color: 'white'
+                      }}>
+                        {grandTotals.totalGrossWeight.toFixed(0)} KG
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end space-x-3 mt-4 pt-4 border-t bg-white">

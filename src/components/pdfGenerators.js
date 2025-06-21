@@ -2,6 +2,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import logoBase64 from './logoBase64';
+import stampBase64 from './stampBase64';
 
 // Fonction utilitaire pour formater la monnaie dans les PDF
 const formatCurrencyForPDF = (value, currency = 'EUR') => {
@@ -157,6 +158,18 @@ export const generatePackingListPDF = (commande) => {
   doc.text("Visa du client", pageWidth / 2, signatureLineY, { align: 'center' });
   doc.text("Visa Responsable usine", pageWidth - marginRight, signatureLineY, { align: 'right' });
 
+  // Ajout de l'image de signature sous "Visa Responsable usine"
+  try {
+    const signatureWidth = 35;
+    const signatureHeight = 20;
+    const signatureX = pageWidth - marginRight - signatureWidth - 10;
+    const signatureY = signatureLineY + 5;
+    
+    doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
+  } catch (error) {
+    console.warn('Erreur lors de l\'ajout de la signature:', error);
+  }
+
   // =============================
   // 6. PIED DE PAGE
   // =============================
@@ -251,6 +264,18 @@ export const generateBonDeCommandePDF = (commande) => {
   doc.text("Visa pointeur Smcp", marginLeft, signatureLineY, { align: 'left' });
   doc.text("Visa du client", pageWidth / 2, signatureLineY, { align: 'center' });
   doc.text("Visa Responsable usine", pageWidth - marginRight, signatureLineY, { align: 'right' });
+
+  // Ajout de l'image de signature sous "Visa Responsable usine"
+  try {
+    const signatureWidth = 35;
+    const signatureHeight = 20;
+    const signatureX = pageWidth - marginRight - signatureWidth - 10;
+    const signatureY = signatureLineY + 5;
+    
+    doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
+  } catch (error) {
+    console.warn('Erreur lors de l\'ajout de la signature:', error);
+  }
 
   const footerY = 280;
   doc.setFontSize(8);
@@ -798,112 +823,195 @@ export const generateCommandeDetailsPDF = (commande) => {
 };
 
 // Fonction pour générer le Packing List à partir des données du formulaire
-export const generatePackingListFromFormPDF = (commande, packingData) => {
+/**
+ * Génère le Packing List en format PDF,
+ * chaque article est sur une ligne distincte.
+ *
+ * @param {Object} commande – la commande avec ses meta-données
+ * @param {Array} containerData – la structure complète des containers issue du formulaire
+ */
+export const generatePackingListFromFormPDF = (commande, containerData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  const marginLeft = 10;
-  const marginRight = 10;
+  const margin = { left: 10, right: 10 };
 
-  // =============================
-  // 1. En-tête avec logo
-  // =============================
-  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
-
+  // 1. Logo et en-tête
+  doc.addImage(logoBase64, 'PNG', margin.left, 10, 20, 20);
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  let currentY = 15;
-  const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
-  currentY += 5;
-  doc.text("License: ABCD-1234", infoX, currentY);
-  currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  let y = 15;
+  const infoX = margin.left + 25;
+  doc.text("MSM Seafood", infoX, y); y += 5;
+  doc.text("License: ABCD-1234", infoX, y); y += 5;
+  doc.text("msmseafoodsarl@gmail.com", infoX, y);
 
-  // =============================
-  // 2. Date et client
-  // =============================
-  const today = new Intl.DateTimeFormat('fr-FR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }).format(new Date()).replace(/(\d+)/, (match) => {
-    const day = parseInt(match);
-    return day === 1 ? '1er' : match;
-  }).toUpperCase();
-  doc.text(`Nouadhibou, ${today}`, pageWidth - marginRight, 20, { align: 'right' });
-
-  const clientName = commande.client?.raisonSociale || "Client Inconnu";
-  const clientAddress = commande.client?.adresse || "Adresse non renseignée";
+  // 2. Date et infos client
+  const todayFR = new Intl.DateTimeFormat('fr-FR', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  }).format(new Date()).toUpperCase();
+  doc.text(`Nouadhibou, ${todayFR}`, pageWidth - margin.right, 20, { align: 'right' });
 
   doc.setFont(undefined, 'bold');
-  doc.text(clientName, pageWidth - marginRight, 32, { align: 'right' });
+  doc.text(commande.client?.raisonSociale || "Client Inconnu", pageWidth - margin.right, 32, { align: 'right' });
   doc.setFont(undefined, 'normal');
-  doc.text(clientAddress, pageWidth - marginRight, 38, { align: 'right' });
+  doc.text(commande.client?.adresse || "Adresse non renseignée", pageWidth - margin.right, 38, { align: 'right' });
 
-  // =============================
-  // 3. Titre & Références
-  // =============================
+  // 3. Titre & références
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("PACKING LIST", pageWidth / 2, 55, { align: 'center' });
 
   doc.setFontSize(9);
-  const refY = 70;
-  doc.text(`Réf: ${commande.reference || 'N/A'}`, marginLeft, refY);
-  doc.text(`Booking: ${commande.numeroBooking || 'N/A'}`, 169, refY);
+  doc.text(`Réf: ${commande.reference || 'N/A'}`, margin.left, 70);
+  doc.text(`Booking: ${commande.numeroBooking || 'N/A'}`, pageWidth - margin.right - 40, 70);
 
-  // =============================
-  // 4. Tableau des données du formulaire
-  // =============================
-  const tableColumnHeaders = [
-    "Container N°",
-    "Seal N°",
-    "Size", 
-    "Marks",
-    "Prod",
-    "Date",
-    "Box",
-    "Num of Box",
-    "Net Weight",
-    "Gross Weight"
+  // 4. Tableau détaillé (un article par ligne)
+  const headers = [
+    "Conteneur", "Seal N°", "Taille", "Marks",
+    "Prod Date", "Expiry Date", "Box",
+    "Nbr Box", "Net Weight", "Gross Weight"
   ];
 
-  // Calculer les totaux
-  const totals = {
-    totalBoxes: packingData.reduce((sum, row) => sum + (parseFloat(row.numOfBox) || 0), 0),
-    totalNetWeight: packingData.reduce((sum, row) => sum + (parseFloat(row.netWeight) || 0), 0),
-    totalGrossWeight: packingData.reduce((sum, row) => sum + (parseFloat(row.grossWeight) || 0), 0)
-  };
+  const rows = [];
+  
+  containerData.forEach(container => {
+    // Gérer les deux formats de données possibles
+    if (container.containerInfo && container.articles) {
+      // Format original du formulaire avec containerInfo et articles
+      const { containerInfo, prod, expiryDate, articles } = container;
+      const cn = containerInfo.containerNo || 'N/A';
+      const sn = containerInfo.sealNo || 'N/A';
+      const boxType = containerInfo.areDeConteneur || 'N/A';
+      const selectedArticles = articles.filter(a => a.selected);
+      
+      // Si aucun article sélectionné, créer une ligne vide pour le container
+      if (selectedArticles.length === 0) {
+        rows.push([
+          cn,
+          sn,
+          'N/A',
+          'Aucun article sélectionné',
+          prod || 'N/A',
+          expiryDate || 'N/A',
+          boxType,
+          '0',
+          '0.00 KG',
+          '0.00 KG'
+        ]);
+      } else {
+        // Créer une ligne pour chaque article sélectionné avec VRAIS rowSpan
+        selectedArticles.forEach((article, index) => {
+          const qty = article.quantiteCarton || 0;
+          const netWeight = qty * 20; // 20kg par carton
+          const grossWeight = qty * (containerInfo.poidsCarton || 22);
+          const isFirstArticle = index === 0;
+          const rowSpanCount = selectedArticles.length;
+          
+          if (isFirstArticle) {
+            // Première ligne avec rowSpan réel pour Container, Seal et Expiry Date
+            rows.push([
+              { content: cn, rowSpan: rowSpanCount, styles: { valign: 'middle', halign: 'center' } },
+              { content: sn, rowSpan: rowSpanCount, styles: { valign: 'middle', halign: 'center' } },
+              article.taille || 'N/A',
+              `${article.reference || ''} ${article.specification || ''}`.trim() || 'N/A',
+              article.prodDate || 'N/A',
+              { content: expiryDate || 'N/A', rowSpan: rowSpanCount, styles: { valign: 'middle', halign: 'center' } },
+              article.box || '1*20KG',
+              qty.toString(),
+              `${netWeight.toFixed(2)} KG`,
+              `${grossWeight.toFixed(2)} KG`
+            ]);
+          } else {
+            // Lignes suivantes - IMPORTANT: Ne pas inclure les colonnes avec rowSpan !
+            // Colonnes 0 (Container), 1 (Seal), 5 (Expiry) sont fusionnées, donc on les exclut
+            rows.push([
+              article.taille || 'N/A',                                                    // Taille (colonne 2)
+              `${article.reference || ''} ${article.specification || ''}`.trim() || 'N/A', // Marks (colonne 3)
+              article.prodDate || 'N/A',                                                   // Prod Date (colonne 4)
+              article.box || '1*20KG',                                                     // Box (colonne 6)
+              qty.toString(),                                                              // Nbr Box (colonne 7)
+              `${netWeight.toFixed(2)} KG`,                                               // Net Weight (colonne 8)
+              `${grossWeight.toFixed(2)} KG`                                              // Gross Weight (colonne 9)
+            ]);
+          }
+        });
+      }
+    } else {
+      // Format simplifié du packingData
+      const cn = container.containerNo || 'N/A';
+      const sn = container.sealNo || 'N/A';
+      const boxType = container.box || 'N/A';
+      const prod = container.prod || 'N/A';
+      const expiryDate = container.date || 'N/A';
+      const numOfBox = container.numOfBox || 0;
+      const netWeight = container.netWeight || 0;
+      const grossWeight = container.grossWeight || 0;
+      
+      // Pour le format simplifié, on crée une seule ligne par conteneur
+      rows.push([
+        cn,
+        sn,
+        container.size || 'N/A',
+        container.marks || 'N/A',
+        prod,
+        expiryDate,
+        boxType,
+        numOfBox.toString(),
+        `${netWeight.toFixed(2)} KG`,
+        `${grossWeight.toFixed(2)} KG`
+      ]);
+    }
+  });
 
-  // Construire les lignes du tableau
-  const tableRows = packingData.map((row, index) => [
-    row.containerNo || 'N/A',
-    row.sealNo || 'N/A',
-    row.size || 'N/A',
-    row.marks || 'N/A',
-    row.prod || 'N/A',
-    row.date || 'N/A',
-    row.box || 'N/A',
-    row.numOfBox || '0',
-    `${row.netWeight || '0'} KG`,
-    `${row.grossWeight || '0'} KG`
-  ]);
+  // Calcul des totaux
+  let totalBoxes = 0;
+  let totalNetWeight = 0;
+  let totalGrossWeight = 0;
+  
+  rows.forEach(row => {
+    // Gérer les différents formats de lignes (première ligne avec 10 colonnes, suivantes avec 7)
+    let boxesIndex, netWeightIndex, grossWeightIndex;
+    
+    if (row.length === 10) {
+      // Première ligne d'un container (avec Container, Seal, Expiry Date)
+      boxesIndex = 7;
+      netWeightIndex = 8;
+      grossWeightIndex = 9;
+    } else if (row.length === 7) {
+      // Lignes suivantes d'un container (sans les colonnes fusionnées)
+      boxesIndex = 4; // Nbr Box
+      netWeightIndex = 5; // Net Weight
+      grossWeightIndex = 6; // Gross Weight
+    } else {
+      return; // Ligne de format inconnu, ignorer
+    }
+    
+    if (typeof row[boxesIndex] === 'string') {
+      totalBoxes += parseInt(row[boxesIndex]) || 0;
+    }
+    if (typeof row[netWeightIndex] === 'string') {
+      totalNetWeight += parseFloat(row[netWeightIndex].replace(' KG', '')) || 0;
+    }
+    if (typeof row[grossWeightIndex] === 'string') {
+      totalGrossWeight += parseFloat(row[grossWeightIndex].replace(' KG', '')) || 0;
+    }
+  });
 
-  // Ligne de total
-  tableRows.push([
-    { content: "TOTAL", colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
-    { content: totals.totalBoxes.toString(), styles: { halign: 'center', fontStyle: 'bold', fillColor: [240, 240, 240] } },
-    { content: `${totals.totalNetWeight.toFixed(2)} KG`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [240, 240, 240] } },
-    { content: `${totals.totalGrossWeight.toFixed(2)} KG`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [240, 240, 240] } }
+  // Ligne TOTAL
+  rows.push([
+    { content: "TOTAL", colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240,240,240] } },
+    { content: totalBoxes.toString(), styles: { halign: 'center', fontStyle: 'bold', fillColor: [240,240,240] } },
+    { content: `${totalNetWeight.toFixed(2)} KG`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [240,240,240] } },
+    { content: `${totalGrossWeight.toFixed(2)} KG`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [240,240,240] } }
   ]);
 
   doc.autoTable({
     startY: 85,
-    head: [tableColumnHeaders],
-    body: tableRows,
+    head: [headers],
+    body: rows,
     theme: 'grid',
-    styles: { 
-      fontSize: 7, 
+    styles: {
+      fontSize: 7,
       cellPadding: 1.5,
       valign: 'middle'
     },
@@ -913,60 +1021,71 @@ export const generatePackingListFromFormPDF = (commande, packingData) => {
       fontStyle: 'bold',
       fontSize: 7
     },
-    margin: { left: marginLeft, right: marginRight },
+    margin: { left: margin.left, right: margin.right },
     tableWidth: 'auto',
     columnStyles: {
-      0: { cellWidth: 18, halign: 'center' }, // Container N°
-      1: { cellWidth: 18, halign: 'center' }, // Seal N°
-      2: { cellWidth: 12, halign: 'center' }, // Size
-      3: { cellWidth: 25, halign: 'left' },   // Marks
-      4: { cellWidth: 15, halign: 'center' }, // Prod
-      5: { cellWidth: 20, halign: 'center' }, // Date
-      6: { cellWidth: 15, halign: 'center' }, // Box
-      7: { cellWidth: 18, halign: 'center' }, // Num of Box
-      8: { cellWidth: 22, halign: 'center' }, // Net Weight
-      9: { cellWidth: 22, halign: 'center' }  // Gross Weight
+      0: { cellWidth: 18, halign: 'center', valign: 'middle' },  // Conteneur
+      1: { cellWidth: 18, halign: 'center', valign: 'middle' },  // Seal N°
+      2: { cellWidth: 12, halign: 'center' },  // Taille
+      3: { cellWidth: 30, halign: 'left' },    // Marks
+      4: { cellWidth: 18, halign: 'center' },  // Prod Date
+      5: { cellWidth: 20, halign: 'center', valign: 'middle' },  // Expiry Date - centré verticalement
+      6: { cellWidth: 15, halign: 'center' },  // Box
+      7: { cellWidth: 18, halign: 'center' },  // Nbr Box
+      8: { cellWidth: 22, halign: 'center' },  // Net Weight
+      9: { cellWidth: 22, halign: 'center' }   // Gross Weight
+    },
+    didParseCell: function(data) {
+      const rowIndex = data.row.index;
+      
+      // Style spécial pour la ligne de total
+      if (rowIndex === data.table.body.length - 1) {
+        data.cell.styles.fillColor = [240, 240, 240];
+        data.cell.styles.fontStyle = 'bold';
+      }
     }
   });
 
-  // =============================
-  // 5. Informations additionnelles (si nécessaire)
-  // =============================
-  const afterTableY = doc.lastAutoTable.finalY + 10;
-  
+  // 5. Infos additionnelles et visas
+  const afterY = doc.lastAutoTable.finalY + 10;
   doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
-  doc.text(`Destination: ${commande.destination || 'N/A'}`, marginLeft, afterTableY);
-  doc.text(`Type de commande: ${commande.typeCommande === 'LOCALE' ? 'Locale' : 'Export'}`, marginLeft, afterTableY + 5);
+  doc.text(`Destination: ${commande.destination || 'N/A'}`, margin.left, afterY);
+  doc.text(`Type de commande: ${commande.typeCommande === 'LOCALE' ? 'Locale' : 'Export'}`, margin.left, afterY + 5);
 
-  // =============================
-  // 6. VISAS SUR UNE SEULE LIGNE
-  // =============================
-  const signatureLineY = afterTableY + 25;
+  const visaY = afterY + 25;
   doc.setFontSize(9);
-  doc.text("Visa pointeur Smcp", marginLeft, signatureLineY, { align: 'left' });
-  doc.text("Visa du client", pageWidth / 2, signatureLineY, { align: 'center' });
-  doc.text("Visa Responsable usine", pageWidth - marginRight, signatureLineY, { align: 'right' });
+  doc.text("Visa pointeur Smcp", margin.left, visaY);
+  doc.text("Visa du client", pageWidth / 2, visaY, { align: 'center' });
+  doc.text("Visa Responsable usine", pageWidth - margin.right, visaY, { align: 'right' });
 
-  // Lignes de signature
-  const lineY = signatureLineY + 15;
+  // Ajout de l'image de signature sous "Visa Responsable usine"
+  try {
+    const signatureWidth = 35;
+    const signatureHeight = 20;
+    const signatureX = pageWidth - margin.right - signatureWidth;
+    const signatureY = visaY + 5;
+    
+    doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
+  } catch (error) {
+    console.warn('Erreur lors de l\'ajout de la signature:', error);
+  }
+
+  const lineY = visaY + 15;
   doc.setLineWidth(0.3);
-  doc.line(marginLeft, lineY, marginLeft + 50, lineY);
+  doc.line(margin.left, lineY, margin.left + 50, lineY);
   doc.line(pageWidth / 2 - 25, lineY, pageWidth / 2 + 25, lineY);
-  doc.line(pageWidth - marginRight - 50, lineY, pageWidth - marginRight, lineY);
+  doc.line(pageWidth - margin.right - 50, lineY, pageWidth - margin.right, lineY);
 
-  // =============================
-  // 7. PIED DE PAGE
-  // =============================
+  // 6. Pied de page
   const footerY = 280;
   doc.setLineWidth(0.2);
-  doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
+  doc.line(margin.left, footerY - 5, pageWidth - margin.right, footerY - 5);
   doc.setFontSize(8);
-  doc.text("+222 46 00 89 08", marginLeft, footerY);
+  doc.text("+222 46 00 89 08", margin.left, footerY);
   doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
-  doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
+  doc.text("Zone industrielle, Dakhlet Nouâdhibou", pageWidth - margin.right, footerY, { align: 'right' });
 
-  // Sauvegarde du PDF
+  // Enregistrement
   doc.save(`packing_list_${commande.reference}.pdf`);
 };
 

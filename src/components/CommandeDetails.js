@@ -406,8 +406,8 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
             </Button>
           )} */}
           
-          {/* Bouton Créer le packing list - affiché seulement si la commande est livrée */}
-          {commande.statutBonDeCommande === 'LIVREE' && commande.cargo && commande.cargo.length > 0 && (
+          {/* Bouton Créer le packing list - affiché pour toutes les commandes avec cargo */}
+          {commande.cargo && commande.cargo.length > 0 && (
             <Button
               onClick={() => setShowPackingListForm(true)}
               variant="success"

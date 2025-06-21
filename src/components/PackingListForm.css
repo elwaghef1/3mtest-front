@@ -1,0 +1,92 @@
+/* Styles spécifiques pour le PackingListForm */
+
+.packing-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  font-family: Arial, sans-serif;
+}
+
+.packing-list-table th {
+  border: 2px solid #000;
+  padding: 12px 8px;
+  text-align: center;
+  font-weight: bold;
+  background-color: #f8f9fa;
+}
+
+.packing-list-table td {
+  border: 1px solid #000;
+  padding: 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.packing-list-table .container-cell {
+  font-weight: bold;
+  background-color: #fff;
+}
+
+.packing-list-table .total-row {
+  background-color: #f8f9fa;
+  font-weight: bold;
+}
+
+.packing-list-table .total-row td {
+  border: 2px solid #000;
+  padding: 12px 8px;
+}
+
+.container-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.article-card {
+  transition: all 0.2s ease;
+}
+
+.article-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.article-selected {
+  background-color: #f0f9ff !important;
+  border-color: #3b82f6 !important;
+}
+
+.remove-button {
+  transition: all 0.2s ease;
+}
+
+.remove-button:hover {
+  transform: scale(1.1);
+}
+
+@media (max-width: 768px) {
+  .packing-list-table {
+    font-size: 10px;
+  }
+  
+  .packing-list-table th,
+  .packing-list-table td {
+    padding: 6px 4px;
+  }
+  
+  .container-info-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .packing-list-table {
+    page-break-inside: avoid;
+  }
+  
+  .remove-button {
+    display: none;
+  }
+}
