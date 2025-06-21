@@ -944,7 +944,7 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
               article.taille || 'N/A',                                                    // Taille (colonne 2)
               `${article.reference || ''} ${article.specification || ''}`.trim() || 'N/A', // Marks (colonne 3)
               article.prodDate || 'N/A',                                                   // Prod Date (colonne 4)
-              article.box || '1*20KG',                                                     // Box (colonne 6)
+              article.box || '2*10KG',                                                     // Box (colonne 6)
               qty.toString(),                                                              // Nbr Box (colonne 7)
               `${netWeight.toFixed(2)} KG`,                                               // Net Weight (colonne 8)
               `${grossWeight.toFixed(2)} KG`                                              // Gross Weight (colonne 9)
