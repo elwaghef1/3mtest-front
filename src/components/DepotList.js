@@ -2,10 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import DepotForm from './DepotForm';
+import AutorisationSortieModal from './AutorisationSortieModal';
 import {
   PlusIcon,
   PencilIcon,
   InformationCircleIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/solid';
 import Pagination from './Pagination';
 
@@ -14,6 +16,7 @@ function DepotList() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingDepot, setEditingDepot] = useState(null);
+  const [showAutorisationModal, setShowAutorisationModal] = useState(false);
 
   const [filtered, setFiltered] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,16 +67,25 @@ function DepotList() {
 
   return (
     <div className="p-4 lg:p-6">
-      {/* Titre + bouton */}
+      {/* Titre + boutons */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <h1 className="text-2xl font-bold mb-4 md:mb-0">Liste des Dépôts</h1>
-        <button
-          onClick={handleOpenFormToCreate}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
-        >
-          <PlusIcon className="h-5 w-5 mr-2" />
-          Nouveau Dépôt
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowAutorisationModal(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <DocumentTextIcon className="h-5 w-5 mr-2" />
+            Éditer une Autorisation de Sortie
+          </button>
+          <button
+            onClick={handleOpenFormToCreate}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <PlusIcon className="h-5 w-5 mr-2" />
+            Nouveau Dépôt
+          </button>
+        </div>
       </div>
 
       {/* Erreur éventuelle */}
@@ -173,6 +185,13 @@ function DepotList() {
             />
           </div>
         </div>
+      )}
+
+      {/* Modal Autorisation de Sortie */}
+      {showAutorisationModal && (
+        <AutorisationSortieModal
+          onClose={() => setShowAutorisationModal(false)}
+        />
       )}
     </div>
   );

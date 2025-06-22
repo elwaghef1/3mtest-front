@@ -3,6 +3,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import logoBase64 from './logoBase64';
 import stampBase64 from './stampBase64';
+import sortieStamp64 from './sortieStamp64';
 
 // Fonction utilitaire pour formater la monnaie dans les PDF
 const formatCurrencyForPDF = (value, currency = 'EUR') => {
@@ -659,26 +660,30 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.setFontSize(8);
   if (commande.bank) {
     const bankDetails = [
-      `Bank: ${commande.bank.banque}`,
-      `Account Holder: ${commande.bank.titulaire}`,
-      `IBAN: ${commande.bank.iban}`,
-      `Swift Code: ${commande.bank.codeSwift}`
+      `Intermediary Bank: ${commande.bank.banqueIntermediaire || 'N/A'}`,
+      `SWIFT of intermediary: ${commande.bank.swiftIntermediaire || 'N/A'}`,
+      `Beneficiary Bank: ${commande.bank.banque}`,
+      `SWIFT of beneficiary bank: ${commande.bank.codeSwift}`,
+      `Beneficiary name: MSM SEAFOOD-SARL`,
+      `Code IBAN: ${commande.bank.iban}`
     ];
     bankDetails.forEach((line, index) => {
-      doc.text(line, marginLeft, bankY + 5 + index * 4);
+      doc.text(line, marginLeft, bankY + 6 + index * 4);
     });
   } else {
     const bankDetails = [
-      "Bank: Banque Populaire de Mauritanie",
-      "Account Holder: MSM SEAFOOD",
-      "IBAN: MR13...00270",
-      "Swift Code: BPMAMRMR"
+      "Intermediary Bank: N/A",
+      "SWIFT of intermediary: N/A", 
+      "Beneficiary Bank: Banque Populaire de Mauritanie",
+      "SWIFT of beneficiary bank: BPMAMRMR",
+      "Beneficiary name: MSM SEAFOOD-SARL",
+      "Code IBAN: MR13...00270"
     ];
     bankDetails.forEach((line, index) => {
-      doc.text(line, marginLeft, bankY + 5 + index * 4);
+      doc.text(line, marginLeft, bankY + 6 + index * 4);
     });
   }
-  let signatureY = bankY + 5 + 4 * 4 + 15;
+  let signatureY = bankY + 6 + 6 * 4 + 10;
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
   doc.text("FINANCE DEPARTMENT", pageWidth - marginRight, signatureY, { align: 'right' });
@@ -796,773 +801,380 @@ export const generateCommandeDetailsPDF = (commande) => {
     `${groupedItem.totalPrix.toFixed(2)} ${commande.currency || 'EUR'}`
   ]);
 
+  // Calculer les totaux
+  const totalQuantite = Object.values(groupedItems).reduce((sum, item) => sum + item.totalQuantite, 0);
+  const totalPrix = Object.values(groupedItems).reduce((sum, item) => sum + item.totalPrix, 0);
+  
+  // Ligne de total
+  tableData.push([
+    { content: "TOTAL", colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+    { content: totalQuantite.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } },
+    { content: `${totalPrix.toFixed(2)} ${commande.currency || 'EUR'}`, styles: { halign: 'center', fontStyle: 'bold' } }
+  ]);
+  
+  // Définir la position de départ du tableau
+  const tableStartY = 100; // Position Y pour le tableau
+  
   doc.autoTable({
     head: [tableColumnHeaders],
     body: tableData,
-    startY: infoBlockY,
+    startY: tableStartY,
     margin: { left: marginLeft, right: marginRight },
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-    },
-    headStyles: {
-      fillColor: [52, 73, 94],
-      textColor: 255,
-      fontStyle: 'bold',
-    },
-    columnStyles: {
-      0: { cellWidth: 80 }, // Article - élargi
-      1: { cellWidth: 30, halign: 'center' }, // Quantité
-      2: { cellWidth: 35, halign: 'right' }, // Prix unitaire
-      3: { cellWidth: 35, halign: 'right' }, // Total
-    },
+    styles: { fontSize: 9, cellPadding: 3 },
+    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
   });
 
-  // Prix total
-  const finalY = doc.lastAutoTable.finalY + 10;
-  doc.setFont(undefined, 'bold');
-  doc.setFontSize(12);
-  const totalText = `TOTAL: ${commande.prixTotal.toFixed(2) || '0'} ${commande.currency || 'EUR'}`;
-  doc.text(totalText, pageWidth - marginRight, finalY, { align: 'right' });
-
-  // Pied de page
-  const footerY = 280;
-  doc.setLineWidth(0.2);
-  doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
-  doc.text("+222 46 00 89 08", marginLeft, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
-  doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
-
-  doc.save(`details_commande_${commande.reference}.pdf`);
+  // Sauvegarde
+  const fileName = `bon_commande_${commande.reference || 'commande'}.pdf`;
+  doc.save(fileName);
 };
 
-// Fonction pour générer le Packing List à partir des données du formulaire
-/**
- * Génère le Packing List en format PDF,
- * chaque article est sur une ligne distincte.
- *
- * @param {Object} commande – la commande avec ses meta-données
- * @param {Array} containerData – la structure complète des containers issue du formulaire
- */
-export const generatePackingListFromFormPDF = (commande, containerData) => {
+// Fonction pour générer l'autorisation de sortie PDF
+export const generateAutorisationSortiePDF = (autorisationData) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = { left: 10, right: 10 };
-
-  // 1. Logo et en-tête
-  doc.addImage(logoBase64, 'PNG', margin.left, 10, 20, 20);
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
-  let y = 15;
-  const infoX = margin.left + 25;
-  doc.text("MSM Seafood", infoX, y); y += 5;
-  doc.text("License: ABCD-1234", infoX, y); y += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, y);
-
-  // 2. Date et infos client
-  const todayFR = new Intl.DateTimeFormat('fr-FR', {
-    year: 'numeric', month: 'long', day: 'numeric'
-  }).format(new Date()).toUpperCase();
-  doc.text(`Nouadhibou, ${todayFR}`, pageWidth - margin.right, 20, { align: 'right' });
-
-  doc.setFont(undefined, 'bold');
-  doc.text(commande.client?.raisonSociale || "Client Inconnu", pageWidth - margin.right, 32, { align: 'right' });
-  doc.setFont(undefined, 'normal');
-  doc.text(commande.client?.adresse || "Adresse non renseignée", pageWidth - margin.right, 38, { align: 'right' });
-
-  // 3. Titre & références
-  doc.setFontSize(12);
-  doc.setFont(undefined, 'bold');
-  doc.text("PACKING LIST", pageWidth / 2, 55, { align: 'center' });
-
-  doc.setFontSize(9);
-  doc.text(`Réf: ${commande.reference || 'N/A'}`, margin.left, 70);
-  doc.text(`Booking: ${commande.numeroBooking || 'N/A'}`, pageWidth - margin.right - 40, 70);
-
-  // 4. Tableau détaillé (un article par ligne)
-  const headers = [
-    "Conteneur", "Seal N°", "Taille", "Marks",
-    "Prod Date", "Expiry Date", "Box",
-    "Nbr Box", "Net Weight", "Gross Weight"
-  ];
-
-  const rows = [];
-  
-  containerData.forEach(container => {
-    // Gérer les deux formats de données possibles
-    if (container.containerInfo && container.articles) {
-      // Format original du formulaire avec containerInfo et articles
-      const { containerInfo, prod, expiryDate, articles } = container;
-      const cn = containerInfo.containerNo || 'N/A';
-      const sn = containerInfo.sealNo || 'N/A';
-      const boxType = containerInfo.areDeConteneur || 'N/A';
-      const selectedArticles = articles.filter(a => a.selected);
-      
-      // Si aucun article sélectionné, créer une ligne vide pour le container
-      if (selectedArticles.length === 0) {
-        rows.push([
-          cn,
-          sn,
-          'N/A',
-          'Aucun article sélectionné',
-          prod || 'N/A',
-          expiryDate || 'N/A',
-          boxType,
-          '0',
-          '0.00 KG',
-          '0.00 KG'
-        ]);
-      } else {
-        // Créer une ligne pour chaque article sélectionné avec VRAIS rowSpan
-        selectedArticles.forEach((article, index) => {
-          const qty = article.quantiteCarton || 0;
-          const netWeight = qty * 20; // 20kg par carton
-          const grossWeight = qty * (containerInfo.poidsCarton || 22);
-          const isFirstArticle = index === 0;
-          const rowSpanCount = selectedArticles.length;
-          
-          if (isFirstArticle) {
-            // Première ligne avec rowSpan réel pour Container, Seal et Expiry Date
-            rows.push([
-              { content: cn, rowSpan: rowSpanCount, styles: { valign: 'middle', halign: 'center' } },
-              { content: sn, rowSpan: rowSpanCount, styles: { valign: 'middle', halign: 'center' } },
-              article.taille || 'N/A',
-              `${article.reference || ''} ${article.specification || ''}`.trim() || 'N/A',
-              article.prodDate || 'N/A',
-              { content: expiryDate || 'N/A', rowSpan: rowSpanCount, styles: { valign: 'middle', halign: 'center' } },
-              article.box || '2*10KG',
-              qty.toString(),
-              `${netWeight.toFixed(2)} KG`,
-              `${grossWeight.toFixed(2)} KG`
-            ]);
-          } else {
-            // Lignes suivantes - IMPORTANT: Ne pas inclure les colonnes avec rowSpan !
-            // Colonnes 0 (Container), 1 (Seal), 5 (Expiry) sont fusionnées, donc on les exclut
-            rows.push([
-              article.taille || 'N/A',                                                    // Taille (colonne 2)
-              `${article.reference || ''} ${article.specification || ''}`.trim() || 'N/A', // Marks (colonne 3)
-              article.prodDate || 'N/A',                                                   // Prod Date (colonne 4)
-              article.box || '2*10KG',                                                     // Box (colonne 6)
-              qty.toString(),                                                              // Nbr Box (colonne 7)
-              `${netWeight.toFixed(2)} KG`,                                               // Net Weight (colonne 8)
-              `${grossWeight.toFixed(2)} KG`                                              // Gross Weight (colonne 9)
-            ]);
-          }
-        });
-      }
-    } else {
-      // Format simplifié du packingData
-      const cn = container.containerNo || 'N/A';
-      const sn = container.sealNo || 'N/A';
-      const boxType = container.box || 'N/A';
-      const prod = container.prod || 'N/A';
-      const expiryDate = container.date || 'N/A';
-      const numOfBox = container.numOfBox || 0;
-      const netWeight = container.netWeight || 0;
-      const grossWeight = container.grossWeight || 0;
-      
-      // Pour le format simplifié, on crée une seule ligne par conteneur
-      rows.push([
-        cn,
-        sn,
-        container.size || 'N/A',
-        container.marks || 'N/A',
-        prod,
-        expiryDate,
-        boxType,
-        numOfBox.toString(),
-        `${netWeight.toFixed(2)} KG`,
-        `${grossWeight.toFixed(2)} KG`
-      ]);
-    }
-  });
-
-  // Calcul des totaux
-  let totalBoxes = 0;
-  let totalNetWeight = 0;
-  let totalGrossWeight = 0;
-  
-  rows.forEach(row => {
-    // Gérer les différents formats de lignes (première ligne avec 10 colonnes, suivantes avec 7)
-    let boxesIndex, netWeightIndex, grossWeightIndex;
-    
-    if (row.length === 10) {
-      // Première ligne d'un container (avec Container, Seal, Expiry Date)
-      boxesIndex = 7;
-      netWeightIndex = 8;
-      grossWeightIndex = 9;
-    } else if (row.length === 7) {
-      // Lignes suivantes d'un container (sans les colonnes fusionnées)
-      boxesIndex = 4; // Nbr Box
-      netWeightIndex = 5; // Net Weight
-      grossWeightIndex = 6; // Gross Weight
-    } else {
-      return; // Ligne de format inconnu, ignorer
-    }
-    
-    if (typeof row[boxesIndex] === 'string') {
-      totalBoxes += parseInt(row[boxesIndex]) || 0;
-    }
-    if (typeof row[netWeightIndex] === 'string') {
-      totalNetWeight += parseFloat(row[netWeightIndex].replace(' KG', '')) || 0;
-    }
-    if (typeof row[grossWeightIndex] === 'string') {
-      totalGrossWeight += parseFloat(row[grossWeightIndex].replace(' KG', '')) || 0;
-    }
-  });
-
-  // Ligne TOTAL
-  rows.push([
-    { content: "TOTAL", colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240,240,240] } },
-    { content: totalBoxes.toString(), styles: { halign: 'center', fontStyle: 'bold', fillColor: [240,240,240] } },
-    { content: `${totalNetWeight.toFixed(2)} KG`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [240,240,240] } },
-    { content: `${totalGrossWeight.toFixed(2)} KG`, styles: { halign: 'center', fontStyle: 'bold', fillColor: [240,240,240] } }
-  ]);
-
-  doc.autoTable({
-    startY: 85,
-    head: [headers],
-    body: rows,
-    theme: 'grid',
-    styles: {
-      fontSize: 7,
-      cellPadding: 1.5,
-      valign: 'middle'
-    },
-    headStyles: {
-      fillColor: [52, 73, 94],
-      textColor: 255,
-      fontStyle: 'bold',
-      fontSize: 7
-    },
-    margin: { left: margin.left, right: margin.right },
-    tableWidth: 'auto',
-    columnStyles: {
-      0: { cellWidth: 18, halign: 'center', valign: 'middle' },  // Conteneur
-      1: { cellWidth: 18, halign: 'center', valign: 'middle' },  // Seal N°
-      2: { cellWidth: 12, halign: 'center' },  // Taille
-      3: { cellWidth: 30, halign: 'left' },    // Marks
-      4: { cellWidth: 18, halign: 'center' },  // Prod Date
-      5: { cellWidth: 20, halign: 'center', valign: 'middle' },  // Expiry Date - centré verticalement
-      6: { cellWidth: 15, halign: 'center' },  // Box
-      7: { cellWidth: 18, halign: 'center' },  // Nbr Box
-      8: { cellWidth: 22, halign: 'center' },  // Net Weight
-      9: { cellWidth: 22, halign: 'center' }   // Gross Weight
-    },
-    didParseCell: function(data) {
-      const rowIndex = data.row.index;
-      
-      // Style spécial pour la ligne de total
-      if (rowIndex === data.table.body.length - 1) {
-        data.cell.styles.fillColor = [240, 240, 240];
-        data.cell.styles.fontStyle = 'bold';
-      }
-    }
-  });
-
-  // 5. Infos additionnelles et visas
-  const afterY = doc.lastAutoTable.finalY + 10;
-  doc.setFontSize(8);
-  doc.text(`Destination: ${commande.destination || 'N/A'}`, margin.left, afterY);
-  doc.text(`Type de commande: ${commande.typeCommande === 'LOCALE' ? 'Locale' : 'Export'}`, margin.left, afterY + 5);
-
-  const visaY = afterY + 25;
-  doc.setFontSize(9);
-  doc.text("Visa pointeur Smcp", margin.left, visaY);
-  doc.text("Visa du client", pageWidth / 2, visaY, { align: 'center' });
-  doc.text("Visa Responsable usine", pageWidth - margin.right, visaY, { align: 'right' });
-
-  // Ajout de l'image de signature sous "Visa Responsable usine"
-  try {
-    const signatureWidth = 35;
-    const signatureHeight = 20;
-    const signatureX = pageWidth - margin.right - signatureWidth;
-    const signatureY = visaY + 5;
-    
-    doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
-  } catch (error) {
-    console.warn('Erreur lors de l\'ajout de la signature:', error);
-  }
-
-  const lineY = visaY + 15;
-  doc.setLineWidth(0.3);
-  doc.line(margin.left, lineY, margin.left + 50, lineY);
-  doc.line(pageWidth / 2 - 25, lineY, pageWidth / 2 + 25, lineY);
-  doc.line(pageWidth - margin.right - 50, lineY, pageWidth - margin.right, lineY);
-
-  // 6. Pied de page
-  const footerY = 280;
-  doc.setLineWidth(0.2);
-  doc.line(margin.left, footerY - 5, pageWidth - margin.right, footerY - 5);
-  doc.setFontSize(8);
-  doc.text("+222 46 00 89 08", margin.left, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
-  doc.text("Zone industrielle, Dakhlet Nouâdhibou", pageWidth - margin.right, footerY, { align: 'right' });
-
-  // Enregistrement
-  doc.save(`packing_list_${commande.reference}.pdf`);
-};
-
-// Fonction pour générer la Demande de Certification (Certificat d'Origine)
-export const generateCertificationRequestPDF = (commande) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const marginLeft = 15;
-  const marginRight = 15;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginLeft = 10;
+  const marginRight = 10;
 
   // =============================
-  // 1. En-tête du document
+  // 1. En-tête avec logo (même style que les autres PDF)
   // =============================
-  doc.setFontSize(14);
-  doc.setFont(undefined, 'bold');
-  doc.text("DEMANDE DE CERTIFICATION", pageWidth / 2, 20, { align: 'center' });
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
 
-  // Numéro du document
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  let currentY = 15;
+  const infoX = marginLeft + 25;
+  doc.text("MSM Seafood", infoX, currentY);
+  currentY += 5;
+  doc.text("Zone industrielle,", infoX, currentY);
+  currentY += 5;
+  doc.text("Dakhlet Nouâdhibou", infoX, currentY);
+  currentY += 5;
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+
+  // =============================
+  // 2. Titre principal
+  // =============================
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text("AUTORISATION DE SORTIE", pageWidth / 2, 45, { align: 'center' });
+
+  // =============================
+  // 3. Informations générales
+  // =============================
   doc.setFontSize(10);
   doc.setFont(undefined, 'normal');
-  doc.text(`N°: ${commande.reference || 'N/A'}`, pageWidth - marginRight, 30, { align: 'right' });
+  let infoY = 60;
 
-  // =============================
-  // 2. Informations de l'expéditeur
-  // =============================
-  let currentY = 45;
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'bold');
-  doc.text("Nom et adresse de l'expéditeur:", marginLeft, currentY);
-  doc.setFont(undefined, 'normal');
-  currentY += 5;
-  doc.text("Nom: MSM SEAFOOD SARL", marginLeft + 5, currentY);
-  currentY += 4;
-  doc.text("Adresse: Zone industrielle, Dakhlet Nouâdhibou, Mauritanie", marginLeft + 5, currentY);
-  currentY += 4;
-  doc.text("P.O: MSM SEAFOOD SARL", marginLeft + 5, currentY);
-  currentY += 4;
-  doc.text("Tél: +222 46 00 89 08", marginLeft + 5, currentY);
-
-  // =============================
-  // 3. Informations du transporteur
-  // =============================
-  currentY += 10;
-  doc.setFont(undefined, 'bold');
-  doc.text("Moyen de transport:", marginLeft, currentY);
-  doc.setFont(undefined, 'normal');
-  currentY += 5;
-  doc.text(`Navire: ${commande.numeroBooking || 'À définir'}`, marginLeft + 5, currentY);
-  currentY += 4;
-  doc.text(`N° de conteneur: ${commande.cargo?.[0]?.noDeConteneur || 'À définir'}`, marginLeft + 5, currentY);
-  currentY += 4;
-  doc.text(`Destination: ${commande.destination || 'À définir'}`, marginLeft + 5, currentY);
-
-  // =============================
-  // 4. Pays d'origine et destination
-  // =============================
-  currentY += 10;
-  doc.setFont(undefined, 'bold');
-  doc.text("Pays:", marginLeft, currentY);
-  doc.setFont(undefined, 'normal');
-  currentY += 5;
-  doc.text("Origine du produit: MAURITANIE", marginLeft + 5, currentY);
-  currentY += 4;
-  doc.text(`Pays de destination: ${commande.destination || 'À définir'}`, marginLeft + 5, currentY);
-
-  // =============================
-  // 5. Tableau des marchandises
-  // =============================
-  currentY += 15;
-  doc.setFont(undefined, 'bold');
-  doc.text("Description des marchandises:", marginLeft, currentY);
-
-  // Regrouper les articles identiques
-  const groupedItems = {};
-  commande.items?.forEach(item => {
-    const productKey = item.article ? 
-      [item.article.reference, item.article.specification].filter(Boolean).join(" ") : 
-      "Produit non spécifié";
-    const size = item.article?.taille || "-";
-    const groupKey = `${productKey}-${size}`;
-    
-    if (!groupedItems[groupKey]) {
-      groupedItems[groupKey] = {
-        product: productKey,
-        size: size,
-        totalQuantity: 0,
-        unit: "KG"
-      };
-    }
-    
-    groupedItems[groupKey].totalQuantity += parseFloat(item.quantiteKg) || 0;
-  });
-
-  // Tableau des produits
-  const tableData = Object.values(groupedItems).map(item => [
-    item.product,
-    item.size,
-    `${item.totalQuantity.toFixed(0)} ${item.unit}`,
-    "Mauritanie" // Origine
-  ]);
-
-  doc.autoTable({
-    startY: currentY + 5,
-    head: [["DÉSIGNATION", "TAILLE", "QUANTITÉ", "ORIGINE"]],
-    body: tableData,
-    theme: 'grid',
-    styles: { 
-      fontSize: 8, 
-      cellPadding: 3,
-      valign: 'middle'
-    },
-    headStyles: {
-      fillColor: [200, 200, 200],
-      textColor: 0,
-      fontStyle: 'bold'
-    },
-    margin: { left: marginLeft, right: marginRight },
-    columnStyles: {
-      0: { cellWidth: 70 },
-      1: { cellWidth: 30, halign: 'center' },
-      2: { cellWidth: 40, halign: 'center' },
-      3: { cellWidth: 40, halign: 'center' }
-    }
-  });
-
-  // =============================
-  // 6. Informations de certification
-  // =============================
-  currentY = doc.lastAutoTable.finalY + 15;
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'bold');
-  doc.text("CERTIFICATION:", marginLeft, currentY);
-  doc.setFont(undefined, 'normal');
-  currentY += 8;
-
-  const certificationText = [
-    "Je certifie que les marchandises désignées ci-dessus sont originaires de",
-    "Mauritanie et satisfont aux conditions prévues par les accords commerciaux",
-    "en vigueur pour l'exportation vers le pays de destination."
-  ];
-
-  certificationText.forEach((line, index) => {
-    doc.text(line, marginLeft, currentY + (index * 5));
-  });
-
-  // =============================
-  // 7. Date et lieu
-  // =============================
-  currentY += 25;
+  // Date
   const today = new Intl.DateTimeFormat('fr-FR', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
-  }).format(new Date()).replace(/(\d+)/, (match) => {
+  }).format(autorisationData.date).replace(/(\d+)/, (match) => {
     const day = parseInt(match);
     return day === 1 ? '1er' : match;
   });
+  doc.text(`Date: ${today}`, marginLeft, infoY);
 
-  doc.text(`Fait à Nouadhibou, le ${today}`, marginLeft, currentY);
-
-  // =============================
-  // 8. Signatures et cachets
-  // =============================
-  currentY += 20;
-  
-  // Signature de l'exportateur
+  // Dépôt
+  infoY += 7;
   doc.setFont(undefined, 'bold');
-  doc.text("Signature de l'exportateur:", marginLeft, currentY);
+  doc.text(`Dépôt: ${autorisationData.depot?.intitule || 'N/A'}`, marginLeft, infoY);
   doc.setFont(undefined, 'normal');
-  doc.text("MSM SEAFOOD SARL", marginLeft, currentY + 10);
+  if (autorisationData.depot?.location) {
+    infoY += 5;
+    doc.text(`Localisation: ${autorisationData.depot.location}`, marginLeft, infoY);
+  }
+
+  // Numéro unique pour l'autorisation
+  const numeroAutorisation = `AS${Date.now().toString().slice(-8)}`;
+  doc.text(`N° Autorisation: ${numeroAutorisation}`, pageWidth - marginRight, 60, { align: 'right' });
+
+  // =============================
+  // 4. Tableau des articles
+  // =============================
+  const tableStartY = infoY + 15;
   
-  // Ligne de signature
-  doc.setLineWidth(0.3);
-  doc.line(marginLeft, currentY + 20, marginLeft + 60, currentY + 20);
+  const tableColumnHeaders = [
+    "Article",
+    "Taille",
+    "Quantité (Cartons)",
+    "Quantité (Kg)"
+  ];
 
-  // Visa des autorités compétentes
-  doc.setFont(undefined, 'bold');
-  doc.text("Visa des autorités compétentes:", pageWidth - marginRight - 60, currentY);
-  doc.setFont(undefined, 'normal');
-  
-  // Cadre pour le cachet
-  doc.rect(pageWidth - marginRight - 50, currentY + 5, 45, 30);
-  doc.setFontSize(8);
-  doc.text("Cachet et signature", pageWidth - marginRight - 47, currentY + 20);
-  doc.text("des autorités", pageWidth - marginRight - 40, currentY + 25);
+  const tableRows = autorisationData.articles.map(item => {
+    const articleName = [
+      item.article?.reference,
+      item.article?.specification,
+      item.article?.taille
+    ].filter(Boolean).join(' - ');
+
+    return [
+      articleName || 'Article inconnu',
+      item.article?.taille || '-',
+      item.quantiteCarton?.toString() || '0',
+      item.quantiteKg?.toFixed(1) || '0.0'
+    ];
+  });
+
+  // Calcul des totaux
+  const totalCartons = autorisationData.articles.reduce((sum, item) => sum + (item.quantiteCarton || 0), 0);
+  const totalKg = autorisationData.articles.reduce((sum, item) => sum + (item.quantiteKg || 0), 0);
+
+  // Ajouter ligne de total
+  tableRows.push([
+    { content: "TOTAL", colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+    { content: totalCartons.toString(), styles: { halign: 'center', fontStyle: 'bold' } },
+    { content: totalKg.toFixed(1), styles: { halign: 'center', fontStyle: 'bold' } }
+  ]);
+
+  doc.autoTable({
+    head: [tableColumnHeaders],
+    body: tableRows,
+    startY: tableStartY,
+    margin: { left: marginLeft, right: marginRight },
+    styles: {
+      fontSize: 9,
+      cellPadding: 4,
+    },
+    headStyles: {
+      fillColor: [41, 128, 185],
+      textColor: 255,
+      fontStyle: 'bold',
+    },
+    alternateRowStyles: {
+      fillColor: [245, 245, 245],
+    },
+    columnStyles: {
+      0: { cellWidth: 70 }, // Article (élargie)
+      1: { cellWidth: 30, halign: 'center' }, // Taille (élargie)
+      2: { cellWidth: 40, halign: 'center' }, // Cartons (élargie)
+      3: { cellWidth: 40, halign: 'center' }, // Kg (élargie)
+    },
+  });
 
   // =============================
-  // 9. Notes et références
+  // 5. Ajouter le tampon/logo en bas à droite si disponible
   // =============================
-  currentY += 45;
-  doc.setFontSize(8);
-  doc.setFont(undefined, 'normal');
-  doc.text(`Référence commande: ${commande.reference}`, marginLeft, currentY);
-  currentY += 4;
-  doc.text(`Date de commande: ${commande.dateCommande ? 
-    new Date(commande.dateCommande).toLocaleDateString('fr-FR') : 
-    'Non spécifiée'}`, marginLeft, currentY);
-  currentY += 4;
-  doc.text(`Client: ${commande.client?.raisonSociale || 'Non spécifié'}`, marginLeft, currentY);
+  if (sortieStamp64) {
+    try {
+      const stampY = doc.lastAutoTable.finalY + 18; // 50px sous le tableau (18mm ≈ 50px)
+      doc.addImage(sortieStamp64, 'PNG', pageWidth - marginRight - 40, stampY, 35, 25);
+    } catch (error) {
+      console.warn('Impossible d\'ajouter le tampon:', error);
+    }
+  }
 
   // =============================
-  // 10. Pied de page
+  // 6. Sauvegarde
   // =============================
-  const footerY = 280;
-  doc.setLineWidth(0.2);
-  doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
-  doc.setFontSize(8);
-  doc.text("MSM SEAFOOD SARL", marginLeft, footerY);
-  doc.text("Zone industrielle, Dakhlet Nouâdhibou, Mauritanie", pageWidth / 2, footerY, { align: 'center' });
-  doc.text("+222 46 00 89 08", pageWidth - marginRight, footerY, { align: 'right' });
-
-  // Sauvegarde du PDF
-  doc.save(`demande_certification_${commande.reference}.pdf`);
+  const fileName = `autorisation_sortie_${numeroAutorisation}_${autorisationData.depot?.code || 'depot'}.pdf`;
+  doc.save(fileName);
 };
 
-// Fonction pour générer le Bon de Transfert PDF (simple ou multiple)
-export const generateBonDeTransfertPDF = (transfer) => {
+// Fonction pour générer un certificat de demande PDF
+export const generateCertificationRequestPDF = (data) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  const marginLeft = 15;
-  const marginRight = 15;
+  const marginLeft = 10;
+  const marginRight = 10;
 
-  // =============================
-  // 1. En-tête avec logo
-  // =============================
-  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 25, 25);
-
-  doc.setFontSize(12);
-  doc.setFont(undefined, 'bold');
-  let currentY = 15;
-  const infoX = marginLeft + 30;
-  doc.text("MSM SEAFOOD", infoX, currentY);
-  currentY += 6;
+  // En-tête
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
-  currentY += 4;
-  doc.text("+222 46 00 89 08", infoX, currentY);
-  currentY += 4;
-  doc.text("Zone idustrielle, Dakhlet Nouâdhibou", infoX, currentY);
+  let currentY = 15;
+  const infoX = marginLeft + 25;
+  doc.text("MSM Seafood", infoX, currentY);
+  currentY += 5;
+  doc.text("Zone industrielle,", infoX, currentY);
+  currentY += 5;
+  doc.text("Dakhlet Nouâdhibou", infoX, currentY);
 
-  // =============================
-  // 2. Date et numéro de transfert
-  // =============================
-  const dateStr = transfer.dateTransfert 
-    ? new Date(transfer.dateTransfert).toLocaleDateString('fr-FR')
-    : new Date().toLocaleDateString('fr-FR');
-  
-  doc.setFontSize(10);
-  doc.text(`Date: ${dateStr}`, pageWidth - marginRight, 20, { align: 'right' });
-  doc.text(`N° Transfert: ${transfer._id}`, pageWidth - marginRight, 28, { align: 'right' });
-
-  // =============================
-  // 3. Titre
-  // =============================
+  // Titre
   doc.setFontSize(16);
   doc.setFont(undefined, 'bold');
-  const title = transfer.isMultiple ? 'BON DE TRANSFERT' : 'BON DE TRANSFERT';
-  doc.text(title, pageWidth / 2, 55, { align: 'center' });
+  doc.text("DEMANDE DE CERTIFICATION", pageWidth / 2, 45, { align: 'center' });
 
-  // =============================
-  // 4. Informations générales
-  // =============================
+  // Contenu basique
   doc.setFontSize(10);
   doc.setFont(undefined, 'normal');
-  let infoY = 75;
-  
-  doc.setFont(undefined, 'bold');
-  doc.text('Informations Générales:', marginLeft, infoY);
-  doc.setFont(undefined, 'normal');
-  infoY += 8;
-  
-  doc.text(`Dépôt de Départ: ${transfer.depotDepart?.intitule || 'N/A'}`, marginLeft, infoY);
-  infoY += 6;
-  doc.text(`Dépôt d'Arrivée: ${transfer.depotArrivee?.intitule || 'N/A'}`, marginLeft, infoY);
-  infoY += 6;
-  doc.text(`Pointeur: ${transfer.pointeur || 'N/A'}`, marginLeft, infoY);
-  infoY += 6;
-  doc.text(`Moyen de Transport: ${transfer.moyenDeTransfert || 'N/A'}`, marginLeft, infoY);
-  if (transfer.immatricule) {
-    infoY += 6;
-    doc.text(`Immatricule: ${transfer.immatricule}`, marginLeft, infoY);
-  }
-
-  // =============================
-  // 5. Tableau des articles
-  // =============================
-  let tableStartY = infoY + 15;
-  
-  if (transfer.isMultiple && transfer.items && transfer.items.length > 0) {
-    // Transfert multiple
-    doc.setFont(undefined, 'bold');
-    doc.text('Détail des Articles Transférés:', marginLeft, tableStartY);
-    tableStartY += 8;
-    
-    const headers = [
-      'Article',
-      'Référence',
-      'Taille',
-      'Quantité (Kg)',
-      'Quantité (Cartons)',
-      'Batch Number'
-    ];
-
-    const rows = transfer.items.map(item => {
-      const article = item.article || {};
-      const articleName = [
-        article.reference || 'N/A',
-        article.specification || '',
-        article.intitule || ''
-      ].filter(Boolean).join(' - ');
-      
-      const batchNumbers = item.detailsLots 
-        ? item.detailsLots.map(lot => lot.batchNumber).filter(Boolean).join(', ')
-        : 'N/A';
-      
-      return [
-        articleName,
-        article.reference || 'N/A',
-        article.taille || 'N/A',
-        item.quantiteKg?.toString() || '0',
-        item.quantiteCarton?.toFixed(2) || '0',
-        batchNumbers
-      ];
-    });
-
-    // Ligne de total
-    const totalKg = transfer.quantiteKg || 0;
-    const totalCartons = transfer.quantiteCarton || 0;
-    rows.push([
-      { content: 'TOTAL', styles: { fontStyle: 'bold' } },
-      '',
-      '',
-      { content: totalKg.toString(), styles: { fontStyle: 'bold' } },
-      { content: totalCartons.toFixed(2), styles: { fontStyle: 'bold' } },
-      ''
-    ]);
-
-    doc.autoTable({
-      startY: tableStartY,
-      head: [headers],
-      body: rows,
-      theme: 'grid',
-      styles: { 
-        fontSize: 8,
-        cellPadding: 3
-      },
-      headStyles: {
-        fillColor: [64, 64, 64],
-        textColor: 'white',
-        fontStyle: 'bold',
-      },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 35 }
-      }
-    });
-  } else {
-    // Transfert simple
-    doc.setFont(undefined, 'bold');
-    doc.text('Détail du Transfert:', marginLeft, tableStartY);
-    tableStartY += 8;
-    
-    const headers = [
-      'Article',
-      'Référence',
-      'Taille',
-      'Quantité (Kg)',
-      'Quantité (Cartons)',
-      'Batch Number'
-    ];
-
-    const article = transfer.article || {};
-    const articleName = [
-      article.reference || 'N/A',
-      article.specification || '',
-      article.intitule || ''
-    ].filter(Boolean).join(' - ');
-    
-    const batchNumbers = transfer.detailsLots 
-      ? transfer.detailsLots.map(lot => lot.batchNumber).filter(Boolean).join(', ')
-      : 'N/A';
-    
-    const rows = [[
-      articleName,
-      article.reference || 'N/A',
-      article.taille || 'N/A',
-      transfer.quantiteKg?.toString() || '0',
-      transfer.quantiteCarton?.toFixed(2) || (transfer.quantiteKg ? (transfer.quantiteKg / 20).toFixed(2) : '0'),
-      batchNumbers
-    ]];
-
-    doc.autoTable({
-      startY: tableStartY,
-      head: [headers],
-      body: rows,
-      theme: 'grid',
-      styles: { 
-        fontSize: 9,
-        cellPadding: 4
-      },
-      headStyles: {
-        fillColor: [64, 64, 64],
-        textColor: 'white',
-        fontStyle: 'bold',
-      },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 20 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 25 },
-        5: { cellWidth: 35 }
-      }
-    });
-  }
-
-  // =============================
-  // 6. Signatures
-  // =============================
-  const finalY = doc.lastAutoTable.finalY || tableStartY + 30;
-  const signatureY = finalY + 20;
-  
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
-  doc.text('Signatures:', marginLeft, signatureY);
-  
-  doc.setFont(undefined, 'normal');
-  const sig1Y = signatureY + 15;
-  const sig2Y = signatureY + 15;
-  
-  doc.text('Pointeur:', marginLeft, sig1Y);
-  doc.text('Signature Responsable:', pageWidth / 2, sig1Y);
-  
-  // Lignes de signature
-  doc.line(marginLeft, sig1Y + 15, marginLeft + 60, sig1Y + 15);
-  doc.line(pageWidth / 2, sig2Y + 15, pageWidth / 2 + 60, sig2Y + 15);
-  
-  const sig3Y = sig1Y + 25;
-  // doc.text('Responsable Dépôt Arrivée:', marginLeft, sig3Y);
-  // doc.line(marginLeft, sig3Y + 15, marginLeft + 60, sig3Y + 15);
-
-  // =============================
-  // 7. Notes/Observations
-  // =============================
-  // const notesY = sig3Y + 25;
-  // doc.setFont(undefined, 'bold');
-  // doc.text('Observations:', marginLeft, notesY);
-  // doc.setFont(undefined, 'normal');
-  
-  // // Cadre pour les observations
-  // doc.rect(marginLeft, notesY + 5, pageWidth - marginLeft - marginRight, 20);
+  doc.text("Document de demande de certification généré", marginLeft, 70);
 
   // Sauvegarde
-  const fileName = transfer.isMultiple 
-    ? `bon_transfert_multiple_${transfer._id}.pdf`
-    : `bon_transfert_${transfer._id}.pdf`;
+  doc.save('demande_certification.pdf');
+};
+
+// Fonction pour générer un packing list depuis un formulaire
+export const generatePackingListFromFormPDF = (formData) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 10;
+  const marginRight = 10;
+
+  // En-tête
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  let currentY = 15;
+  const infoX = marginLeft + 25;
+  doc.text("MSM Seafood", infoX, currentY);
+  currentY += 5;
+  doc.text("License: ABCD-1234", infoX, currentY);
+  currentY += 5;
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+
+  // Titre
+  doc.setFontSize(12);
+  doc.setFont(undefined, 'bold');
+  doc.text("PACKING LIST", pageWidth / 2, 45, { align: 'center' });
+
+  // Contenu basique avec les données du formulaire
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  let yPos = 70;
+  
+  if (formData.reference) {
+    doc.text(`Référence: ${formData.reference}`, marginLeft, yPos);
+    yPos += 10;
+  }
+  
+  if (formData.items && formData.items.length > 0) {
+    doc.text("Articles:", marginLeft, yPos);
+    yPos += 10;
+    formData.items.forEach((item, index) => {
+      doc.text(`${index + 1}. ${item.description || 'Article'} - ${item.quantity || 0} kg`, marginLeft + 10, yPos);
+      yPos += 8;
+    });
+  }
+
+  // Sauvegarde
+  doc.save(`packing_list_${formData.reference || 'form'}.pdf`);
+};
+
+// Fonction pour générer un bon de transfert PDF
+export const generateBonDeTransfertPDF = (transfert) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 10;
+  const marginRight = 10;
+
+  // En-tête
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  let currentY = 15;
+  const infoX = marginLeft + 25;
+  doc.text("MSM Seafood", infoX, currentY);
+  currentY += 5;
+  doc.text("Zone industrielle,", infoX, currentY);
+  currentY += 5;
+  doc.text("Dakhlet Nouâdhibou", infoX, currentY);
+
+  // Titre
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  const titre = transfert.isMultiple ? "BON DE TRANSFERT MULTIPLE" : "BON DE TRANSFERT";
+  doc.text(titre, pageWidth / 2, 45, { align: 'center' });
+
+  // Informations du transfert
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  let infoY = 65;
+
+  // Date
+  const dateTransfert = transfert.dateTransfert 
+    ? new Date(transfert.dateTransfert).toLocaleDateString('fr-FR')
+    : new Date().toLocaleDateString('fr-FR');
+  doc.text(`Date: ${dateTransfert}`, marginLeft, infoY);
+
+  // Dépôts
+  infoY += 8;
+  doc.text(`Dépôt de départ: ${transfert.depotDepart?.intitule || 'N/A'}`, marginLeft, infoY);
+  infoY += 6;
+  doc.text(`Dépôt d'arrivée: ${transfert.depotArrivee?.intitule || 'N/A'}`, marginLeft, infoY);
+
+  // Transport
+  if (transfert.moyenDeTransfert || transfert.immatricule) {
+    infoY += 8;
+    if (transfert.moyenDeTransfert) {
+      doc.text(`Moyen de transport: ${transfert.moyenDeTransfert}`, marginLeft, infoY);
+      infoY += 6;
+    }
+    if (transfert.immatricule) {
+      doc.text(`Immatriculation: ${transfert.immatricule}`, marginLeft, infoY);
+      infoY += 6;
+    }
+  }
+
+  // Pointeur
+  if (transfert.pointeur) {
+    infoY += 6;
+    doc.text(`Pointeur: ${transfert.pointeur}`, marginLeft, infoY);
+  }
+
+  // Tableau des articles
+  const tableStartY = infoY + 20;
+  const tableColumnHeaders = transfert.isMultiple 
+    ? ["Article", "Dépôt Départ", "Dépôt Arrivée", "Quantité (Kg)", "Quantité (Cartons)"]
+    : ["Article", "Quantité (Kg)", "Quantité (Cartons)", "Lot"];
+
+  let tableRows = [];
+  
+  if (transfert.isMultiple && transfert.items) {
+    tableRows = transfert.items.map(item => [
+      item.article?.reference || 'N/A',
+      transfert.depotDepart?.intitule || 'N/A',
+      transfert.depotArrivee?.intitule || 'N/A',
+      (item.quantiteKg || 0).toString(),
+      (item.quantiteCarton || 0).toString()
+    ]);
+  } else {
+    tableRows = [[
+      transfert.article?.reference || 'N/A',
+      (transfert.quantiteKg || 0).toString(),
+      (transfert.quantiteCarton || 0).toString(),
+      transfert.detailsLots?.[0]?.batchNumber || 'N/A'
+    ]];
+  }
+
+  doc.autoTable({
+    head: [tableColumnHeaders],
+    body: tableRows,
+    startY: tableStartY,
+    margin: { left: marginLeft, right: marginRight },
+    styles: { fontSize: 9, cellPadding: 4 },
+    headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245, 245, 245] },
+  });
+
+  // Signatures
+  const signaturesY = doc.lastAutoTable.finalY + 30;
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.text("SIGNATURES", pageWidth / 2, signaturesY, { align: 'center' });
+  
+  const colWidth = (pageWidth - marginLeft - marginRight) / 2;
+  doc.setFont(undefined, 'normal');
+  
+  // Expéditeur
+  doc.text("Expéditeur", marginLeft + colWidth * 0.5, signaturesY + 15, { align: 'center' });
+  doc.text("Nom: ________________________", marginLeft + colWidth * 0.5, signaturesY + 25, { align: 'center' });
+  doc.text("Signature: ___________________", marginLeft + colWidth * 0.5, signaturesY + 40, { align: 'center' });
+  
+  // Destinataire
+  doc.text("Destinataire", marginLeft + colWidth * 1.5, signaturesY + 15, { align: 'center' });
+  doc.text("Nom: ________________________", marginLeft + colWidth * 1.5, signaturesY + 25, { align: 'center' });
+  doc.text("Signature: ___________________", marginLeft + colWidth * 1.5, signaturesY + 40, { align: 'center' });
+
+  // Sauvegarde
+  const fileName = transfert.isMultiple 
+    ? `bon_transfert_multiple_${transfert._id || Date.now()}.pdf`
+    : `bon_transfert_${transfert._id || Date.now()}.pdf`;
   
   doc.save(fileName);
 };
