@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import logoBase64 from '../components/logoBase64';
 
-export const generatePartialDeliveryInvoice = (commande, itemsLivres, infoLivraison) => {
+export const generatePartialDeliveryInvoice = (commande, itemsLivres, infoLivraison, detailsBatches) => {
   const doc = new jsPDF();
   
   // Configuration des couleurs
@@ -37,19 +37,30 @@ export const generatePartialDeliveryInvoice = (commande, itemsLivres, infoLivrai
   doc.text(`Téléphone: ${commande.client?.telephone || 'N/A'}`, 15, 90);
   doc.text(`Adresse: ${commande.client?.adresse || 'N/A'}`, 15, 95);
   
-  // Tableau des articles livrés
-  const tableData = itemsLivres.map((item, index) => [
-    index + 1,
-    item.article?.intitule || 'N/A',
-    item.lot?.batchNumber || 'N/A',
-    `${item.quantiteLivree || 0} Kg`,
-    `${item.prixUnitaire || 0} ${commande.currency || 'EUR'}`,
-    `${(item.quantiteLivree * item.prixUnitaire) || 0} ${commande.currency || 'EUR'}`
-  ]);
+  // Tableau des articles livrés avec détails des batches
+  const tableData = itemsLivres.map((item, index) => {
+    // Récupérer les batches pour cet article
+    const batchesArticle = detailsBatches ? detailsBatches.filter(batch => 
+      batch.articleId === (item.article?._id || item.article)
+    ) : [];
+    
+    const batchInfo = batchesArticle.length > 0 
+      ? batchesArticle.map(b => `${b.batchNumber} (${b.quantiteEnlevee}kg)`).join(', ')
+      : item.lot?.batchNumber || 'N/A';
+    
+    return [
+      index + 1,
+      item.article?.intitule || 'N/A',
+      batchInfo,
+      `${item.quantiteLivree || 0} Kg`,
+      `${item.prixUnitaire || 0} ${commande.currency || 'EUR'}`,
+      `${(item.quantiteLivree * item.prixUnitaire) || 0} ${commande.currency || 'EUR'}`
+    ];
+  });
   
   doc.autoTable({
     startY: 105,
-    head: [['#', 'Article', 'Lot', 'Quantité livrée', 'Prix unitaire', 'Total']],
+    head: [['#', 'Article', 'Batches utilisés', 'Quantité livrée', 'Prix unitaire', 'Total']],
     body: tableData,
     theme: 'striped',
     headStyles: { 
@@ -63,22 +74,62 @@ export const generatePartialDeliveryInvoice = (commande, itemsLivres, infoLivrai
       cellPadding: 3,
       lineColor: [220, 220, 220],
       lineWidth: 0.1
+    },
+    columnStyles: {
+      2: { cellWidth: 60 } // Colonne des batches plus large
     }
   });
   
+  let currentY = doc.lastAutoTable.finalY + 15;
+  
+  // Section des détails des batches si disponible
+  if (detailsBatches && detailsBatches.length > 0) {
+    doc.setFontSize(12);
+    doc.setTextColor(...primaryColor);
+    doc.text('TRAÇABILITÉ DES BATCHES', 15, currentY);
+    
+    const batchTableData = detailsBatches.map(batch => [
+      batch.batchNumber,
+      batch.articleId?.reference || batch.articleId?.intitule || 'N/A',
+      `${batch.quantiteEnlevee} kg`,
+      `${batch.quantiteAvantPrelevement} kg → ${batch.quantiteApresPrelevement} kg`,
+      batch.dateExpiration ? new Date(batch.dateExpiration).toLocaleDateString('fr-FR') : 'N/A'
+    ]);
+    
+    doc.autoTable({
+      startY: currentY + 5,
+      head: [['Batch', 'Article', 'Prélevé', 'Stock (avant → après)', 'Exp.']],
+      body: batchTableData,
+      theme: 'grid',
+      headStyles: { 
+        fillColor: [46, 204, 113],
+        textColor: 255,
+        fontSize: 8,
+        fontStyle: 'bold'
+      },
+      bodyStyles: { fontSize: 7 },
+      styles: {
+        cellPadding: 2,
+        lineColor: [220, 220, 220],
+        lineWidth: 0.1
+      }
+    });
+    
+    currentY = doc.lastAutoTable.finalY + 10;
+  }
+  
   // Totaux
-  const finalY = doc.lastAutoTable.finalY + 10;
   const totalLivre = itemsLivres.reduce((sum, item) => sum + (item.quantiteLivree * item.prixUnitaire), 0);
   
   doc.setFontSize(12);
   doc.setTextColor(...primaryColor);
-  doc.text(`Total livré: ${totalLivre.toFixed(2)} ${commande.currency || 'EUR'}`, 150, finalY);
+  doc.text(`Total livré: ${totalLivre.toFixed(2)} ${commande.currency || 'EUR'}`, 150, currentY);
   
   // Informations sur le reste de la commande
   doc.setFontSize(10);
   doc.setTextColor(...secondaryColor);
-  doc.text(`Montant total commande: ${commande.prixTotal || 0} ${commande.currency || 'EUR'}`, 15, finalY + 15);
-  doc.text(`Montant restant à livrer: ${((commande.prixTotal || 0) - totalLivre).toFixed(2)} ${commande.currency || 'EUR'}`, 15, finalY + 20);
+  doc.text(`Montant total commande: ${commande.prixTotal || 0} ${commande.currency || 'EUR'}`, 15, currentY + 15);
+  doc.text(`Montant restant à livrer: ${((commande.prixTotal || 0) - totalLivre).toFixed(2)} ${commande.currency || 'EUR'}`, 15, currentY + 20);
   
   // Pied de page
   doc.setFontSize(8);

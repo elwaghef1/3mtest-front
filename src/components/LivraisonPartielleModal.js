@@ -595,10 +595,18 @@ const LivraisonPartielleModal = ({
       // Effectuer la livraison partielle via l'endpoint dédié
       const response = await axios.post(`/commandes/${commande._id}/livraison-partielle`, livraisonData);
       
-      const { commandeLivree, commandeOriginale, resume } = response.data;
+      const { commandeLivree, commandeOriginale, resume, detailsBatches, resumeBatches } = response.data;
       
       // Afficher un message de succès avec détails des lots
       let successMessage = `✅ Livraison partielle effectuée avec succès!\nRéférence: ${resume.referenceLivraison}\nQuantité livrée: ${resume.quantiteLivree} kg`;
+      
+      // Nouveau : Afficher les détails des batches
+      if (resumeBatches && resumeBatches.nombreBatches > 0) {
+        successMessage += `\n\n📦 Traçabilité des batches:`;
+        successMessage += `\n• Nombre de batches utilisés: ${resumeBatches.nombreBatches}`;
+        successMessage += `\n• Quantité totale prélevée: ${resumeBatches.quantiteTotalePrelevee} kg`;
+        successMessage += `\n• Batches: ${resumeBatches.batchesUtilises.join(', ')}`;
+      }
       
       // Ajouter des informations sur le statut de la commande
       if (resume.statutCommandeOriginale === 'PARTIELLEMENT_LIVREE') {
@@ -613,13 +621,34 @@ const LivraisonPartielleModal = ({
         successMessage += `\n\n✅ Statut commande mère: ENTIÈREMENT LIVRÉE`;
       }
       
-      successMessage += '\n\n📦 Distribution par lots:';
-      itemsALivrer.forEach(item => {
-        successMessage += `\n• ${item.article.intitule}:`;
-        item.distributionLots.forEach(lot => {
-          successMessage += `\n  - Lot ${lot.batchNumber}: ${lot.quantite} kg`;
+      // Afficher les détails par article et batch
+      if (detailsBatches && detailsBatches.length > 0) {
+        successMessage += '\n\n� Détails des prélèvements:';
+        
+        // Grouper par article
+        const groupesParArticle = {};
+        detailsBatches.forEach(detail => {
+          const articleKey = detail.articleId || 'Article inconnu';
+          if (!groupesParArticle[articleKey]) {
+            groupesParArticle[articleKey] = [];
+          }
+          groupesParArticle[articleKey].push(detail);
         });
-      });
+        
+        Object.entries(groupesParArticle).forEach(([articleId, details]) => {
+          // Trouver le nom de l'article
+          const article = itemsALivrer.find(item => 
+            (item.article._id || item.article) === articleId
+          );
+          const articleNom = article?.article?.intitule || article?.article?.reference || 'Article inconnu';
+          
+          successMessage += `\n• ${articleNom}:`;
+          details.forEach(detail => {
+            successMessage += `\n  - Lot ${detail.batchNumber}: ${detail.quantiteEnlevee}kg`;
+            successMessage += ` (${detail.quantiteAvantPrelevement}kg → ${detail.quantiteApresPrelevement}kg)`;
+          });
+        });
+      }
       
       alert(successMessage);
 

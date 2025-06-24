@@ -4,7 +4,7 @@ import Button from './Button';
 import CargoAllocationModal from './CargoAllocationModal';
 import PackingListForm from './PackingListForm';
 import { downloadCargoPackingList, downloadAllCargoPackingLists } from '../services/cargoPackingListGenerator';
-import { generateCommandeDetailsPDF, generateCertificationRequestPDF } from './pdfGenerators';
+import { generateCommandeDetailsPDF, generateCertificationRequestPDF, generateBonDeSortiePDF } from './pdfGenerators';
 import axios from '../api/axios';
 
 // Fonction utilitaire pour formater un article (détail)
@@ -101,6 +101,37 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
   // Utiliser les fonctions fournies ou les fonctions par défaut
   const formatCurrencyFunc = formatCurrency || defaultFormatCurrency;
   const formatNumberFunc = formatNumber || defaultFormatNumber;
+
+  // Fonction pour générer le bon de sortie avec détails des batches
+  const handleGenerateBonDeSortie = async () => {
+    setLoading(true);
+    try {
+      console.log('🔍 Génération bon de sortie - ID commande:', commande._id);
+      console.log('📋 Commande complète:', commande);
+      
+      // Récupérer l'historique des livraisons avec détails des batches
+      const response = await axios.get(`/commandes/${commande._id}/historique-livraisons`);
+      const historiqueData = response.data;
+      
+      console.log('📊 Données historique reçues:', historiqueData);
+      
+      if (!historiqueData.livraisons || historiqueData.livraisons.length === 0) {
+        alert('Aucune livraison trouvée pour cette commande');
+        return;
+      }
+      
+      // Générer le PDF avec les détails des batches
+      generateBonDeSortiePDF(commande, historiqueData);
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la récupération des données de sortie:', error);
+      console.error('📝 Détails de l\'erreur:', error.response?.data);
+      console.error('🔢 Status HTTP:', error.response?.status);
+      alert(`Erreur lors de la génération du bon de sortie: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Fonctions de gestion des allocations cargo
   const handleSaveAllocations = async (cargoAllocations) => {
@@ -427,6 +458,18 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
           >
             Détails de la Commande
           </Button>
+          
+          {/* Bouton Bon de Sortie - affiché pour toutes les commandes livrées */}
+          {(commande.statutBonDeCommande === 'LIVREE' || commande.statutBonDeCommande === 'PARTIELLEMENT_LIVREE') && (
+            <Button
+              onClick={handleGenerateBonDeSortie}
+              variant="secondary"
+              size="md"
+              disabled={loading}
+            >
+              {loading ? 'Génération...' : 'Bon de Sortie'}
+            </Button>
+          )}
           
           {/* Bouton Certificat d'Origine - affiché seulement pour les commandes export livrées */}
           {commande.statutBonDeCommande === 'LIVREE' && commande.typeCommande !== 'LOCALE' && (

@@ -696,6 +696,301 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.save(`invoice_${commande.reference}.pdf`);
 };
 
+export const generateBonDeSortiePDF = (commande, historiqueData) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 10;
+  const marginRight = 10;
+
+  // =============================
+  // 1. En-tête avec logo
+  // =============================
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
+
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  let currentY = 15;
+  const infoX = marginLeft + 25;
+  doc.text("MSM Seafood", infoX, currentY);
+  currentY += 5;
+  doc.text("Zone industrielle,", infoX, currentY);
+  currentY += 5;
+  doc.text("Dakhlet Nouâdhibou", infoX, currentY);
+  currentY += 5;
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+
+  // Date en haut à droite
+  const today = new Intl.DateTimeFormat('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }).format(new Date()).replace(/(\d+)/, (match) => {
+    const day = parseInt(match);
+    return day === 1 ? '1er' : match;
+  }).toUpperCase();
+  doc.text(`Nouadhibou, ${today}`, pageWidth - marginRight, 20, { align: 'right' });
+
+  // =============================
+  // 2. Titre principal
+  // =============================
+  doc.setFontSize(16);
+  doc.setFont(undefined, 'bold');
+  doc.text("BON DE SORTIE", pageWidth / 2, 45, { align: 'center' });
+
+  // =============================
+  // 3. Informations de la commande
+  // =============================
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'normal');
+  let infoY = 60;
+
+  const clientName = commande.client?.raisonSociale || "Client Inconnu";
+  const clientAddress = commande.client?.adresse || "Adresse non renseignée";
+
+  doc.text(`Référence Commande: ${commande.reference || 'N/A'}`, marginLeft, infoY);
+  infoY += 5;
+  doc.text(`Client: ${clientName}`, marginLeft, infoY);
+  infoY += 5;
+  doc.text(`Adresse: ${clientAddress}`, marginLeft, infoY);
+  infoY += 5;
+  if (commande.typeCommande !== 'LOCALE') {
+    doc.text(`Destination: ${commande.destination || 'N/A'}`, marginLeft, infoY);
+    infoY += 5;
+    doc.text(`Booking: ${commande.numeroBooking || 'N/A'}`, marginLeft, infoY);
+    infoY += 5;
+  }
+
+  // Statut de la commande
+  doc.text(`Statut: ${commande.statutBonDeCommande || 'N/A'}`, marginLeft, infoY);
+  infoY += 10;
+
+  if (!historiqueData.livraisons || historiqueData.livraisons.length === 0) {
+    doc.setFont(undefined, 'normal');
+    doc.text("Aucune sortie enregistrée pour cette commande", marginLeft, infoY);
+    infoY += 20;
+  } else {
+    // Parcourir toutes les livraisons
+    historiqueData.livraisons.forEach((livraison, index) => {
+      // Titre de la livraison
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'bold');
+      const dateLivraison = new Date(livraison.dateSortie).toLocaleDateString('fr-FR');
+      const titleLivraison = livraison.typeLivraison === 'PARTIELLE' 
+        ? ``
+        : ``;
+      
+      doc.text(titleLivraison, marginLeft, infoY);
+      doc.text(`Référence: ${livraison.reference}`, pageWidth - marginRight, infoY, { align: 'right' });
+      infoY += 8;
+
+      // Tableau des articles de cette livraison avec détails des batches
+      const headers = [
+        "Article",
+        "Batch Number",
+        "Quantité (Kg)",
+        "Dépôt",
+        "Prix Unitaire",
+        "Total"
+      ];
+
+      const rows = [];
+      let totalQuantiteLivraison = 0;
+      let totalPrixLivraison = 0;
+
+      if (livraison.items && livraison.items.length > 0) {
+        livraison.items.forEach(item => {
+          const article = item.article || {};
+          const quantiteKg = parseFloat(item.quantiteKg) || 0;
+          const prixUnitaire = parseFloat(item.prixUnitaire) || 0;
+          const totalItem = quantiteKg * prixUnitaire;
+
+          totalQuantiteLivraison += quantiteKg;
+          totalPrixLivraison += totalItem;
+
+          // Détails des batches pour cet article
+          if (item.detailsBatches && item.detailsBatches.length > 0) {
+            // Filtrer seulement les batches avec quantité > 0
+            const batchesValides = item.detailsBatches.filter(batch => {
+              // Utiliser 'quantite' (comme dans LivraisonPartielleModal) ou 'quantiteEnlevee' en fallback
+              const quantiteBatch = parseFloat(batch.quantite || batch.quantiteEnlevee) || 0;
+              return quantiteBatch > 0;
+            });
+            
+            if (batchesValides.length > 0) {
+              // Si l'article a des détails de batches valides, les afficher avec rowSpan
+              const nombreBatches = batchesValides.length;
+              
+              batchesValides.forEach((batch, batchIndex) => {
+                // Utiliser 'quantite' (comme dans LivraisonPartielleModal) ou 'quantiteEnlevee' en fallback
+                const quantiteBatch = parseFloat(batch.quantite || batch.quantiteEnlevee) || 0;
+                const prixBatch = quantiteBatch * prixUnitaire;
+
+                console.log(`🔍 Debug Batch ${batchIndex}:`, {
+                  article: article.reference + ' - ' + article.specification + ' - ' + article.taille,
+                  batchNumber: batch.batchNumber,
+                  quantiteBatch: quantiteBatch,
+                  rawBatch: batch, // Pour voir toute la structure
+                  depot: item.depot?.intitule,
+                  prixUnitaire: prixUnitaire,
+                  prixBatch: prixBatch
+                });
+
+                if (batchIndex === 0) {
+                  const row = [
+                    { 
+                      content: article.reference + ' - ' + article.specification + ' - ' + article.taille || 'N/A', 
+                      rowSpan: nombreBatches,
+                      styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' }
+                    },
+                    batch.batchNumber || 'N/A',
+                    quantiteBatch.toFixed(2),
+                    item.depot?.intitule || 'N/A',
+                    { 
+                      content: formatCurrencyForPDF(prixUnitaire, commande.currency), 
+                      rowSpan: nombreBatches,
+                      styles: { valign: 'middle', halign: 'center' }
+                    },
+                    formatCurrencyForPDF(prixBatch, commande.currency)
+                  ];
+                  console.log('📋 Première ligne ajoutée:', row);
+                  rows.push(row);
+                } else {
+                  // Lignes suivantes : seulement les colonnes NON rowSpan
+                  const row = [
+                    batch.batchNumber || 'N/A',
+                    quantiteBatch.toFixed(2),
+                    item.depot?.intitule || 'N/A',
+                    formatCurrencyForPDF(prixBatch, commande.currency)
+                  ];
+                  console.log('📋 Ligne suivante ajoutée:', row);
+                  rows.push(row);
+                }
+              });
+            } else {
+              // Aucun batch valide, afficher une ligne avec "Aucun batch"
+              rows.push([
+                { 
+                  content: article.reference || article.intitule || 'N/A',
+                  styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' }
+                },
+                'Aucun batch',
+                '0.00',
+                item.depot?.intitule || 'N/A',
+                { 
+                  content: formatCurrencyForPDF(prixUnitaire, commande.currency),
+                  styles: { valign: 'middle', halign: 'center' }
+                },
+                formatCurrencyForPDF(0, commande.currency)
+              ]);
+            }
+          } else {
+            // Si pas de détails de batches, utiliser les infos de base
+            let batchNumber = 'N/A';
+            
+            // Essayer de trouver le batch number dans différentes structures
+            if (item.noLot) {
+              batchNumber = item.noLot;
+            } else if (item.block) {
+              batchNumber = item.block;
+            } else if (item.batchNumber) {
+              batchNumber = item.batchNumber;
+            }
+
+            rows.push([
+              { 
+                content: article.reference || article.intitule || 'N/A',
+                styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' }
+              },
+              batchNumber,
+              quantiteKg.toFixed(2),
+              item.depot?.intitule || 'N/A',
+              { 
+                content: formatCurrencyForPDF(prixUnitaire, commande.currency),
+                styles: { valign: 'middle', halign: 'center' }
+              },
+              formatCurrencyForPDF(totalItem, commande.currency)
+            ]);
+          }
+        });
+
+        // Ligne de sous-total pour cette livraison
+        rows.push([
+          { content: `SOUS-TOTAL ${titleLivraison}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
+          { content: totalQuantiteLivraison.toFixed(2), styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
+          { content: '', styles: { fillColor: [240, 240, 240] } },
+          { content: '', styles: { fillColor: [240, 240, 240] } },
+          { content: formatCurrencyForPDF(totalPrixLivraison, commande.currency), styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
+        ]);
+      }
+
+      // Tableau pour cette livraison
+      doc.autoTable({
+        startY: infoY,
+        head: [headers],
+        body: rows,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [41, 128, 185],
+          textColor: 'white',
+          fontStyle: 'bold'
+        },
+        styles: { 
+          fontSize: 8,
+          cellPadding: 2
+        },
+        columnStyles: {
+          0: { cellWidth: 45 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 30 },
+          4: { cellWidth: 25 },
+          5: { cellWidth: 25 }
+        }
+      });
+
+      infoY = doc.lastAutoTable.finalY + 10;
+    });
+
+    
+  }
+
+  // =============================
+  // 6. Signatures
+  // =============================
+  infoY += 15;
+  doc.setFont(undefined, 'bold');
+  doc.text("Responsable Magasin:", marginLeft, infoY);
+  doc.text("Responsable Transport:", pageWidth / 2 + 10, infoY);
+  
+  infoY += 15;
+  
+  // Lignes pour les signatures
+  doc.setLineWidth(0.3);
+  doc.line(marginLeft, infoY, marginLeft + 70, infoY);
+  doc.line(pageWidth / 2 + 10, infoY, pageWidth / 2 + 80, infoY);
+
+  infoY += 8;
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(8);
+  doc.text("Signature et cachet", marginLeft, infoY);
+  doc.text("Signature et cachet", pageWidth / 2 + 10, infoY);
+
+  // =============================
+  // 7. Pied de page
+  // =============================
+  const footerY = 280;
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'normal');
+  doc.setLineWidth(0.2);
+  doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
+  doc.text("+222 46 00 89 08", marginLeft, footerY);
+  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("Zone industrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
+
+  // Sauvegarde du PDF
+  doc.save(`bon_de_sortie_${commande.reference}.pdf`);
+};
+
 // Fonction pour générer les Détails de la Commande (PDF)
 export const generateCommandeDetailsPDF = (commande) => {
   const doc = new jsPDF('p', 'mm', 'a4');

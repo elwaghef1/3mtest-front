@@ -5,6 +5,7 @@ import CommandeForm from './CommandeForm';
 import CommandeDetails from './CommandeDetails';
 import Button from './Button';
 import LivraisonPartielleModal from './LivraisonPartielleModal';
+import BatchHistoryModal from './BatchHistoryModal';
 import { useNavigate } from 'react-router-dom';
 import {
   CheckCircleIcon,
@@ -21,7 +22,8 @@ import {
   DocumentArrowDownIcon,
   PrinterIcon,
   BellIcon,
-  ClockIcon
+  ClockIcon,
+  CubeIcon
 } from '@heroicons/react/24/outline';
 import Pagination from './Pagination';
 import jsPDF from 'jspdf';
@@ -69,6 +71,10 @@ const CommandeList = () => {
   // États pour le modal de livraison partielle
   const [showLivraisonModal, setShowLivraisonModal] = useState(false);
   const [selectedCommandeForLivraison, setSelectedCommandeForLivraison] = useState(null);
+
+  // États pour le modal d'historique des batches
+  const [showBatchHistoryModal, setShowBatchHistoryModal] = useState(false);
+  const [selectedCommandeForBatchHistory, setSelectedCommandeForBatchHistory] = useState(null);
 
   // États pour la suppression de commandes
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -473,6 +479,17 @@ const CommandeList = () => {
     setShowLivraisonModal(false);
     setSelectedCommandeForLivraison(null);
     fetchData(); // Recharger les données
+  };
+
+  // Fonctions pour le modal d'historique des batches
+  const handleShowBatchHistory = (cmd) => {
+    setSelectedCommandeForBatchHistory(cmd);
+    setShowBatchHistoryModal(true);
+  };
+
+  const handleCloseBatchHistoryModal = () => {
+    setShowBatchHistoryModal(false);
+    setSelectedCommandeForBatchHistory(null);
   };
 
   // Fonctions pour la suppression de commandes
@@ -1228,6 +1245,18 @@ const CommandeList = () => {
                         >
                           Livrer
                         </Button>
+                        
+                        {/* Nouveau bouton pour l'historique des batches */}
+                        <Button
+                          onClick={() => handleShowBatchHistory(commande)}
+                          variant="outline"
+                          size="md"
+                          icon={<CubeIcon className="h-5 w-5" />}
+                          title="Voir l'historique des batches utilisés dans cette commande"
+                          className="font-semibold min-w-[90px]"
+                        >
+                          Batches
+                        </Button>
                         {/* Bouton de suppression - toujours affiché mais grisé pour les commandes livrées */}
                         <Button
                           onClick={() => canDeleteCommande(commande) ? handleShowDeleteModal(commande) : null}
@@ -1342,7 +1371,7 @@ const CommandeList = () => {
                             title="Voir détails"
                             className="font-semibold min-w-[90px]"
                           >
-                            Détails
+                            {/* Détails */}
                           </Button>
                           <Button
                             onClick={() => canEditCommande(commande) ? handleEdit(commande) : null}
@@ -1353,7 +1382,7 @@ const CommandeList = () => {
                             className={`font-semibold min-w-[90px] ${!canEditCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             disabled={!canEditCommande(commande)}
                           >
-                            Modifier
+                            {/* Modifier */}
                           </Button>
                           {/* Bouton de livraison avec indication si désactivé */}
                           <Button
@@ -1367,7 +1396,7 @@ const CommandeList = () => {
                             title={getDeliverButtonTitle(commande)}
                           >
                             <TruckIcon className="h-4 w-4 mr-1" />
-                            Livrer
+                            {/* Livrer */}
                           </Button>
                           {/* Bouton de suppression - toujours affiché mais grisé pour les commandes livrées */}
                           <Button
@@ -1379,7 +1408,6 @@ const CommandeList = () => {
                             className={`font-semibold min-w-[90px] ${!canDeleteCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             disabled={!canDeleteCommande(commande)}
                           >
-                            Supprimer
                           </Button>
                         </div>
                       </td>
@@ -1432,6 +1460,16 @@ const CommandeList = () => {
           </div>
         </div>
       )}
+
+      {/* Modal d'historique des batches */}
+      {/* {showBatchHistoryModal && selectedCommandeForBatchHistory && (
+        <BatchHistoryModal
+          commande={selectedCommandeForBatchHistory}
+          onClose={handleCloseBatchHistoryModal}
+          formatCurrency={formatCurrency}
+          formatNumber={formatNumber}
+        />
+      )} */}
 
       {/* Modal de confirmation de suppression */}
       {showDeleteModal && commandeToDelete && (
