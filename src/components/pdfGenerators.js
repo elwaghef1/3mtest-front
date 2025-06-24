@@ -798,7 +798,15 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
       let totalPrixLivraison = 0;
 
       if (livraison.items && livraison.items.length > 0) {
-        livraison.items.forEach(item => {
+        // FILTRER seulement les articles avec quantité livrée > 0
+        const itemsAvecQuantite = livraison.items.filter(item => {
+          const quantiteKg = parseFloat(item.quantiteKg) || 0;
+          return quantiteKg > 0;
+        });
+
+        console.log(`🔍 Articles total: ${livraison.items.length}, Articles avec quantité > 0: ${itemsAvecQuantite.length}`);
+
+        itemsAvecQuantite.forEach(item => {
           const article = item.article || {};
           const quantiteKg = parseFloat(item.quantiteKg) || 0;
           const prixUnitaire = parseFloat(item.prixUnitaire) || 0;
