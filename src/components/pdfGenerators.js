@@ -874,23 +874,8 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
                   rows.push(row);
                 }
               });
-            } else {
-              // Aucun batch valide, afficher une ligne avec "Aucun batch"
-              rows.push([
-                { 
-                  content: article.reference || article.intitule || 'N/A',
-                  styles: { valign: 'middle', halign: 'center', fontStyle: 'bold' }
-                },
-                'Aucun batch',
-                '0.00',
-                item.depot?.intitule || 'N/A',
-                { 
-                  content: formatCurrencyForPDF(prixUnitaire, commande.currency),
-                  styles: { valign: 'middle', halign: 'center' }
-                },
-                formatCurrencyForPDF(0, commande.currency)
-              ]);
             }
+            // Si aucun batch valide, on ne fait rien (pas de ligne ajoutée)
           } else {
             // Si pas de détails de batches, utiliser les infos de base
             let batchNumber = 'N/A';
