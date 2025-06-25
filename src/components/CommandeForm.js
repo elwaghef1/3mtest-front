@@ -74,6 +74,9 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     prixTotal: 0,
     // Nouveau champ pour la banque (référence à BankAccount)
     bank: '',
+    // Nouveaux champs pour les moyens de paiement
+    moyenDePaiement: '',
+    detailsPaiement: '',
     conditionsDeVente: defaultConditions
   });
 
@@ -86,7 +89,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
       prixUnitaire: '',
       quantiteCarton: 0,
       prixTotal: 0
-      // Note: Suppression des champs de lots pour simplifier la création de commande
     }
   ]);
 
@@ -185,6 +187,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         declaration: initialCommande.declaration || 'ETABLIE',
         prixTotal: initialCommande.prixTotal || 0,
         conditionsDeVente: initialCommande.conditionsDeVente || defaultConditions,
+        moyenDePaiement: initialCommande.moyenDePaiement || '',
+        detailsPaiement: initialCommande.detailsPaiement || '',
         consigne: initialCommande.consigne || '',
         adresseConsigne: initialCommande.adresseConsigne || '',
         pif: initialCommande.pif || ''
@@ -542,6 +546,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         montantPaye: parseFloat(formData.montantPaye) || 0,
         prixTotal: parseFloat(formData.prixTotal) || 0,
         bank: formData.bank,
+        moyenDePaiement: formData.moyenDePaiement,
+        detailsPaiement: formData.detailsPaiement,
         // Ajout explicite des champs consigné pour s'assurer qu'ils sont sauvegardés
         consigne: formData.consigne || '',
         adresseConsigne: formData.adresseConsigne || '',
@@ -565,6 +571,10 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         payload.factureManutention = null;
         payload.factureCargo = null;
         payload.taxeZoneFranche = null;
+      } else {
+        // Nettoyer les champs spécifiques aux commandes locales pour les commandes d'export
+        payload.moyenDePaiement = null;
+        payload.detailsPaiement = null;
       }
 
       console.log('Payload envoyé:', { 
@@ -929,12 +939,14 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               </div>
             )}
 
-            {/* Nouveau champ Banque */}
+            {/* Nouveau champ Banque - Non obligatoire pour commandes locales */}
             <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Banque *</label>
+              <label className="mb-1 text-sm font-medium text-gray-700">
+                Banque {formData.typeCommande !== 'LOCALE' ? '*' : ''}
+              </label>
               <select
                 name="bank"
-                required
+                required={formData.typeCommande !== 'LOCALE'}
                 className={getInputClass(formData.bank)}
                 value={formData.bank}
                 onChange={handleChange}
@@ -946,6 +958,41 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 ))}
               </select>
             </div>
+
+            {/* Nouveau champ Moyen de paiement - Visible uniquement pour commandes locales */}
+            {formData.typeCommande === 'LOCALE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Moyen de paiement</label>
+                <select
+                  name="moyenDePaiement"
+                  className={getInputClass(formData.moyenDePaiement)}
+                  value={formData.moyenDePaiement}
+                  onChange={handleChange}
+                  disabled={false}
+                >
+                  <option value="">-- Choisir un moyen de paiement --</option>
+                  <option value="CASH">CASH</option>
+                  <option value="BANKILY">BANKILY</option>
+                  <option value="SEDAD">SEDAD</option>
+                  <option value="MASRIVY">MASRIVY</option>
+                </select>
+              </div>
+            )}
+
+            {/* Nouveau champ Détails de paiement - Visible uniquement pour commandes locales */}
+            {formData.typeCommande === 'LOCALE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Détails de paiement (Caisse ...)</label>
+                <input
+                  name="detailsPaiement"
+                  type="text"
+                  placeholder="Exemple: Caisse 1, Référence transaction, etc."
+                  className={getInputClass(formData.detailsPaiement)}
+                  value={formData.detailsPaiement}
+                  onChange={handleChange}
+                />
+              </div>
+            )}
 
             {/* Responsable de stock informé - Masqué pour commande locale */}
             {formData.typeCommande !== 'LOCALE' && (
@@ -979,7 +1026,9 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   <option value="NON">NON</option>
                 </select>
               </div>
-            )}              <div className="flex flex-col">
+            )} 
+            {formData.typeCommande !== 'LOCALE' && (
+            <div className="flex flex-col">
                 <label className="mb-1 text-sm font-medium text-gray-700">Etiquette</label>
                 <select
                   name="etiquette"
@@ -993,7 +1042,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   <option value="IMPRIME">Imprimé</option>
                 </select>
               </div>
-              
+              )}  
               {/* Déclaration d'exportation - Masqué pour commande locale */}
               {formData.typeCommande !== 'LOCALE' && (
                 <div className="flex flex-col">
