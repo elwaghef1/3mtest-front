@@ -1635,7 +1635,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               Télécharger Proforma Invoice
             </Button>
           )}
-          {formData.statutBonDeCommande === 'LIVREE' && (
             <>
               <Button
                 variant="success"
@@ -1651,15 +1650,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               >
                 Télécharger Packing List
               </Button> */}
-              <Button
-                variant="success"
-                size="md"
-                onClick={handleDownloadBonDeSortie}
-              >
-                Télécharger Bon de Sortie
-              </Button>
             </>
-          )}
         </div>
       )}
 
