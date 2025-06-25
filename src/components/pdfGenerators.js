@@ -770,7 +770,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   const expediteurDestinataire = [
     [
       'Nom & Adresse de l\'expéditeur :\n\nNom : SMCP P/CT MSM SEAFOOD.\nAdresse : Zone industrielle\nNouadhibou – Mauritanie.\n',
-      'Nom & Adresse du destinataire :\n\nNom : ' + (commande.consigne || 'POISSON FRAIS COMPANY LTD') + '\nAdresse : ' + (commande.adresseConsigne || '--- \nPays : ' + commande.destination)
+      'Nom & Adresse du destinataire :\n\nNom : ' + (commande.consigne || '---- ') + '\nAdresse : ' + (commande.adresseConsigne || '--- \nPays : ' + commande.destination)
     ]
   ];
 
