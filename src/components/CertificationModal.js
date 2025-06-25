@@ -27,6 +27,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
       articleId: item.article._id,
       reference: item.article.reference,
       specification: item.article.specification,
+      taille: item.article.taille,
       selected: true,
       quantite: Math.floor(item.quantiteKg / 20), // Approximation du nombre de colis
       poidsNet: item.quantiteKg
@@ -120,7 +121,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
     const selectedOnly = selectedArticles.filter(art => art.selected);
     if (selectedOnly.length === 1) {
       const article = selectedOnly[0];
-      return `${article.reference} ${article.specification}`;
+      return `${article.reference} - ${article.specification} - ${article.taille} `;
     } else if (selectedOnly.length > 1) {
       return "Regarder l'annexe";
     }
@@ -217,7 +218,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
                       </td>
                       <td className="border border-gray-300 p-3">
                         <div className="font-medium">{article.reference}</div>
-                        <div className="text-sm text-gray-600">{article.specification}</div>
+                        <div className="text-sm text-gray-600">{article.specification} - {article.taille}</div>
                       </td>
                       <td className="border border-gray-300 p-3">Produit de la pêche</td>
                       <td className="border border-gray-300 p-3">Entier congelé</td>

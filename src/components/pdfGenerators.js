@@ -724,9 +724,9 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   
   // Valeurs par défaut pour le cargo
   const cargoData = {
-    nom: cargo.nom || 'MAERSK',
-    noDeConteneur: cargo.noDeConteneur || 'MNBU001917/0',
-    areDeConteneur: cargo.areDeConteneur || 'ML-MR0008336',
+    nom: cargo.nom || '-',
+    noDeConteneur: cargo.noDeConteneur || '-',
+    areDeConteneur: cargo.areDeConteneur || '-',
     refNemb: cargo.refNemb && cargo.refNemb.trim() !== '' ? cargo.refNemb : 'XXX XXX XXX',
     refEmb: cargo.refEmb && cargo.refEmb.trim() !== '' ? cargo.refEmb : 'XXX XXX XXX',
     dateCertification: cargo.dateCertification,
@@ -748,7 +748,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   let currentY = marginTop + 25;
   doc.setFontSize(10);
   doc.setFont(undefined, 'bold');
-  doc.text('REF : FS2767', marginLeft, currentY);
+  doc.text('REF : ' + commande.reference, marginLeft, currentY);
   
   // Date et REF/NEMB en haut à droite
   const today = new Date().toLocaleDateString('fr-FR');
@@ -799,7 +799,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   const origineTransport = [
     [
       'Origine du produit :\n\nNom de l\'EIS ou du navire : MSM SEAFOOD\nAgrément ou immatriculation : 02-133\nLieu d\'Embarquement : MSM SEAFOOD\n(Entrepôt/EIS/quai)\nNom de l\'entrepôt : ---------------',
-      'Moyen de transport : ' + cargoData.nom + '\n\nN° Conteneur : ' + cargoData.noDeConteneur + '\nPL : ' + cargoData.areDeConteneur + '\nPIF : ' + (commande.pif || 'DOUALA - CAMEROUN') + '\nDate de certification : ' + (cargoData.dateCertification ? new Date(cargoData.dateCertification).toLocaleDateString('fr-FR') : today) + '\nRéférence documentaire : B/L : GMU0114274'
+      'Moyen de transport : ' + cargoData.nom + '\n\nN° Conteneur : ' + cargoData.noDeConteneur + '\nPL : ' + '---' + '\nPIF : ' + (commande.pif || '-----') + '\nDate de certification : ' + (cargoData.dateCertification ? new Date(cargoData.dateCertification).toLocaleDateString('fr-FR') : today) + '\nRéférence documentaire : B/L : ---'
     ]
   ];
 
@@ -916,8 +916,9 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     annexeY += 25;
     
     // Tableau de l'annexe
+   
     const tableData = articles.map(article => [
-      `${article.reference} ${article.specification}`,
+      `${article.reference} - ${article.specification} - ${article.taille}`,
       'Produit de la pêche',
       'Entier congelé',
       'MSM SEAFOOD – 02.133',

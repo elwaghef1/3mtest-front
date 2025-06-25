@@ -1047,7 +1047,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 <input
                   name="pif"
                   type="text"
-                  placeholder="Port d'Import Final (ex: DOUALA - CAMEROUN)"
+                  placeholder="Port d'Import Final"
                   className={getInputClass(formData.pif)}
                   value={formData.pif}
                   onChange={handleChange}
