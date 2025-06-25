@@ -660,26 +660,31 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.setFontSize(8);
   if (commande.bank) {
     const bankDetails = [
-      `Bank: ${commande.bank.banque}`,
-      `Account Holder: ${commande.bank.titulaire}`,
-      `IBAN: ${commande.bank.iban}`,
-      `Swift Code: ${commande.bank.codeSwift}`
+      `Intermediary Bank: ${commande.bank.banqueIntermediaire || 'N/A'}`,
+      `SWIFT of intermediary: ${commande.bank.swiftIntermediaire || 'N/A'}`,
+      `Beneficiary Bank: ${commande.bank.banque}`,
+      `SWIFT of beneficiary bank: ${commande.bank.codeSwift}`,
+      `Beneficiary name: MSM SEAFOOD-SARL`,
+      `Code IBAN: ${commande.bank.iban}`
     ];
     bankDetails.forEach((line, index) => {
-      doc.text(line, marginLeft, bankY + 5 + index * 4);
+      doc.text(line, marginLeft, bankY + 6 + index * 4);
     });
   } else {
     const bankDetails = [
-      "Bank: Banque Populaire de Mauritanie",
-      "Account Holder: MSM SEAFOOD",
-      "IBAN: MR13...00270",
-      "Swift Code: BPMAMRMR"
+      "Intermediary Bank: N/A",
+      "SWIFT of intermediary: N/A", 
+      "Beneficiary Bank: Banque Populaire de Mauritanie",
+      "SWIFT of beneficiary bank: BPMAMRMR",
+      "Beneficiary name: MSM SEAFOOD-SARL",
+      "Code IBAN: MR13...00270"
     ];
     bankDetails.forEach((line, index) => {
-      doc.text(line, marginLeft, bankY + 5 + index * 4);
+      doc.text(line, marginLeft, bankY + 6 + index * 4);
     });
   }
-  let signatureY = bankY + 5 + 4 * 4 + 15;
+  
+  let signatureY = bankY + 6 + 6 * 4 + 10;
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
   doc.text("FINANCE DEPARTMENT", pageWidth - marginRight, signatureY, { align: 'right' });
@@ -694,6 +699,329 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
   doc.save(`invoice_${commande.reference}.pdf`);
+};
+
+// Fonction pour générer le certificat CH
+export const generateCertificatePDF = (certificateData, commande, containerIndex = 0) => {
+  // Vérifications de sécurité
+  if (!certificateData) {
+    throw new Error('Données du certificat manquantes');
+  }
+
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginLeft = 15;
+  const marginRight = 15;
+  const marginTop = 15;
+
+  // Déstructurer les données avec valeurs par défaut
+  const { 
+    cargo = {}, 
+    articles = [], 
+    totals = { totalColis: 1400, poidsNet: 28000, poidsBrut: 29120 } 
+  } = certificateData;
+  
+  // Valeurs par défaut pour le cargo
+  const cargoData = {
+    nom: cargo.nom || 'MAERSK',
+    noDeConteneur: cargo.noDeConteneur || 'MNBU001917/0',
+    areDeConteneur: cargo.areDeConteneur || 'ML-MR0008336',
+    refNemb: cargo.refNemb && cargo.refNemb.trim() !== '' ? cargo.refNemb : 'XXX XXX XXX',
+    refEmb: cargo.refEmb && cargo.refEmb.trim() !== '' ? cargo.refEmb : 'XXX XXX XXX',
+    dateCertification: cargo.dateCertification,
+    poidsCarton: cargo.poidsCarton || 29120
+  };
+  
+  const hasMultipleArticles = articles && articles.length > 1;
+
+  console.log('Génération PDF avec cargo:', cargoData); // Debug
+
+  // =============================
+  // 1. En-tête du document
+  // =============================
+  doc.setFontSize(14);
+  doc.setFont(undefined, 'bold');
+  doc.text('DEMANDE DE CERTIFICATION', pageWidth / 2, marginTop + 10, { align: 'center' });
+
+  // Références en haut
+  let currentY = marginTop + 25;
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.text('REF : FS2767', marginLeft, currentY);
+  
+  // Date et REF/NEMB en haut à droite
+  const today = new Date().toLocaleDateString('fr-FR');
+  doc.text(`Date : ${today}`, pageWidth - marginRight, currentY, { align: 'right' });
+  currentY += 5;
+  doc.text(`REF/NEMB : ${cargoData.refNemb}`, pageWidth - marginRight, currentY, { align: 'right' });
+  
+  currentY += 10;
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  doc.text('N°', marginLeft + 90, currentY);
+  doc.text('(Pour le poisson congelé)', marginLeft + 90, currentY + 5);
+
+  // =============================
+  // 2. Tableau Expéditeur/Destinataire
+  // =============================
+  currentY += 20;
+  
+  const expediteurDestinataire = [
+    [
+      'Nom & Adresse de l\'expéditeur :\n\nNom : SMCP P/CT MSM SEAFOOD.\nAdresse : Zone industrielle\nNouadhibou – Mauritanie.\n',
+      'Nom & Adresse du destinataire :\n\nNom : ' + (commande.consigne || 'POISSON FRAIS COMPANY LTD') + '\nAdresse : ' + (commande.adresseConsigne || 'BONABERI, BP : 8800, DOUALA\nPays : ' + commande.destination)
+    ]
+  ];
+
+  doc.autoTable({
+    startY: currentY,
+    body: expediteurDestinataire,
+    theme: 'grid',
+    styles: {
+      fontSize: 9,
+      cellPadding: 8,
+      valign: 'top',
+      lineWidth: 0.3
+    },
+    columnStyles: {
+      0: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 },
+      1: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 }
+    },
+    margin: { left: marginLeft, right: marginRight }
+  });
+
+  // =============================
+  // 3. Tableau Origine/Transport
+  // =============================
+  currentY = doc.lastAutoTable.finalY + 5;
+  
+  const origineTransport = [
+    [
+      'Origine du produit :\n\nNom de l\'EIS ou du navire : MSM SEAFOOD\nAgrément ou immatriculation : 02-133\nLieu d\'Embarquement : MSM SEAFOOD\n(Entrepôt/EIS/quai)\nNom de l\'entrepôt : ---------------',
+      'Moyen de transport : ' + cargoData.nom + '\n\nN° Conteneur : ' + cargoData.noDeConteneur + '\nPL : ' + cargoData.areDeConteneur + '\nPIF : ' + (commande.pif || 'DOUALA - CAMEROUN') + '\nDate de certification : ' + (cargoData.dateCertification ? new Date(cargoData.dateCertification).toLocaleDateString('fr-FR') : today) + '\nRéférence documentaire : B/L : GMU0114274'
+    ]
+  ];
+
+  doc.autoTable({
+    startY: currentY,
+    body: origineTransport,
+    theme: 'grid',
+    styles: {
+      fontSize: 9,
+      cellPadding: 8,
+      valign: 'top',
+      lineWidth: 0.3
+    },
+    columnStyles: {
+      0: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 },
+      1: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 }
+    },
+    margin: { left: marginLeft, right: marginRight }
+  });
+
+  doc.autoTable({
+    startY: currentY,
+    body: origineTransport,
+    theme: 'grid',
+    styles: {
+      fontSize: 9,
+      cellPadding: 8,
+      valign: 'top',
+      lineWidth: 0.3
+    },
+    columnStyles: {
+      0: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 },
+      1: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 }
+    },
+    margin: { left: marginLeft, right: marginRight },
+    didParseCell: function (data) {
+      // Remplacer les marqueurs **text** par du texte en gras
+      let text = data.cell.text[0];
+      if (text && text.includes('**')) {
+        const parts = text.split('**');
+        data.cell.text = [];
+        
+        for (let i = 0; i < parts.length; i++) {
+          if (i % 2 === 1) {
+            // Partie en gras
+            data.cell.text.push({
+              content: parts[i],
+              styles: { fontStyle: 'bold' }
+            });
+          } else {
+            // Partie normale
+            if (parts[i]) {
+              data.cell.text.push({
+                content: parts[i],
+                styles: { fontStyle: 'normal' }
+              });
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // =============================
+  // 4. Tableau Description/Quantité
+  // =============================
+  currentY = doc.lastAutoTable.finalY + 5;
+  
+  // Description du produit dynamique
+  let productDescription = 'SARDINELLA AURITA';
+  if (articles && articles.length === 1) {
+    const article = articles[0];
+    productDescription = `${article.reference} ${article.specification}`;
+  } else if (hasMultipleArticles) {
+    productDescription = "VOIR ANNEXE";
+  }
+  
+  const descriptionQuantite = [
+    [
+      'Description du produit :\n\nPoisson :\t\t\t\t' + productDescription + '\nNom scientifique :\t\t' + productDescription + '\nDate de production :\t\tFEBRUARY 2023\nDate expiration :\t\t\tAUGUST 2024',
+      'Quantité exportée :\n\nType de conditionnement : Carton MASTER\nNombre de colis TOTAL : ' + totals.totalColis + ' Colis\nPoids Net : ' + totals.poidsNet + ' KG\nPoids Brut : ' + totals.poidsBrut + ' KG'
+    ]
+  ];
+
+  doc.autoTable({
+    startY: currentY,
+    body: descriptionQuantite,
+    theme: 'grid',
+    styles: {
+      fontSize: 9,
+      cellPadding: 8,
+      valign: 'top',
+      lineWidth: 0.3
+    },
+    columnStyles: {
+      0: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 },
+      1: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 }
+    },
+    margin: { left: marginLeft, right: marginRight }
+  });
+
+  // =============================
+  // 5. Annexe (si plusieurs articles)
+  // =============================
+  if (hasMultipleArticles) {
+    // Créer une nouvelle page pour l'annexe
+    doc.addPage();
+    let annexeY = marginTop;
+    
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text('ANNEXE DEMANDE DE CERTIFICATION', pageWidth / 2, annexeY + 10, { align: 'center' });
+    
+    annexeY += 25;
+    
+    // Tableau de l'annexe
+    const tableData = articles.map(article => [
+      `${article.reference} ${article.specification}`,
+      'Produit de la pêche',
+      'Entier congelé',
+      'MSM SEAFOOD – 02.133',
+      article.quantite.toString(),
+      article.poidsNet.toString()
+    ]);
+    
+    // Ajouter la ligne TOTAL
+    tableData.push([
+      'TOTAL',
+      '',
+      '',
+      '',
+      totals.totalColis.toString(),
+      totals.poidsNet.toString()
+    ]);
+    
+    doc.autoTable({
+      startY: annexeY,
+      head: [['Espèces / (Nom Scientifique)', 'Nature du produit', 'Type de traitement', 'Nom et numéro d\'agrément des établissements', 'Quantité en Colis', 'Poids net / Kg']],
+      body: tableData,
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+        lineWidth: 0.3
+      },
+      headStyles: {
+        fillColor: [200, 200, 200],
+        textColor: [0, 0, 0],
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245]
+      },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 35 },
+        4: { cellWidth: 20 },
+        5: { cellWidth: 25 }
+      },
+      margin: { left: marginLeft, right: marginRight }
+    });
+    
+    // Ajouter le poids brut après le tableau
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Poids brut : ${totals.poidsBrut} kg`, pageWidth - marginRight, finalY, { align: 'right' });
+    
+    // Retourner à la première page pour continuer
+    doc.setPage(1);
+  }
+
+  // =============================
+  // 6. Section ONISPA (en bas de page)
+  // =============================
+  // Calculer la position pour placer ONISPA en bas de page
+  const onispaY = pageHeight - 70; // Position à 70mm du bas de la page
+  
+  // Note importante au-dessus de la section ONISPA
+  doc.setFontSize(8); // Police plus petite
+  doc.setFont(undefined, 'bold');
+  doc.text('NB :', marginLeft, onispaY - 15);
+  doc.setFont(undefined, 'normal');
+  const noteText = 'En cas de plusieurs origines ou de plusieurs espèces veuillez établir une annexe en indiquant l\'espèce, l\'agrément, le nombre de colis et le poids correspondant.';
+  doc.text(noteText, marginLeft + 8, onispaY - 15, { maxWidth: pageWidth - marginLeft - marginRight - 10 });
+  
+  // Titre de la section ONISPA
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.text('Partie réservée à l\'ONISPA', marginLeft, onispaY);
+  
+  // Référence finale en haut à droite de la section ONISPA
+  doc.setFontSize(12);
+  doc.text(`REF/EMB : ${cargoData.refEmb}`, pageWidth - marginRight, onispaY, { align: 'right' });
+  
+  // Dessiner le cadre de la section ONISPA
+  const onispaBoxHeight = 40;
+  doc.rect(marginLeft, onispaY + 3, pageWidth - marginLeft - marginRight, onispaBoxHeight);
+  
+  // Écrire les champs ONISPA en ligne (comme dans l'image)
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  
+  const fieldY = onispaY + 12;
+  doc.text('L\'agent de saisie', marginLeft + 5, fieldY);
+  doc.text('...................................................................', marginLeft + 40, fieldY);
+  
+  const dateY = onispaY + 22;
+  doc.text('Date de saisie', marginLeft + 5, dateY);
+  doc.text('...................................................................', marginLeft + 35, dateY);
+  
+  const numY = onispaY + 32;
+  doc.text('Numéro du certificat', marginLeft + 5, numY);
+  doc.text('................................................................', marginLeft + 50, numY);
+
+  // =============================
+  // 8. Sauvegarde
+  // =============================
+  const fileName = `certificat_CH_${cargoData.nom}_${cargoData.noDeConteneur || containerIndex + 1}.pdf`;
+  doc.save(fileName);
 };
 
 export const generateBonDeSortiePDF = (commande, historiqueData) => {
@@ -1127,6 +1455,169 @@ export const generateCommandeDetailsPDF = (commande) => {
   doc.save(`details_commande_${commande.reference}.pdf`);
 };
 
+
+export const generateVGMPDF = (vgmData, commande) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginLeft = 20;
+  const marginRight = 20;
+  
+  let currentY = 20;
+  
+  // =============================
+  // 1. En-tête avec informations alignées
+  // =============================
+  
+  // Date et lieu (à gauche)
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'normal');
+  doc.text('Nouadhibou, 13/5/2025', marginLeft, currentY);
+  
+  // MARAL FOOD S.L (à droite, souligné)
+  doc.setFont(undefined, 'bold');
+  const maralText = 'MARAL FOOD S.L';
+  const maralWidth = doc.getTextWidth(maralText);
+  const maralX = pageWidth - marginRight - maralWidth;
+  doc.text(maralText, maralX, currentY);
+  doc.line(maralX, currentY + 1, maralX + maralWidth, currentY + 1);
+  
+  currentY += 8;
+  
+  // Adresse (à droite)
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  doc.text('Avda. El Mayorazgo 13', pageWidth - marginRight - doc.getTextWidth('Avda. El Mayorazgo 13'), currentY);
+  currentY += 5;
+  doc.text('29016 Malaga, España', pageWidth - marginRight - doc.getTextWidth('29016 Malaga, España'), currentY);
+  
+  currentY = 55;
+  
+  // =============================
+  // 2. Titre principal dans un cadre
+  // =============================
+  const title = "VERIFIED GROSS MASTER CERTIFICATE";
+  doc.setFontSize(13);
+  doc.setFont(undefined, 'bold');
+  
+  // Cadre pour le titre
+  const boxHeight = 12;
+  doc.rect(marginLeft, currentY - 8, pageWidth - marginLeft - marginRight, boxHeight);
+  
+  // Centrer le titre
+  const titleWidth = doc.getTextWidth(title);
+  const titleX = (pageWidth - titleWidth) / 2;
+  doc.text(title, titleX, currentY);
+  
+  currentY += 20;
+  
+  // =============================
+  // 3. Tableau d'en-tête complexe
+  // =============================
+  
+  // Configuration du tableau avec structure complexe
+  const headerTableData = [
+    // Première ligne
+    [
+      { content: 'REFERENCE NUMBER /', rowSpan: 1 },
+      { content: 'PO : 5450525', rowSpan: 1 },
+      { content: 'BL N°', rowSpan: 1 },
+      { content: '253861304', rowSpan: 1 },
+      { content: 'MAERSK', rowSpan: 1 }
+    ],
+    // Deuxième ligne
+    [
+      { content: 'Company Name: TOP FISH TRADE SARL', colSpan: 3 },
+      { content: 'Adresse : BP 545 Zone portuaire-Nouadhibou', colSpan: 2 }
+    ],
+    // Troisième ligne
+    [
+      { content: 'WEIGHTING METHOD', colSpan: 3 },
+      { content: 'METHOD 1', colSpan: 2 }
+    ]
+  ];
+  
+  doc.autoTable({
+    startY: currentY,
+    body: headerTableData,
+    styles: {
+      fontSize: 10,
+      cellPadding: 4,
+      lineWidth: 0.5,
+      lineColor: [0, 0, 0],
+      textColor: [0, 0, 0],
+      valign: 'middle'
+    },
+    columnStyles: {
+      0: { cellWidth: 45, halign: 'center' },
+      1: { cellWidth: 35, halign: 'center' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 35, halign: 'center' },
+      4: { cellWidth: 35, halign: 'center' }
+    },
+    theme: 'grid',
+    margin: { left: marginLeft, right: marginRight }
+  });
+  
+  currentY = doc.lastAutoTable.finalY + 5;
+  
+  // =============================
+  // 4. Tableau des conteneurs
+  // =============================
+  
+  // Données des conteneurs
+  const containerData = [
+    ['CONTAINER NUMBER', 'MNBU001917/0'],
+    ['GROSS WEIGHT', '29 120'],
+    ['CONTAINER TARE', '4 640'],
+    ['VERIFIED GROSS WEIGHT MASS (VGM)', '33 760'],
+    ['DATE OF VERIFICATION', '13/5/2025'],
+    ['CONTAINER NUMBER', 'SUDU800471/6'],
+    ['GROSS WEIGHT', '29 120'],
+    ['CONTAINER TARE', '4 620'],
+    ['VERIFIED GROSS WEIGHT MASS (VGM)', '33 740'],
+    ['DATE OF VERIFICATION', '13/5/2025']
+  ];
+  
+  // Créer le tableau avec les numéros sur le côté
+  let tableStartY = currentY;
+  
+  doc.autoTable({
+    startY: tableStartY,
+    body: containerData,
+    styles: {
+      fontSize: 10,
+      cellPadding: 3,
+      lineWidth: 0.5,
+      lineColor: [0, 0, 0],
+      textColor: [0, 0, 0]
+    },
+    columnStyles: {
+      0: { cellWidth: 100, halign: 'left' },
+      1: { cellWidth: 70, halign: 'center', fontStyle: 'bold' }
+    },
+    theme: 'grid',
+    margin: { left: marginLeft, right: marginRight },
+    didDrawRow: function(data) {
+      // Ajouter les numéros 1 et 2 sur le côté
+      if (data.row.index === 0) {
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text('1', marginLeft - 8, data.row.y + 15);
+      } else if (data.row.index === 5) {
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text('2', marginLeft - 8, data.row.y + 15);
+      }
+    }
+  });
+  
+  // =============================
+  // 5. Sauvegarde
+  // =============================
+  const fileName = `VGM_Certificate_${vgmData.containerNumber || commande.reference || 'REF'}_${Date.now()}.pdf`;
+  doc.save(fileName);
+};
+
 // Fonction pour générer le Packing List à partir des données du formulaire
 /**
  * Génère le Packing List en format PDF,
@@ -1386,6 +1877,7 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
   doc.setLineWidth(0.2);
   doc.line(margin.left, footerY - 5, pageWidth - margin.right, footerY - 5);
   doc.setFontSize(8);
+  doc.setFont(undefined, 'normal');
   doc.text("+222 46 00 89 08", margin.left, footerY);
   doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone industrielle, Dakhlet Nouâdhibou", pageWidth - margin.right, footerY, { align: 'right' });
@@ -1744,6 +2236,7 @@ export const generateCertificationRequestPDF = (commande) => {
   doc.setLineWidth(0.2);
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
   doc.setFontSize(8);
+  doc.setFont(undefined, 'normal');
   doc.text("MSM SEAFOOD SARL", marginLeft, footerY);
   doc.text("Zone industrielle, Dakhlet Nouâdhibou, Mauritanie", pageWidth / 2, footerY, { align: 'center' });
   doc.text("+222 46 00 89 08", pageWidth - marginRight, footerY, { align: 'right' });

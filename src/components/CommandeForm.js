@@ -13,7 +13,8 @@ import {
   generateInvoicePDF,
   generatePackingListPDF,
   generateBonDeCommandePDF,
-  generateProformaInvoicePDF
+  generateProformaInvoicePDF,
+  generateCertificatePDF
 } from './pdfGenerators';
 
 i18nIsoCountries.registerLocale(frLocale);
@@ -40,7 +41,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     numeroFactureProforma: '', // Nouveau champ - généré automatiquement
     typeCommande: 'NORMALE', // Nouveau champ
     numeroBooking: '',
-    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
+    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
     noBonDeCommande: '',
     client: '',
     statutBonDeCommande: 'EN_COURS', // EN_COURS ou LIVREE
@@ -49,6 +50,9 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     currency: 'EUR', // Sera mis à jour automatiquement selon le type
     numeroOP: '',
     destination: '',
+    consigne: '', // Nouveau champ
+    adresseConsigne: '', // Nouveau champ
+    pif: '', // Nouveau champ PIF
     datePrevueDeChargement: '',
     // Champs complémentaires sous forme de drop list
     draftHC: 'ETABLIE',
@@ -135,13 +139,22 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
           ? (initialCommande.cargo.length > 0 
               ? initialCommande.cargo.map(cargoItem => 
                   typeof cargoItem === 'string' 
-                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }
-                    : { nom: cargoItem.nom || '', noDeConteneur: cargoItem.noDeConteneur || '', areDeConteneur: cargoItem.areDeConteneur || '', poidsCarton: cargoItem.poidsCarton || '', noPlomb: cargoItem.noPlomb || '' }
+                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }
+                    : { 
+                        nom: cargoItem.nom || '', 
+                        noDeConteneur: cargoItem.noDeConteneur || '', 
+                        areDeConteneur: cargoItem.areDeConteneur || '', 
+                        poidsCarton: cargoItem.poidsCarton || '', 
+                        noPlomb: cargoItem.noPlomb || '',
+                        refNemb: cargoItem.refNemb || '',
+                        refEmb: cargoItem.refEmb || '',
+                        dateCertification: cargoItem.dateCertification ? new Date(cargoItem.dateCertification).toISOString().slice(0, 10) : ''
+                      }
                 )
-              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }])
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }])
           : (initialCommande.cargo 
-              ? [{ nom: initialCommande.cargo, noDeConteneur: initialCommande.noDeConteneur || '', areDeConteneur: initialCommande.areDeConteneur || '', poidsCarton: initialCommande.poidsCarton || '', noPlomb: initialCommande.noPlomb || '' }] 
-              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]),
+              ? [{ nom: initialCommande.cargo, noDeConteneur: initialCommande.noDeConteneur || '', areDeConteneur: initialCommande.areDeConteneur || '', poidsCarton: initialCommande.poidsCarton || '', noPlomb: initialCommande.noPlomb || '', refNemb: '', refEmb: '', dateCertification: '' }] 
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }]),
         noBonDeCommande: initialCommande.noBonDeCommande || '',
         client: initialCommande.client?._id || '',
         bank: initialCommande.bank?._id || '',
@@ -151,6 +164,9 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         currency: initialCommande.currency || (initialCommande.typeCommande === 'LOCALE' ? 'MRU' : 'EUR'),
         numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
         destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
+        consigne: initialCommande.consigne || '',
+        adresseConsigne: initialCommande.adresseConsigne || '',
+        pif: initialCommande.pif || '',
         datePrevueDeChargement: initialCommande.datePrevueDeChargement 
           ? new Date(initialCommande.datePrevueDeChargement).toISOString().slice(0, 10)
           : '',
@@ -168,7 +184,10 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         etiquette: initialCommande.etiquette || 'ETABLIE',
         declaration: initialCommande.declaration || 'ETABLIE',
         prixTotal: initialCommande.prixTotal || 0,
-        conditionsDeVente: initialCommande.conditionsDeVente || defaultConditions
+        conditionsDeVente: initialCommande.conditionsDeVente || defaultConditions,
+        consigne: initialCommande.consigne || '',
+        adresseConsigne: initialCommande.adresseConsigne || '',
+        pif: initialCommande.pif || ''
       });
       setItems(
         (initialCommande.items || []).map(item => ({
@@ -196,7 +215,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     if (formData.cargo.length === 0) {
       setFormData(prev => ({
         ...prev,
-        cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]
+        cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }]
       }));
     }
   }, [formData.cargo]);
@@ -362,7 +381,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
   const addCargo = () => {
     setFormData({
       ...formData,
-      cargo: [...formData.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]
+      cargo: [...formData.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }]
     });
   };
 
@@ -523,6 +542,10 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         montantPaye: parseFloat(formData.montantPaye) || 0,
         prixTotal: parseFloat(formData.prixTotal) || 0,
         bank: formData.bank,
+        // Ajout explicite des champs consigné pour s'assurer qu'ils sont sauvegardés
+        consigne: formData.consigne || '',
+        adresseConsigne: formData.adresseConsigne || '',
+        pif: formData.pif || '',
         items: items.map(item => ({
           article: item.article,
           depot: item.depot,
@@ -673,6 +696,22 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     }
   };
 
+  // Fonction pour générer le certificat CH
+  const generateCertificate = (cargo, containerIndex) => {
+    try {
+      // Créer un objet commande minimal avec les données nécessaires
+      const commandeData = {
+        ...formData,
+        client: clients.find(c => c._id === formData.client)
+      };
+      
+      generateCertificatePDF(cargo, commandeData, containerIndex);
+    } catch (error) {
+      console.error('Erreur lors de la génération du certificat:', error);
+      alert('Erreur lors de la génération du certificat. Veuillez réessayer.');
+    }
+  };
+
   return (
     <div className="p-8 max-h-[90vh] overflow-y-auto">
       <h2 className="text-2xl font-bold mb-6">{initialCommande ? 'Modifier la Commande' : 'Nouvelle Commande'}</h2>
@@ -693,8 +732,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         </div>
       )}
 
-      {/* ...existing code... */}
-      
       {/* Type de commande avec étiquette */}
       <div className="mb-6 bg-white p-4 rounded-lg border border-gray-200">
         <label className="block text-sm font-bold text-gray-700 mb-3">
@@ -973,7 +1010,50 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                     <option value="IMPRIME">Imprimé</option>
                   </select>
                 </div>
-              )}
+              )}            {/* Consigné - Nouveau champ - Affiché seulement pour commandes export livrées */}
+            {formData.typeCommande !== 'LOCALE' && formData.statutBonDeCommande === 'LIVREE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Consigné</label>
+                <input
+                  name="consigne"
+                  type="text"
+                  placeholder="Nom du consigné (ex: MARAL FOOD S.L)"
+                  className={getInputClass(formData.consigne)}
+                  value={formData.consigne}
+                  onChange={handleChange}
+                />
+              </div>
+            )}
+
+            {/* Adresse Consigné - Nouveau champ - Affiché seulement pour commandes export livrées */}
+            {formData.typeCommande !== 'LOCALE' && formData.statutBonDeCommande === 'LIVREE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">Adresse Consigné</label>
+                <textarea
+                  name="adresseConsigne"
+                  placeholder="Adresse complète du consigné"
+                  className={getInputClass(formData.adresseConsigne)}
+                  value={formData.adresseConsigne}
+                  onChange={handleChange}
+                  rows="3"
+                />
+              </div>
+            )}
+
+            {/* PIF - Nouveau champ - Affiché seulement pour commandes export livrées */}
+            {formData.typeCommande !== 'LOCALE' && formData.statutBonDeCommande === 'LIVREE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">PIF (Port d'Import Final)</label>
+                <input
+                  name="pif"
+                  type="text"
+                  placeholder="Port d'Import Final (ex: DOUALA - CAMEROUN)"
+                  className={getInputClass(formData.pif)}
+                  value={formData.pif}
+                  onChange={handleChange}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -1234,33 +1314,43 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                               className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
                               <option value="">-- Choisir un cargo --</option>
-                              <option value="Maersk">Maersk</option>
+                              <option value="MAERSK">MAERSK</option>
                               <option value="MSC Line">MSC Line</option>
                               <option value="CMA/CGM">CMA/CGM</option>
                             </select>
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">N° de Conteneur</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">N° Conteneur</label>
                             <input
                               type="text"
                               value={cargo.noDeConteneur}
                               onChange={(e) => updateCargo(index, 'noDeConteneur', e.target.value)}
                               className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="N° de conteneur"
+                              placeholder="ex: MNBU001917/0"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Tare de Conteneur</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">PL :</label>
                             <input
                               type="text"
                               value={cargo.areDeConteneur}
                               onChange={(e) => updateCargo(index, 'areDeConteneur', e.target.value)}
                               className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Tare de conteneur"
+                              placeholder="ex: ML-MR0008336"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Poids Carton</label>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">N° Plomb</label>
+                            <input
+                              type="text"
+                              value={cargo.noPlomb}
+                              onChange={(e) => updateCargo(index, 'noPlomb', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="N° de plomb"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Poids Carton (KGS)</label>
                             <input
                               type="number"
                               value={cargo.poidsCarton}
@@ -1269,14 +1359,33 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                               placeholder="Poids en kg"
                             />
                           </div>
-                          <div className="md:col-span-2">
-                            <label className="block text-xs font-medium text-gray-600 mb-1">N° Plomb</label>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">REF/NEMB</label>
                             <input
                               type="text"
-                              value={cargo.noPlomb}
-                              onChange={(e) => updateCargo(index, 'noPlomb', e.target.value)}
+                              value={cargo.refNemb}
+                              onChange={(e) => updateCargo(index, 'refNemb', e.target.value)}
                               className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="N° de plomb"
+                              placeholder="XXXX/NEMBNP/2025"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">REF/EMB</label>
+                            <input
+                              type="text"
+                              value={cargo.refEmb}
+                              onChange={(e) => updateCargo(index, 'refEmb', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="XXXX/EMB/2025"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Date de certification</label>
+                            <input
+                              type="date"
+                              value={cargo.dateCertification}
+                              onChange={(e) => updateCargo(index, 'dateCertification', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
                           </div>
                         </div>
@@ -1627,6 +1736,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               {stockIssues.map((issue, index) => (
                 <div key={index} className={`p-4 rounded-lg border ${
                   issue.type === 'error' 
+                    
                     ? 'bg-red-50 border-red-200' 
                     : 'bg-orange-50 border-orange-200'
                 }`}>
@@ -1659,7 +1769,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="h-5 w-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zm-6 6a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>
                 </div>

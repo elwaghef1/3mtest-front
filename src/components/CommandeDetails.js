@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import Button from './Button';
 import CargoAllocationModal from './CargoAllocationModal';
 import PackingListForm from './PackingListForm';
+import CertificationModal from './CertificationModal';
+import VGMModal from './VGMModal';
 import { downloadCargoPackingList, downloadAllCargoPackingLists } from '../services/cargoPackingListGenerator';
 import { generateCommandeDetailsPDF, generateCertificationRequestPDF, generateBonDeSortiePDF } from './pdfGenerators';
 import axios from '../api/axios';
@@ -68,6 +70,8 @@ const DetailItem = ({ label, value, badge }) => (
 function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
   const [showAllocationModal, setShowAllocationModal] = useState(false);
   const [showPackingListForm, setShowPackingListForm] = useState(false);
+  const [showCertificationModal, setShowCertificationModal] = useState(false);
+  const [showVGMModal, setShowVGMModal] = useState(false);
   const [loading, setLoading] = useState(false);
   // Fonctions de formatage par défaut si elles ne sont pas fournies
   const defaultFormatCurrency = (value, currency = 'EUR') => {
@@ -472,13 +476,35 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
           )}
           
           {/* Bouton Certificat d'Origine - affiché seulement pour les commandes export livrées */}
-          {commande.statutBonDeCommande === 'LIVREE' && commande.typeCommande !== 'LOCALE' && (
+          {/* {commande.statutBonDeCommande === 'LIVREE' && commande.typeCommande !== 'LOCALE' && (
             <Button
               onClick={() => generateCertificationRequestPDF(commande)}
               variant="warning"
               size="md"
             >
               Certificat d'Origine
+            </Button>
+          )} */}
+          
+          {/* Bouton Créer CH - affiché seulement pour les commandes export livrées */}
+          {commande.statutBonDeCommande === 'LIVREE' && commande.typeCommande !== 'LOCALE' && (
+            <Button
+              onClick={() => setShowCertificationModal(true)}
+              variant="success"
+              size="md"
+            >
+              📄 Créer CH
+            </Button>
+          )}
+          
+          {/* Bouton Créer VGM - affiché seulement pour les commandes export livrées */}
+          {commande.statutBonDeCommande === 'LIVREE' && commande.typeCommande !== 'LOCALE' && (
+            <Button
+              onClick={() => setShowVGMModal(true)}
+              variant="primary"
+              size="md"
+            >
+              ⚖️ Créer VGM
             </Button>
           )}
           
@@ -516,6 +542,20 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
         isOpen={showPackingListForm}
         onClose={() => setShowPackingListForm(false)}
         onSave={handleSavePackingList}
+      />
+
+      {/* Modal de certification CH */}
+      <CertificationModal
+        commande={commande}
+        isOpen={showCertificationModal}
+        onClose={() => setShowCertificationModal(false)}
+      />
+
+      {/* Modal de création VGM */}
+      <VGMModal
+        commande={commande}
+        isOpen={showVGMModal}
+        onClose={() => setShowVGMModal(false)}
       />
     </div>
   );

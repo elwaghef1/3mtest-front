@@ -31,6 +31,10 @@ const LivraisonPartielleModal = ({
     prixTotalLivre: 0,
     prixTotalRestant: 0
   });
+  
+  // Nouvel état pour l'étape de confirmation
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationData, setConfirmationData] = useState(null);
 
   // Fonctions de formatage par défaut si elles ne sont pas fournies
   const defaultFormatCurrency = (value, currency = 'EUR') => {
@@ -564,23 +568,62 @@ const LivraisonPartielleModal = ({
         return;
       }
 
-      // Préparer les données pour l'API de livraison partielle - TOUJOURS avec lots
-      const livraisonData = {
+      // Préparer les données pour affichage de confirmation
+      const livraisonDataForConfirmation = {
+        commandeReference: commande.reference,
+        clientName: commande.client?.raisonSociale || 'Client Inconnu',
         itemsALivrer: itemsALivrer.map(item => ({
           itemId: item._id,
-          // IMPORTANT: Envoyer les IDs d'article et de dépôt explicitement
           articleId: item.article._id || item.article,
           depotId: item.depot._id || item.depot,
+          articleNom: item.article.intitule,
+          articleReference: item.article.reference,
+          articleSpecification: item.article.specification || '',
+          articleTaille: item.article.taille || '',
+          depotNom: item.depot.nom,
           quantiteLivree: item.quantiteLivree,
-          // Les lots sont maintenant obligatoires
+          prixUnitaire: item.prixUnitaire,
+          prixTotal: item.quantiteLivree * item.prixUnitaire,
           distributionLots: item.distributionLots.map(lot => ({
             lotId: lot.lotId,
             batchNumber: lot.batchNumber,
             quantite: lot.quantite
           }))
         })),
-        // NOUVELLE PROPRIÉTÉ CRITIQUE : Informer le backend des articles non livrés
-        // pour qu'il sache que la commande doit rester en statut PARTIELLEMENT_LIVREE
+        itemsNonLivres: itemsNonLivres.map(item => ({
+          itemId: item._id,
+          articleId: item.article._id || item.article,
+          depotId: item.depot._id || item.depot,
+          articleNom: item.article.intitule,
+          articleReference: item.article.reference,
+          articleSpecification: item.article.specification || '',
+          articleTaille: item.article.taille || '',
+          depotNom: item.depot.nom,
+          quantiteRestante: item.quantiteRestante,
+          raison: 'non_livré_intentionnellement'
+        })),
+        totaux: {
+          quantiteTotale: itemsALivrer.reduce((sum, item) => sum + item.quantiteLivree, 0),
+          prixTotal: itemsALivrer.reduce((sum, item) => sum + (item.quantiteLivree * item.prixUnitaire), 0),
+          nombreArticles: itemsALivrer.length,
+          nombreLotsUtilises: itemsALivrer.reduce((sum, item) => sum + item.distributionLots.length, 0)
+        },
+        devise: commande.devise || 'EUR'
+      };
+
+      // Préparer les données pour l'API (structure originale)
+      const livraisonDataForAPI = {
+        itemsALivrer: itemsALivrer.map(item => ({
+          itemId: item._id,
+          articleId: item.article._id || item.article,
+          depotId: item.depot._id || item.depot,
+          quantiteLivree: item.quantiteLivree,
+          distributionLots: item.distributionLots.map(lot => ({
+            lotId: lot.lotId,
+            batchNumber: lot.batchNumber,
+            quantite: lot.quantite
+          }))
+        })),
         itemsNonLivres: itemsNonLivres.map(item => ({
           itemId: item._id,
           articleId: item.article._id || item.article,
@@ -590,10 +633,31 @@ const LivraisonPartielleModal = ({
         }))
       };
 
-      console.log('🚚 Données de livraison avec lots obligatoires:', livraisonData);
+      // Stocker les données et afficher la confirmation
+      setConfirmationData({
+        displayData: livraisonDataForConfirmation,
+        apiData: livraisonDataForAPI
+      });
+      setShowConfirmation(true);
+      
+    } catch (error) {
+      console.error('Erreur lors de la préparation de la livraison:', error);
+      alert(`❌ Erreur: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Nouvelle fonction pour exécuter la livraison après confirmation
+  const handleExecuterLivraison = async () => {
+    if (!confirmationData) return;
+    
+    setLoading(true);
+    try {
+      console.log('🚚 Données de livraison avec lots obligatoires:', confirmationData.apiData);
 
       // Effectuer la livraison partielle via l'endpoint dédié
-      const response = await axios.post(`/commandes/${commande._id}/livraison-partielle`, livraisonData);
+      const response = await axios.post(`/commandes/${commande._id}/livraison-partielle`, confirmationData.apiData);
       
       const { commandeLivree, commandeOriginale, resume, detailsBatches, resumeBatches } = response.data;
       
@@ -636,11 +700,11 @@ const LivraisonPartielleModal = ({
         });
         
         Object.entries(groupesParArticle).forEach(([articleId, details]) => {
-          // Trouver le nom de l'article
-          const article = itemsALivrer.find(item => 
-            (item.article._id || item.article) === articleId
+          // Trouver le nom de l'article dans les données de confirmation
+          const article = confirmationData.displayData.itemsALivrer.find(item => 
+            item.articleId === articleId
           );
-          const articleNom = article?.article?.intitule || article?.article?.reference || 'Article inconnu';
+          const articleNom = article?.articleNom || article?.articleReference || 'Article inconnu';
           
           successMessage += `\n• ${articleNom}:`;
           details.forEach(detail => {
@@ -697,11 +761,233 @@ const LivraisonPartielleModal = ({
     }
   };
 
+  // Fonction pour annuler la confirmation et revenir à l'édition
+  const handleAnnulerConfirmation = () => {
+    setShowConfirmation(false);
+    setConfirmationData(null);
+  };
+
   if (!commande) return null;
 
+  // Si nous sommes en mode confirmation, afficher l'interface de confirmation
+  if (showConfirmation && confirmationData) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl w-full max-h-screen overflow-y-auto m-4">
+          <div className="p-6">
+            {/* En-tête de confirmation */}
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <InformationCircleIcon className="h-8 w-8 text-blue-600 mr-3" />
+                  Confirmation de Livraison Partielle
+                </h2>
+                <p className="text-gray-600 mt-1">Vérifiez les détails avant d'envoyer les données</p>
+              </div>
+              <button
+                onClick={handleAnnulerConfirmation}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Informations de la commande */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              <div className="bg-blue-50 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">Informations de la commande</h3>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Commande:</span> {confirmationData.displayData.commandeReference}
+                  </div>
+                  <div>
+                    <span className="font-medium">Client:</span> {confirmationData.displayData.clientName}
+                  </div>
+                  <div>
+                    <span className="font-medium">Date de livraison:</span> {new Date().toLocaleDateString('fr-FR')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Résumé des totaux */}
+              <div className="bg-green-50 rounded-lg p-4 lg:col-span-2">
+                <h3 className="text-lg font-semibold text-green-900 mb-3">Résumé de la livraison</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {confirmationData.displayData.totaux.nombreArticles}
+                    </div>
+                    <div className="text-gray-600">Articles</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatNumberFunc(confirmationData.displayData.totaux.quantiteTotale)} kg
+                    </div>
+                    <div className="text-gray-600">Quantité totale</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {confirmationData.displayData.totaux.nombreLotsUtilises}
+                    </div>
+                    <div className="text-gray-600">Lots utilisés</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {formatCurrencyFunc(confirmationData.displayData.totaux.prixTotal, confirmationData.displayData.devise)}
+                    </div>
+                    <div className="text-gray-600">Valeur totale</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Détails des articles à livrer */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Articles à livrer</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full bg-white border border-gray-200 rounded-lg">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Article
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Quantité à livrer
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Lots utilisés (Batch Numbers)
+                      </th>
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Valeur
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {confirmationData.displayData.itemsALivrer.map((item, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="font-medium text-gray-900">
+                            {item.articleReference || 'N/A'} - {item.articleSpecification || 'N/A'} - {item.articleTaille || 'N/A'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Dépôt: {item.depotNom}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                            {formatNumberFunc(item.quantiteLivree)} kg
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            {item.distributionLots && item.distributionLots.length > 0 ? (
+                              item.distributionLots.map((lot, lotIndex) => (
+                                <div key={lotIndex} className="flex items-center justify-between bg-gray-50 rounded px-3 py-1">
+                                  <span className="text-sm font-mono text-blue-600">
+                                    Batch: {lot.batchNumber}
+                                  </span>
+                                  <span className="text-sm font-medium text-gray-700">
+                                    {formatNumberFunc(lot.quantite)} kg
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <span className="text-sm text-gray-500 italic">Aucun lot spécifique</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="text-lg font-semibold text-green-600">
+                            {formatCurrencyFunc(item.prixTotal, confirmationData.displayData.devise)}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot className="bg-gray-50">
+                    <tr>
+                      <td colSpan="3" className="px-6 py-3 text-right font-medium text-gray-900">
+                        Total:
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        <div className="text-xl font-bold text-green-600">
+                          {formatCurrencyFunc(confirmationData.displayData.totaux.prixTotal, confirmationData.displayData.devise)}
+                        </div>
+                      </td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+            {/* Articles non livrés (si il y en a) */}
+            {confirmationData.displayData.itemsNonLivres.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Articles non livrés</h3>
+                <div className="bg-yellow-50 rounded-lg p-4">
+                  <div className="space-y-2">
+                    {confirmationData.displayData.itemsNonLivres.map((item, index) => (
+                      <div key={index} className="flex justify-between items-center text-sm">
+                        <div className="text-gray-700">
+                          <div className="font-medium">
+                            {item.articleReference || 'N/A'} - {item.articleSpecification || 'N/A'} - {item.articleTaille || 'N/A'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Dépôt: {item.depotNom}
+                          </div>
+                        </div>
+                        <span className="font-medium text-yellow-600">
+                          {formatNumberFunc(item.quantiteRestante)} kg restants
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Avertissement */}
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+              <div className="flex">
+                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mr-2" />
+                <div>
+                  <p className="text-sm text-yellow-700">
+                    <strong>Attention:</strong> Une fois confirmée, cette livraison sera enregistrée définitivement 
+                    et les stocks seront mis à jour. Cette action ne peut pas être annulée.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions de confirmation */}
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleAnnulerConfirmation}
+                disabled={loading}
+              >
+                Retour à l'édition
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleExecuterLivraison}
+                icon={loading ? 'loading' : <CheckIcon className="h-5 w-5" />}
+                disabled={loading}
+              >
+                {loading ? 'Envoi en cours...' : 'Confirmer et envoyer'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Interface normale de sélection des articles
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+      <div className="bg-white rounded-xl shadow-2xl max-w-full w-full max-h-[95vh] overflow-y-auto mx-4">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -1263,7 +1549,7 @@ const LivraisonPartielleModal = ({
               >
                 Annuler
               </Button>
-              <Button
+              {/* <Button
                 variant="info"
                 onClick={() => handleGenerateUnifiedPDF()}
                 icon={<DocumentTextIcon className="h-5 w-5" />}
@@ -1271,7 +1557,7 @@ const LivraisonPartielleModal = ({
                 title={!isCommandeComplete() ? "Commande incomplète" : "Aperçu PDF"}
               >
                 Aperçu PDF
-              </Button>
+              </Button> */}
               <Button
                 variant="primary"
                 onClick={handleConfirmerLivraison}
