@@ -520,10 +520,10 @@ export default function StockList() {
     
     // Styles configurables (identiques au PDF principal)
     const styles = {
-      headerFontSize: 14,       // Titre principal : 16 → 14 pts
-      subheaderFontSize: 9,     // Sous-titres et statistiques : 10 → 9 pts
-      tableFontSize: 8,         // Contenu du tableau : 9 → 8 pts
-      tableHeaderFontSize: 9,   // En-têtes de tableau : 10 → 9 pts
+      headerFontSize: 14,       
+      subheaderFontSize: 9,    
+      tableFontSize: 8,        
+      tableHeaderFontSize: 9,   
       numericCell: {
         halign: 'right',
         cellPadding: { top: 2, right: 4, bottom: 2, left: 2 }

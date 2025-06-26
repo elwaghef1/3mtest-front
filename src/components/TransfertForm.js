@@ -30,6 +30,10 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
   // Contrôle du chargement
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // État pour le modal de confirmation
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [transfertData, setTransfertData] = useState(null);
 
   // Chargement initial
   useEffect(() => {
@@ -109,6 +113,17 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
 
   // Mise à jour d'un item
   const handleItemChange = (index, field, value) => {
+    // Vérification des articles dupliqués
+    if (field === 'article' && value) {
+      const existingArticleIndex = items.findIndex((item, i) => i !== index && item.article === value);
+      if (existingArticleIndex !== -1) {
+        setErrorMessage(`Cet article est déjà sélectionné à la ligne ${existingArticleIndex + 1}. Veuillez choisir un article différent.`);
+        return; // Ne pas continuer la mise à jour
+      } else {
+        setErrorMessage(''); // Effacer le message d'erreur si l'article est valide
+      }
+    }
+
     const newItems = [...items];
     newItems[index][field] = value;
 
@@ -169,7 +184,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
     return `${lot.batchNumber} (${sum} Kg dispo)`;
   };
 
-  // Gestion de la soumission
+  // Gestion de la soumission - Étape 1 : Validation et préparation des données
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -206,37 +221,54 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
       }
     }
 
-    try {
-      const payload = {
-        depotDepart: depotDepartId,
-        depotArrivee: depotArriveeId,
-        pointeur,
-        moyenDeTransfert,
-        immatricule,
-        dateTransfert: dateTransfert ? new Date(dateTransfert) : undefined,
-        items: validItems.map(item => ({
-          article: item.article,
-          quantiteKg: parseFloat(item.quantiteKg),
-          selectedLotId: item.selectedLot,
-        })),
-      };
+    // Préparer les données pour la confirmation
+    const payload = {
+      depotDepart: depotDepartId,
+      depotArrivee: depotArriveeId,
+      pointeur,
+      moyenDeTransfert,
+      immatricule,
+      dateTransfert: dateTransfert ? new Date(dateTransfert) : undefined,
+      items: validItems.map(item => ({
+        article: item.article,
+        quantiteKg: parseFloat(item.quantiteKg),
+        selectedLotId: item.selectedLot,
+      })),
+    };
 
-      await axios.post('/transferts/multiple', payload);
+    // Stocker les données et afficher la confirmation
+    setTransfertData(payload);
+    setLoading(false);
+    setShowConfirmation(true);
+  };
+
+  // Gestion de la soumission - Étape 2 : Envoi après confirmation
+  const handleConfirmSubmit = async () => {
+    setLoading(true);
+
+    try {
+      await axios.post('/transferts/multiple', transfertData);
       onTransfertCreated();
-    } catch (err) {
-      console.error('Erreur lors de la création du transfert multiple:', err);
-      if (err.response && err.response.data && err.response.data.message) {
-        setErrorMessage(err.response.data.message);
-      } else {
-        setErrorMessage("Une erreur est survenue pendant la création du transfert.");
-      }
+      onClose();
+    } catch (error) {
+      console.error('Erreur lors de la création du transfert :', error);
+      setErrorMessage(
+        error.response?.data?.message || 'Erreur lors de la création du transfert'
+      );
+      setShowConfirmation(false); // Fermer la confirmation en cas d'erreur
     } finally {
       setLoading(false);
     }
   };
 
+  // Annuler la confirmation
+  const handleCancelConfirmation = () => {
+    setShowConfirmation(false);
+    setTransfertData(null);
+  };
+
   return (
-    <div className="p-6 w-full max-h-[90vh] overflow-y-auto">
+    <div className="p-8 w-full max-h-[95vh] overflow-y-auto">
       <h2 className="text-2xl font-bold mb-6">Nouveau Transfert</h2>
 
       {errorMessage && (
@@ -245,19 +277,19 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-8">{/*Augmenté l'espacement entre sections*/}
         {/* Informations générales */}
         <div className="p-4 border rounded-lg bg-gray-50">
           <h3 className="text-lg font-medium mb-4">Informations générales</h3>
           
           {/* Ligne 1 : Dépôts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">
                 Dépôt de Départ *
               </label>
               <select
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                 value={depotDepartId}
                 onChange={(e) => setDepotDepartId(e.target.value)}
                 required
@@ -276,7 +308,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                 Dépôt d'Arrivée *
               </label>
               <select
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                 value={depotArriveeId}
                 onChange={(e) => setDepotArriveeId(e.target.value)}
                 required
@@ -292,14 +324,14 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
           </div>
 
           {/* Ligne 2 : Date et Pointeur */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-6">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">
                 Date Transfert
               </label>
               <input
                 type="date"
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                 value={dateTransfert}
                 onChange={(e) => setDateTransfert(e.target.value)}
               />
@@ -311,7 +343,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
               </label>
               <input
                 type="text"
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                 value={pointeur}
                 onChange={(e) => setPointeur(e.target.value)}
                 required
@@ -320,14 +352,14 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
           </div>
 
           {/* Ligne 3 : Moyen de transfert et Immatricule */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">
                 Moyen de Transfert
               </label>
               <input
                 type="text"
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                 value={moyenDeTransfert}
                 onChange={(e) => setMoyenDeTransfert(e.target.value)}
               />
@@ -339,7 +371,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
               </label>
               <input
                 type="text"
-                className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                 value={immatricule}
                 onChange={(e) => setImmatricule(e.target.value)}
               />
@@ -348,39 +380,39 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
         </div>
 
         {/* Articles à transférer */}
-        <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-medium">Articles à transférer</h3>
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={addItem}
-            >
-              + Ajouter un article
-            </Button>
-          </div>
+        <div className="space-y-6">
+          <h3 className="text-lg font-medium">Articles à transférer</h3>
 
           {items.map((item, index) => (
-            <div key={index} className="p-4 border rounded-lg bg-white">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div key={index} className="p-6 border rounded-lg bg-white shadow-sm">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Article */}
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-gray-700">
                     Article *
                   </label>
                   <select
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                     value={item.article}
                     onChange={(e) => handleItemChange(index, 'article', e.target.value)}
                     required
                   >
                     <option value="">-- Choisir un article --</option>
                     {sortedArticles.map((a) => {
+                      // Vérifier si cet article est déjà sélectionné dans un autre item
+                      const isAlreadySelected = items.some((otherItem, otherIndex) => 
+                        otherIndex !== index && otherItem.article === a._id
+                      );
+                      
                       const parts = [a.reference, a.specification, a.taille].filter(Boolean);
                       return (
-                        <option key={a._id} value={a._id}>
-                          {parts.join(' – ')}
+                        <option 
+                          key={a._id} 
+                          value={a._id}
+                          disabled={isAlreadySelected}
+                          style={isAlreadySelected ? { color: '#999', fontStyle: 'italic' } : {}}
+                        >
+                          {parts.join(' – ')} {isAlreadySelected ? ' (déjà sélectionné)' : ''}
                         </option>
                       );
                     })}
@@ -400,7 +432,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                   <input
                     type="number"
                     step="0.01"
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                     value={item.quantiteKg}
                     onChange={(e) => handleItemChange(index, 'quantiteKg', e.target.value)}
                     required
@@ -410,12 +442,12 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
 
               {/* Sélection du lot */}
               {item.availableLots.length > 0 && (
-                <div className="mt-4">
+                <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Lot (Batch Number) *
                   </label>
                   <select
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-2"
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                     value={item.selectedLot}
                     onChange={(e) => handleItemChange(index, 'selectedLot', e.target.value)}
                     required
@@ -432,7 +464,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
 
               {/* Bouton de suppression */}
               {items.length > 1 && (
-                <div className="mt-4">
+                <div className="mt-6">
                   <Button
                     type="button"
                     variant="danger"
@@ -445,10 +477,20 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
               )}
             </div>
           ))}
+          
+          <Button
+            type="button"
+            variant="info"
+            size="md"
+            onClick={addItem}
+            className="mt-4"
+          >
+            + Ajouter un autre article
+          </Button>
         </div>
 
         {/* Boutons d'action */}
-        <div className="flex justify-end space-x-4 mt-8">
+        <div className="flex justify-end space-x-6 mt-10 pt-6 border-t border-gray-200">{/*Ajout d'une séparation visuelle*/}
           <Button
             type="button"
             variant="secondary"
@@ -468,6 +510,119 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
           </Button>
         </div>
       </form>
+
+      {/* Modal de confirmation */}
+      {showConfirmation && transfertData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] overflow-y-auto">
+            <div className="p-8">{/*Augmenté le padding de p-6 à p-8*/}
+              <h3 className="text-2xl font-bold mb-6 text-center">Confirmation du Transfert</h3>{/*Augmenté la taille du titre*/}
+              
+              {/* Informations générales */}
+              <div className="bg-gray-50 p-6 rounded-lg mb-6">{/*Augmenté le padding de p-4 à p-6*/}
+                <h4 className="font-semibold mb-4 text-lg">Informations générales :</h4>{/*Augmenté la taille du sous-titre*/}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-base">{/*Changé md:grid-cols-2 à lg:grid-cols-2 et augmenté gap et text-size*/}
+                  <div>
+                    <span className="font-medium">Dépôt de départ :</span>
+                    <br />
+                    {depots.find(d => d._id === depotDepartId)?.intitule || '—'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Dépôt d'arrivée :</span>
+                    <br />
+                    {depots.find(d => d._id === depotArriveeId)?.intitule || '—'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Pointeur :</span>
+                    <br />
+                    {pointeur || '—'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Date :</span>
+                    <br />
+                    {dateTransfert ? new Date(dateTransfert).toLocaleDateString('fr-FR') : 'Aujourd\'hui'}
+                  </div>
+                </div>
+                {(moyenDeTransfert || immatricule) && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-base mt-4">{/*Amélioré la grille et l'espacement*/}
+                    {moyenDeTransfert && (
+                      <div>
+                        <span className="font-medium">Moyen de transfert :</span>
+                        <br />
+                        {moyenDeTransfert}
+                      </div>
+                    )}
+                    {immatricule && (
+                      <div>
+                        <span className="font-medium">Immatricule :</span>
+                        <br />
+                        {immatricule}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Résumé des articles */}
+              <div className="bg-blue-50 p-6 rounded-lg mb-8">{/*Augmenté le padding et margin*/}
+                <h4 className="font-semibold mb-4 text-lg">Articles à transférer :</h4>{/*Augmenté la taille du titre*/}
+                <div className="space-y-3">{/*Augmenté l'espacement entre les articles*/}
+                  {transfertData.items.map((item, index) => {
+                    const article = articles.find(a => a._id === item.article);
+                    const lot = items.find(i => i.article === item.article)?.availableLots?.find(l => l._id === item.selectedLotId);
+                    const articleName = article ? [article.reference, article.specification, article.taille].filter(Boolean).join(' – ') : 'Article inconnu';
+                    
+                    return (
+                      <div key={index} className="flex justify-between items-center p-4 bg-white rounded border shadow-sm">{/*Augmenté le padding et ajouté shadow*/}
+                        <div className="flex-1">
+                          <div className="font-medium text-base">{articleName}</div>{/*Augmenté la taille de police*/}
+                          <div className="text-sm text-gray-600 mt-1">{/*Augmenté la taille de police et ajouté margin*/}
+                            Lot : {lot?.batchNumber || 'Lot inconnu'}
+                          </div>
+                        </div>
+                        <div className="text-right ml-4">{/*Ajouté margin-left pour plus d'espace*/}
+                          <div className="font-semibold text-blue-600 text-lg">{item.quantiteKg} Kg</div>{/*Augmenté la taille de police*/}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-5 pt-4 border-t border-blue-200">{/*Augmenté margins et padding*/}
+                  <div className="flex justify-between items-center font-bold text-lg">{/*Augmenté la taille de police*/}
+                    <span>Total :</span>
+                    <span className="text-blue-600 text-xl">{/*Augmenté la taille de police pour le total*/}
+                      {transfertData.items.reduce((sum, item) => sum + item.quantiteKg, 0)} Kg
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Boutons de confirmation */}
+              <div className="flex justify-end space-x-6 pt-4">{/*Augmenté l'espacement et ajouté padding-top*/}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="lg"
+                  onClick={handleCancelConfirmation}
+                  disabled={loading}
+                >
+                  Modifier
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="lg"
+                  onClick={handleConfirmSubmit}
+                  disabled={loading}
+                  loading={loading}
+                >
+                  Confirmer le transfert
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
