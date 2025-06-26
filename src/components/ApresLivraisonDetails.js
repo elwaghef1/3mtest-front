@@ -279,6 +279,10 @@ function ApresLivraisonDetails({ commande, onClose }) {
                       label="N° Plomb"
                       value={cargo.noPlomb}
                     />
+                    <DetailItem
+                      label="Numéro Facture"
+                      value={cargo.numeroFacture}
+                    />
                   </div>
                 ) : (
                   <p className="text-sm text-gray-500 italic">

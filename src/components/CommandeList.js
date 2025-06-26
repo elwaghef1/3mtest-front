@@ -546,7 +546,6 @@ const CommandeList = () => {
     // Ne peut pas modifier si la commande a des quantités manquantes, est en attente, livrée ou annulée
     return commande.statutBonDeCommande !== 'EN_ATTENTE_STOCK' &&
            commande.statutBonDeCommande !== 'AVEC_QUANTITES_MANQUANTES' &&
-           commande.statutBonDeCommande !== 'LIVREE' &&
            commande.statutBonDeCommande !== 'ANNULE';
   };
 

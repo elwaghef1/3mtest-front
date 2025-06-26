@@ -6,7 +6,7 @@ import PackingListForm from './PackingListForm';
 import CertificationModal from './CertificationModal';
 import VGMModal from './VGMModal';
 import { downloadCargoPackingList, downloadAllCargoPackingLists } from '../services/cargoPackingListGenerator';
-import { generateCommandeDetailsPDF, generateCertificationRequestPDF, generateBonDeSortiePDF } from './pdfGenerators';
+import { generateCommandeDetailsPDF, generateCertificationRequestPDF, generateBonDeSortiePDF, generateCertificatOrigineExcel } from './pdfGenerators';
 import axios from '../api/axios';
 
 // Fonction utilitaire pour formater un article (détail)
@@ -230,6 +230,28 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
     }
   };
 
+  // Fonction pour télécharger le Certificat d'Origine en Excel
+  const handleDownloadCertificatOrigine = () => {
+    try {
+      // Préparer les données pour le certificat d'origine
+      const certificateData = {
+        cargo: commande.cargo && commande.cargo.length > 0 ? commande.cargo[0] : {},
+        articles: commande.items || [],
+        totals: {
+          totalColis: commande.items ? commande.items.reduce((sum, item) => sum + (item.quantiteCarton || 0), 0) : 0,
+          poidsNet: commande.items ? commande.items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0) : 0,
+          poidsBrut: commande.items ? commande.items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0) * 1.04 : 0, // Approximation 4% d'emballage
+        }
+      };
+
+      // Générer le fichier Excel
+      generateCertificatOrigineExcel(certificateData, commande);
+    } catch (error) {
+      console.error('Erreur lors de la génération du Certificat d\'Origine:', error);
+      alert('Erreur lors de la génération du Certificat d\'Origine. Veuillez réessayer.');
+    }
+  };
+
   // Carte affichant le total de la commande
   const totalCard = (
     <div className="bg-gray-200 p-6 rounded-lg text-center mb-8">
@@ -372,6 +394,7 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
                     <DetailItem label="Tare de Conteneur" value={cargo.areDeConteneur} />
                     <DetailItem label="Poids Carton" value={cargo.poidsCarton} />
                     <DetailItem label="N° Plomb" value={cargo.noPlomb} />
+                    <DetailItem label="Numéro Facture" value={cargo.numeroFacture} />
                   </div>
                   
                   {/* Affichage des articles alloués à ce cargo */}
@@ -494,6 +517,17 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
               size="md"
             >
               📄 Créer CH
+            </Button>
+          )}
+
+          {/* Bouton Télécharger CO Excel - affiché seulement pour les commandes export livrées */}
+          {commande.statutBonDeCommande === 'LIVREE' && commande.typeCommande !== 'LOCALE' && (
+            <Button
+              onClick={handleDownloadCertificatOrigine}
+              variant="info"
+              size="md"
+            >
+              📊 Télécharger CO
             </Button>
           )}
           

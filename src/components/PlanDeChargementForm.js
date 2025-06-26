@@ -20,7 +20,7 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
     reference: '',
     client: '',
     booking: '',
-    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }],
+    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }],
     destination: '',
     // Utilisation du champ "numeroOP" au lieu de "OP"
     numeroOP: '',
@@ -63,13 +63,13 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
           ? (initialCommande.cargo.length > 0 
               ? initialCommande.cargo.map(cargoItem => 
                   typeof cargoItem === 'string' 
-                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }
-                    : { nom: cargoItem.nom || '', noDeConteneur: cargoItem.noDeConteneur || '', areDeConteneur: cargoItem.areDeConteneur || '', poidsCarton: cargoItem.poidsCarton || '', noPlomb: cargoItem.noPlomb || '' }
+                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }
+                    : { nom: cargoItem.nom || '', noDeConteneur: cargoItem.noDeConteneur || '', areDeConteneur: cargoItem.areDeConteneur || '', poidsCarton: cargoItem.poidsCarton || '', noPlomb: cargoItem.noPlomb || '', numeroFacture: cargoItem.numeroFacture || `XXXX/EXP/${new Date().getFullYear()}` }
                 )
-              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }])
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }])
           : (initialCommande.cargo 
-              ? [{ nom: initialCommande.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }] 
-              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]),
+              ? [{ nom: initialCommande.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }] 
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }]),
         destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
         numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
         datePrevueDeChargement: initialCommande.datePrevueDeChargement
@@ -118,14 +118,13 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
           cargo: Array.isArray(cmd.cargo) 
             ? (cmd.cargo.length > 0 
                 ? cmd.cargo.map(cargoItem => 
-                    typeof cargoItem === 'string' 
-                      ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }
-                      : { nom: cargoItem.nom || '', noDeConteneur: cargoItem.noDeConteneur || '', areDeConteneur: cargoItem.areDeConteneur || '', poidsCarton: cargoItem.poidsCarton || '', noPlomb: cargoItem.noPlomb || '' }
+                    typeof cargoItem === 'string'                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }
+                    : { nom: cargoItem.nom || '', noDeConteneur: cargoItem.noDeConteneur || '', areDeConteneur: cargoItem.areDeConteneur || '', poidsCarton: cargoItem.poidsCarton || '', noPlomb: cargoItem.noPlomb || '', numeroFacture: cargoItem.numeroFacture || `XXXX/EXP/${new Date().getFullYear()}` }
                   )
-                : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }])
+                : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }])
             : (cmd.cargo 
-                ? [{ nom: cmd.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }] 
-                : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]),
+                ? [{ nom: cmd.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }] 
+                : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }]),
           destination: cmd.destination || '',
           numeroOP: cmd.numeroOP || '',
           datePrevueDeChargement: cmd.datePrevueDeChargement
@@ -178,7 +177,7 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
   const addCargo = () => {
     setFormData(prev => ({
       ...prev,
-      cargo: [...prev.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]
+      cargo: [...prev.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }]
     }));
   };
 
@@ -445,6 +444,19 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
                     value={cargo.noPlomb}
                     onChange={(e) => updateCargo(index, 'noPlomb', e.target.value)}
                     placeholder="N° plomb"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Numéro Facture
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                    value={cargo.numeroFacture}
+                    onChange={(e) => updateCargo(index, 'numeroFacture', e.target.value)}
+                    placeholder={`XXXX/EXP/${new Date().getFullYear()}`}
                   />
                 </div>
               </div>
