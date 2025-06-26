@@ -66,7 +66,7 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
       reference: selectedArticle.reference,
       specification: selectedArticle.specification,
       taille: selectedArticle.taille,
-      quantiteCarton: Math.ceil(getCartonQuantityFromKg(selectedArticle.quantiteKg, selectedArticle)) || 1,
+      quantiteCarton: parseFloat((getCartonQuantityFromKg(selectedArticle.quantiteKg, selectedArticle) || 1).toFixed(2)),
       selected: true,
       prodDate: 'JUNE2025',
       box: '2*10KG'

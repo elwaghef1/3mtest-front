@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx';
 import { Link } from 'react-router-dom';
 import { getCartonQuantityFromKg } from '../utils/cartonsUtils';
 import { convertKgToCarton } from '../utils/cartonsUtils';
+import logoBase64 from './logoBase64';
 
 // Fonction helper pour récupérer l'article correspondant à un stock
 const getArticleForStock = (stock, articles) => {
@@ -196,6 +197,16 @@ export default function StockList() {
     return formatted.replace(/\//g, '');
   };
 
+  // Formateur de nombres pour les cartons (avec 2 décimales exactes) - web et PDF
+  const formatCartons = (value) => {
+    const num = parseFloat(value || 0);
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      useGrouping: true
+    }).format(num);
+  };
+
   // Formateur de nombres pour le PDF (format français avec 0 décimale et espaces pour milliers)
   const pdfNumber = (value) => {
     const num = parseFloat(value || 0);
@@ -203,6 +214,16 @@ export default function StockList() {
     return new Intl.NumberFormat('fr-FR', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
+      useGrouping: true
+    }).format(num).replace(/\s/g, '\u00A0');
+  };
+
+  // Formateur de nombres pour les cartons (avec 2 décimales exactes) - PDF avec espaces non-sécables
+  const pdfNumberDecimal = (value) => {
+    const num = parseFloat(value || 0);
+    return new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
       useGrouping: true
     }).format(num).replace(/\s/g, '\u00A0');
   };
@@ -256,29 +277,52 @@ export default function StockList() {
 
     // Styles et configuration de base
     const styles = {
-      headerFontSize: 16,
-      subheaderFontSize: 10,
+      headerFontSize: 14, // Titre principal : 16 → 14 pts
+      subheaderFontSize: 9, // Sous-titres et statistiques : 10 → 9 pts
       tableHeader: {
-        fillColor: [41, 128, 185],
+        fillColor: [0, 0, 0], // Couleur noire au lieu de bleu [41, 128, 185]
         textColor: [255, 255, 255], // Texte blanc pour les en-têtes
         fontStyle: 'bold',
-        fontSize: 10,
+        fontSize: 9, // En-têtes de tableau : 10 → 9 pts
       },
       numericCell: {
         halign: 'right',
       },
     };
 
-    // Entête du PDF
-    doc.setFontSize(styles.headerFontSize);
-    doc.setFont(undefined, 'bold');
-    doc.text('ÉTAT DE STOCK', 14, 20);
+    // --- HEADER AMÉLIORÉ (même format que bon d'entrée) ---
+    const w = doc.internal.pageSize.getWidth();
+    const m = 10;
+    let y = 10;
+    
+    // Logo
+    doc.addImage(logoBase64, 'PNG', m, y+2, 30, 30);
+    
+    // Texte à droite du logo
+    const startX = m + 35;
+    const lineHeight = 4; // Réduit pour des polices plus petites
+  
+    doc.setFont('helvetica', 'bold').setFontSize(11) // Informations d'entreprise : 9 → 8 pts (mais un peu plus gros pour le nom)
+       .text('MSM SEAFOOD SARL', startX, y + 5);
+  
+    doc.setFont('helvetica', 'normal').setFontSize(8); // Informations d'entreprise : 9 → 8 pts
+    y += lineHeight;
+    doc.text('Zone industrielle', startX, y + 5);
+    y += lineHeight;
+    doc.text('Dakhlet Nouâdhibou', startX, y + 5);
+    y += lineHeight;
+    doc.text('Mauritanie', startX, y + 5);
+    y += lineHeight;
+    doc.text('msmseafoodsarl@gmail.com', startX, y + 5);
+    y += lineHeight;
+    doc.text('Tél. : +222 46 00 89 08', startX, y + 5);
+  
+    // Date en haut à droite
+    const rightColumnX = w - 80; // Position fixe pour l'alignement vertical des textes à droite
+    doc.setFontSize(8) // Informations d'entreprise : 9 → 8 pts
+       .text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, rightColumnX, 15);
 
-    doc.setFontSize(styles.subheaderFontSize);
-    doc.setTextColor(100);
-    doc.text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, 14, 28);
-
-    // Calcul des statistiques globales
+    // Calcul des statistiques globales (déplacé avant le titre)
     const totalKg = filtered.reduce((acc, s) => acc + (s.quantiteKg || 0), 0);
     const totalTonnes = totalKg / 1000;
     // Calculer les cartons en utilisant le poids par carton de chaque article
@@ -296,18 +340,29 @@ export default function StockList() {
       return acc + getCartonQuantityFromKg(s.quantiteCommercialisableKg || 0, article);
     }, 0);
 
-    let statsY = 35;
-    doc.text(`Disponible (Tonnes) : ${pdfNumber(totalTonnes)} T`, 14, statsY);
+    // --- STATISTIQUES GLOBALES EN HAUT À DROITE (alignées verticalement) ---
+    let statsY = 20; // Un peu plus haut pour mieux aligner avec le logo
+    doc.setFont('helvetica', 'normal').setFontSize(8); // Même taille que les infos entreprise
+    doc.setTextColor(60); // Gris foncé pour les statistiques
+    doc.text(`Disponible (Tonnes) : ${pdfNumber(totalTonnes)} T`, rightColumnX, statsY);
+    statsY += 5; // Espacement légèrement augmenté
+    doc.text(`Disponible (Cartons) : ${pdfNumberDecimal(totalCartons)}`, rightColumnX, statsY);
     statsY += 5;
-    doc.text(`Disponible (Cartons) : ${pdfNumber(totalCartons)}`, 14, statsY);
+    doc.text(`Commercialisable (Tonnes) : ${pdfNumber(totalCommercialisableTonnes)} T`, rightColumnX, statsY);
     statsY += 5;
-    doc.text(`Commercialisable (Tonnes) : ${pdfNumber(totalCommercialisableTonnes)} T`, 14, statsY);
+    doc.text(`Commercialisable (Cartons) : ${pdfNumberDecimal(totalCommercialisableCartons)}`, rightColumnX, statsY);
     statsY += 5;
-    doc.text(`Commercialisable (Cartons) : ${pdfNumber(totalCommercialisableCartons)}`, 14, statsY);
-    statsY += 5;
-    doc.text(`CUMP/T (${getCurrencyLabel()}) : ${pdfNumber(globalCump)}`, 14, statsY);
+    doc.text(`CUMP/T (${getCurrencyLabel()}) : ${pdfNumber(globalCump)}`, rightColumnX, statsY);
+  
+    // --- TITRE (positionné plus haut maintenant) ---
+    const titleY = 50; // Position fixe pour le titre
+    doc.setFont('helvetica','bold').setFontSize(styles.headerFontSize)
+       .setTextColor(0) // Retour au noir pour le titre
+       .text("ÉTAT DE STOCK", w / 2, titleY, { align: 'center' })
+       .setDrawColor(0,102,204).setLineWidth(0.5)
+       .line(m, titleY + 3, w - m, titleY + 3);
 
-    const startY = statsY + 7;
+    const startY = titleY + 12; // Position de départ du tableau
 
     // Définition des colonnes pour l'export
     const columns = [
@@ -353,9 +408,9 @@ export default function StockList() {
         article: formatArticle(stock.article),
         depot: stock.depot?.intitule || '—',
         quantiteKg: pdfNumber(stock.quantiteKg || 0),
-        cartons: pdfNumber(getCartonQuantityFromKg(stock.quantiteKg || 0, article)),
+        cartons: pdfNumberDecimal(getCartonQuantityFromKg(stock.quantiteKg || 0, article)),
         commercialisableKg: pdfNumber(stock.quantiteCommercialisableKg || 0),
-        commercialisableCartons: pdfNumber(getCartonQuantityFromKg(stock.quantiteCommercialisableKg || 0, article)),
+        commercialisableCartons: pdfNumberDecimal(getCartonQuantityFromKg(stock.quantiteCommercialisableKg || 0, article)),
         cump: pdfNumber((stock.valeur || 0) * 1000 * factor),
       };
     });
@@ -372,11 +427,14 @@ export default function StockList() {
       theme: 'grid',
       headStyles: styles.tableHeader,
       bodyStyles: {
-        fontSize: 9,
-        cellPadding: 2,
+        fontSize: 8, // Contenu du tableau : 9 → 8 pts
+        cellPadding: 1.5, // Padding réduit pour optimiser l'espace
         valign: 'middle',
       },
-      styles: { cellWidth: 'wrap' },
+      styles: { 
+        cellWidth: 'wrap',
+        fontSize: 8, // Contenu du tableau : 9 → 8 pts
+      },
       margin: { horizontal: 14 },
       didParseCell: (data) => {
         if (data.column.dataKey === 'article') {
@@ -459,34 +517,152 @@ export default function StockList() {
   // Nouvelle fonction pour exporter le stock commercialisable en PDF
   const exportCommercialisableToPDF = () => {
     const doc = new jsPDF('landscape', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const marginLeft = 10;
-    const marginRight = 10;
     
-    // Entête du PDF
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.text("Stock Commercialisable", pageWidth / 2, 20, { align: 'center' });
+    // Styles configurables (identiques au PDF principal)
+    const styles = {
+      headerFontSize: 14,       // Titre principal : 16 → 14 pts
+      subheaderFontSize: 9,     // Sous-titres et statistiques : 10 → 9 pts
+      tableFontSize: 8,         // Contenu du tableau : 9 → 8 pts
+      tableHeaderFontSize: 9,   // En-têtes de tableau : 10 → 9 pts
+      numericCell: {
+        halign: 'right',
+        cellPadding: { top: 2, right: 4, bottom: 2, left: 2 }
+      },
+    };
+
+    // --- HEADER AMÉLIORÉ (même format que bon d'entrée) ---
+    const w = doc.internal.pageSize.getWidth();
+    const m = 10;
+    let y = 10;
     
-    // Définition des colonnes : Article, Dépôt, Quantité commercialisable (Kg)
-    const columns = ["Article", "Dépôt", "Quantité (Kg)"];
+    // Logo
+    doc.addImage(logoBase64, 'PNG', m, y+2, 30, 30);
     
-    // Construction des données à partir de la liste filtrée
-    const data = filtered.map(s => ({
-      article: s.article ? formatArticle(s.article) : '—',
-      depot: s.depot ? s.depot.intitule : '—',
-      quantite: pdfNumber(s.quantiteCommercialisableKg || 0)
-    }));
-    
-    // Ajout du tableau avec jsPDF-AutoTable
-    doc.autoTable({
-      head: [columns],
-      body: data.map(row => [row.article, row.depot, row.quantite]),
-      startY: 30,
-      margin: { left: marginLeft, right: marginRight },
-      styles: { fontSize: 10 }
+    // Texte à droite du logo
+    const startX = m + 35;
+    const lineHeight = 4; // Réduit pour des polices plus petites
+  
+    doc.setFont('helvetica', 'bold').setFontSize(11) // Informations d'entreprise : 9 → 8 pts (mais un peu plus gros pour le nom)
+       .text('MSM SEAFOOD SARL', startX, y + 5);
+  
+    doc.setFont('helvetica', 'normal').setFontSize(8); // Informations d'entreprise : 9 → 8 pts
+    y += lineHeight;
+    doc.text('Zone industrielle', startX, y + 5);
+    y += lineHeight;
+    doc.text('Dakhlet Nouâdhibou', startX, y + 5);
+    y += lineHeight;
+    doc.text('Mauritanie', startX, y + 5);
+    y += lineHeight;
+    doc.text('msmseafoodsarl@gmail.com', startX, y + 5);
+    y += lineHeight;
+    doc.text('Tél. : +222 46 00 89 08', startX, y + 5);
+  
+    // Date et statistiques en haut à droite (alignées verticalement)
+    const rightColumnX = w - 80; // Position fixe pour l'alignement vertical des textes à droite
+    doc.setFontSize(8) // Informations d'entreprise : 9 → 8 pts
+       .text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, rightColumnX, 15);
+
+    // Calcul des statistiques commercialisables uniquement
+    const totalCommercialisableKg = filtered.reduce(
+      (acc, s) => acc + (s.quantiteCommercialisableKg || 0),
+      0
+    );
+    const totalCommercialisableTonnes = totalCommercialisableKg / 1000;
+    const totalCommercialisableCartons = filtered.reduce((acc, s) => {
+      const article = getArticleForStock(s, articles);
+      return acc + getCartonQuantityFromKg(s.quantiteCommercialisableKg || 0, article);
+    }, 0);
+
+    // --- STATISTIQUES COMMERCIALISABLES EN HAUT À DROITE (alignées verticalement) ---
+    let statsY = 20;
+    doc.setFont('helvetica', 'normal').setFontSize(8);
+    doc.setTextColor(60); // Gris foncé pour les statistiques
+    doc.text(`Commercialisable (Tonnes) : ${pdfNumber(totalCommercialisableTonnes)} T`, rightColumnX, statsY);
+    statsY += 5;
+    doc.text(`Commercialisable (Cartons) : ${pdfNumberDecimal(totalCommercialisableCartons)}`, rightColumnX, statsY);
+    statsY += 5;
+    doc.text(`CUMP/T (${getCurrencyLabel()}) : ${pdfNumber(globalCump)}`, rightColumnX, statsY);
+  
+    // --- TITRE (positionné plus haut maintenant) ---
+    const titleY = 50; // Position fixe pour le titre
+    doc.setFont('helvetica','bold').setFontSize(styles.headerFontSize)
+       .setTextColor(0) // Retour au noir pour le titre
+       .text("STOCK COMMERCIALISABLE", w / 2, titleY, { align: 'center' })
+       .setDrawColor(0,102,204).setLineWidth(0.5)
+       .line(m, titleY + 3, w - m, titleY + 3);
+
+    const startY = titleY + 12; // Position de départ du tableau
+
+    // Définition des colonnes pour l'export commercialisable
+    const columns = [
+      { header: 'Article', dataKey: 'article', width: 100 },
+      { header: 'Dépôt', dataKey: 'depot', width: 30 },
+      {
+        header: 'Commercialisable (Kg)',
+        dataKey: 'commercialisableKg',
+        width: 35,
+        ...styles.numericCell,
+      },
+      {
+        header: 'Commercialisable (Cartons)',
+        dataKey: 'commercialisableCartons',
+        width: 35,
+        ...styles.numericCell,
+      },
+      {
+        header: `CUMP (${getCurrencyLabel()})`,
+        dataKey: 'cump',
+        width: 30,
+        ...styles.numericCell,
+      }
+    ];
+
+    // Préparation des données
+    const data = filtered.map((stock) => {
+      const article = getArticleForStock(stock, articles);
+      const stockCurrency = stock.monnaie || 'USD';
+      const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
+      
+      return {
+        article: formatArticle(stock.article),
+        depot: stock.depot?.intitule || '—',
+        commercialisableKg: pdfNumber(stock.quantiteCommercialisableKg || 0),
+        commercialisableCartons: pdfNumberDecimal(getCartonQuantityFromKg(stock.quantiteCommercialisableKg || 0, article)),
+        cump: pdfNumber(stock.valeur * factor),
+      };
     });
-    
+
+    // Configuration du tableau
+    doc.autoTable({
+      columns: columns,
+      body: data,
+      startY: startY,
+      styles: {
+        fontSize: styles.tableFontSize,
+        cellPadding: { top: 2, right: 3, bottom: 2, left: 3 }, // Padding réduit
+        lineColor: [169, 169, 169],
+        lineWidth: 0.1,
+      },
+      headStyles: {
+        fillColor: [0, 0, 0], // En-têtes de tableau noirs
+        textColor: [255, 255, 255],
+        fontSize: styles.tableHeaderFontSize,
+        fontStyle: 'bold',
+        halign: 'center',
+        cellPadding: { top: 3, right: 3, bottom: 3, left: 3 },
+      },
+      columnStyles: {
+        commercialisableKg: { halign: 'right' },
+        commercialisableCartons: { halign: 'right' },
+        cump: { halign: 'right' },
+      },
+      didParseCell: (data) => {
+        if (['commercialisableKg', 'commercialisableCartons', 'cump'].includes(data.column.dataKey)) {
+          data.cell.styles.halign = 'right';
+        }
+      }
+    });
+
     doc.save(`stock_commercialisable_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
@@ -610,7 +786,7 @@ export default function StockList() {
             <CubeIcon className="h-8 w-8 mr-3" />
             <div>
               <div className="text-2xl font-bold">
-                {formatNumber(filtered.reduce((acc, s) => {
+                {formatCartons(filtered.reduce((acc, s) => {
                   const article = getArticleForStock(s, articles);
                   return acc + getCartonQuantityFromKg(s.quantiteKg || 0, article);
                 }, 0))}
@@ -637,7 +813,7 @@ export default function StockList() {
             <CubeIcon className="h-8 w-8 mr-3" />
             <div>
               <div className="text-2xl font-bold">
-                {formatNumber(filtered.reduce((acc, s) => {
+                {formatCartons(filtered.reduce((acc, s) => {
                   const article = getArticleForStock(s, articles);
                   return acc + getCartonQuantityFromKg(s.quantiteCommercialisableKg || 0, article);
                 }, 0))}
@@ -851,7 +1027,7 @@ export default function StockList() {
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-gray-700 border border-gray-400">
                             <span className="bg-red-800 px-3 py-1 rounded-full text-sm text-white">
-                              {formatNumber(getCartonQuantityFromKg(s.quantiteKg, getArticleForStock(s, articles)))}
+                              {formatCartons(getCartonQuantityFromKg(s.quantiteKg, getArticleForStock(s, articles)))}
                             </span>
                           </td>
                         </>
@@ -863,7 +1039,7 @@ export default function StockList() {
                       </td>
                       <td className="px-4 py-3 text-center border border-gray-400">
                         <span className="bg-green-800 px-3 py-1 rounded-full text-sm text-white">
-                          {formatNumber(getCartonQuantityFromKg(s.quantiteCommercialisableKg, getArticleForStock(s, articles)))}
+                          {formatCartons(getCartonQuantityFromKg(s.quantiteCommercialisableKg, getArticleForStock(s, articles)))}
                         </span>
                       </td>
                       {!isMobile && (
