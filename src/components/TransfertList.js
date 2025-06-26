@@ -16,6 +16,7 @@ import logoBase64 from './logoBase64';
 
 // Import du générateur de PDF centralisé
 import { generateBonDeTransfertPDF } from './pdfGenerators';
+import { getCartonQuantityFromKg } from '../utils/cartonsUtils';
 
 function TransfertList() {
   const [transferts, setTransferts] = useState([]);
@@ -176,7 +177,7 @@ function TransfertList() {
       depotDepart: t.depotDepart?.intitule || '—',
       depotArrivee: t.depotArrivee?.intitule || '—',
       quantiteKg: t.quantiteKg,
-      quantiteCarton: t.quantiteKg ? (t.quantiteKg / 20).toFixed(2) : '—',
+      quantiteCarton: t.quantiteKg && t.article ? getCartonQuantityFromKg(t.quantiteKg, t.article).toFixed(2) : '—',
       pointeur: t.pointeur || '—',
       moyenTransfert: t.moyenDeTransfert || '—',
       immatricule: t.immatricule || '—',
@@ -239,8 +240,8 @@ function TransfertList() {
       'Dépôt Départ': t.depotDepart?.intitule || '—',
       'Dépôt Arrivée': t.depotArrivee?.intitule || '—',
       'Quantité (Kg)': t.quantiteKg,
-      'Quantité (Carton)': t.quantiteKg
-        ? (t.quantiteKg / 20).toFixed(2)
+      'Quantité (Carton)': t.quantiteKg && t.article
+        ? getCartonQuantityFromKg(t.quantiteKg, t.article).toFixed(2)
         : '—',
       Pointeur: t.pointeur || '—',
       'Moyen Transfert': t.moyenDeTransfert || '—',
@@ -367,7 +368,7 @@ function TransfertList() {
                     {t.quantiteKg}
                   </td>
                   {/* <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
-                    {t.quantiteKg ? (t.quantiteKg / 20).toFixed(2) : '—'}
+                    {t.quantiteKg && t.article ? getCartonQuantityFromKg(t.quantiteKg, t.article).toFixed(2) : '—'}
                   </td> */}
                   <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
                     {t.pointeur || '—'}

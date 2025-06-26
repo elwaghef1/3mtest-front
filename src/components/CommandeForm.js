@@ -32,7 +32,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     }));
   }, []);
 
-  const defaultConditions = "Packing: 20 kg per carton\nOrigin: Mauritania\nPayment Terms: 100% CAD TT\nIncoterms: FOB Nouadhibou – Mauritania";
+  const defaultConditions = "Packing: Variable par article (voir détails)\nOrigin: Mauritania\nPayment Terms: 100% CAD TT\nIncoterms: FOB Nouadhibou – Mauritania";
 
   // État initial du formulaire
   const [formData, setFormData] = useState({
@@ -41,7 +41,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     numeroFactureProforma: '', // Nouveau champ - généré automatiquement
     typeCommande: 'NORMALE', // Nouveau champ
     numeroBooking: '',
-    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}`, refNemb: '', refEmb: '', dateCertification: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
+    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
     noBonDeCommande: '',
     client: '',
     statutBonDeCommande: 'EN_COURS', // EN_COURS ou LIVREE
@@ -141,23 +141,22 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
           ? (initialCommande.cargo.length > 0 
               ? initialCommande.cargo.map(cargoItem => 
                   typeof cargoItem === 'string' 
-                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}`, refNemb: '', refEmb: '', dateCertification: '' }
+                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }
                     : { 
                         nom: cargoItem.nom || '', 
                         noDeConteneur: cargoItem.noDeConteneur || '', 
                         areDeConteneur: cargoItem.areDeConteneur || '', 
                         poidsCarton: cargoItem.poidsCarton || '', 
                         noPlomb: cargoItem.noPlomb || '',
-                        numeroFacture: cargoItem.numeroFacture || `XXXX/EXP/${new Date().getFullYear()}`,
                         refNemb: cargoItem.refNemb || '',
                         refEmb: cargoItem.refEmb || '',
                         dateCertification: cargoItem.dateCertification ? new Date(cargoItem.dateCertification).toISOString().slice(0, 10) : ''
                       }
                 )
-              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}`, refNemb: '', refEmb: '', dateCertification: '' }])
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }])
           : (initialCommande.cargo 
-              ? [{ nom: initialCommande.cargo, noDeConteneur: initialCommande.noDeConteneur || '', areDeConteneur: initialCommande.areDeConteneur || '', poidsCarton: initialCommande.poidsCarton || '', noPlomb: initialCommande.noPlomb || '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}`, refNemb: '', refEmb: '', dateCertification: '' }] 
-              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}`, refNemb: '', refEmb: '', dateCertification: '' }]),
+              ? [{ nom: initialCommande.cargo, noDeConteneur: initialCommande.noDeConteneur || '', areDeConteneur: initialCommande.areDeConteneur || '', poidsCarton: initialCommande.poidsCarton || '', noPlomb: initialCommande.noPlomb || '', refNemb: '', refEmb: '', dateCertification: '' }] 
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }]),
         noBonDeCommande: initialCommande.noBonDeCommande || '',
         client: initialCommande.client?._id || '',
         bank: initialCommande.bank?._id || '',
@@ -220,7 +219,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     if (formData.cargo.length === 0) {
       setFormData(prev => ({
         ...prev,
-        cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}`, refNemb: '', refEmb: '', dateCertification: '' }]
+        cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }]
       }));
     }
   }, [formData.cargo]);
@@ -346,10 +345,20 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     
     updatedItems[index][field] = value;
     
-    if (field === 'quantiteKg' || field === 'prixUnitaire') {
+    if (field === 'quantiteKg' || field === 'prixUnitaire' || field === 'article') {
       const quantiteKg = parseFloat(updatedItems[index].quantiteKg) || 0;
       const prixUnitaire = parseFloat(updatedItems[index].prixUnitaire) || 0;
-      updatedItems[index].quantiteCarton = quantiteKg / 20;
+      
+      // Récupérer le poids par carton de l'article sélectionné
+      let kgParCarton = 20; // valeur par défaut
+      if (updatedItems[index].article) {
+        const selectedArticle = articles.find(art => art._id === updatedItems[index].article);
+        if (selectedArticle && selectedArticle.kgParCarton) {
+          kgParCarton = selectedArticle.kgParCarton;
+        }
+      }
+      
+      updatedItems[index].quantiteCarton = quantiteKg / kgParCarton;
       updatedItems[index].prixTotal = prixUnitaire * quantiteKg;
     }
     
@@ -386,7 +395,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
   const addCargo = () => {
     setFormData({
       ...formData,
-      cargo: [...formData.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}`, refNemb: '', refEmb: '', dateCertification: '' }]
+      cargo: [...formData.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }]
     });
   };
 
@@ -1407,16 +1416,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                               onChange={(e) => updateCargo(index, 'poidsCarton', e.target.value)}
                               className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="Poids en kg"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-1">Numéro Facture</label>
-                            <input
-                              type="text"
-                              value={cargo.numeroFacture}
-                              onChange={(e) => updateCargo(index, 'numeroFacture', e.target.value)}
-                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder={`XXXX/EXP/${new Date().getFullYear()}`}
                             />
                           </div>
                           <div>

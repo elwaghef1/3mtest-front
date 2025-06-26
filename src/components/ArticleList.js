@@ -94,6 +94,7 @@ function ArticleList() {
       { header: 'Spécification', dataKey: 'specification' },
       { header: 'Taille', dataKey: 'taille' },
       { header: 'Type Carton', dataKey: 'typeCarton' },
+      { header: 'Kg/Carton', dataKey: 'kgParCarton' },
       { header: 'Prix SMCP', dataKey: 'prixSMCP' },
     ];
 
@@ -104,6 +105,7 @@ function ArticleList() {
       specification: a.specification || '—',
       taille: a.taille || '—',
       typeCarton: a.typeCarton || '—',
+      kgParCarton: a.kgParCarton ? `${a.kgParCarton} kg` : '20 kg',
       prixSMCP:
         a.prixSMCP != null
           ? `${a.prixSMCP} ${a.prixSMCPCurrency || 'MRU'}`
@@ -149,6 +151,7 @@ function ArticleList() {
       'Spécification': a.specification || '—',
       'Taille': a.taille || '—',
       'Type Carton': a.typeCarton || '—',
+      'Kg/Carton': a.kgParCarton ? `${a.kgParCarton} kg` : '20 kg',
       'Prix SMCP': a.prixSMCP != null ? `${a.prixSMCP} ${a.prixSMCPCurrency || 'MRU'}` : '—',
     }));
 
@@ -231,6 +234,9 @@ function ArticleList() {
                   Type Carton
                 </th>
                 <th className="px-4 py-3 text-left font-bold text-gray-700 border border-gray-400">
+                  Kg/Carton
+                </th>
+                <th className="px-4 py-3 text-left font-bold text-gray-700 border border-gray-400">
                   Prix SMCP
                 </th>
                 <th className="px-4 py-3 text-left font-bold text-gray-700 border border-gray-400">
@@ -247,6 +253,11 @@ function ArticleList() {
                   <td className="px-4 py-3 border border-gray-400">{a.specification || '—'}</td>
                   <td className="px-4 py-3 border border-gray-400">{a.taille || '—'}</td>
                   <td className="px-4 py-3 border border-gray-400">{a.typeCarton || '—'}</td>
+                  <td className="px-4 py-3 border border-gray-400">
+                    <span className="font-medium text-blue-600">
+                      {a.kgParCarton ? `${a.kgParCarton} kg` : '20 kg'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 border border-gray-400">
                     {a.prixSMCP != null
                       ? `${a.prixSMCP} ${a.prixSMCPCurrency || 'MRU'}`

@@ -11,10 +11,28 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
   const [poidsNet, setPoidsNet] = useState(28000);
   const [poidsBrut, setPoidsBrut] = useState(29120);
 
-  // Calculer le poids brut automatiquement
+  // Fonction utilitaire pour récupérer le poids par carton
+  const getKgPerCarton = (article) => {
+    return article?.kgParCarton || 20;
+  };
+
+  // Calculer le poids brut automatiquement en fonction des articles sélectionnés
   useEffect(() => {
-    setPoidsBrut(totalColis * 20.8);
-  }, [totalColis]);
+    // Calculer le poids net total des articles sélectionnés
+    const poidsNetTotal = selectedArticles
+      .filter(art => art.selected)
+      .reduce((sum, art) => {
+        const article = commande?.items?.find(item => item.article?._id === art.articleId)?.article;
+        const kgParCarton = getKgPerCarton(article);
+        return sum + (art.quantite * kgParCarton);
+      }, 0);
+    
+    // Ajouter un poids d'emballage approximatif (0.8kg par carton)
+    const poidsEmballage = totalColis * 0.8;
+    const poidsBrutCalculé = poidsNetTotal + poidsEmballage;
+    
+    setPoidsBrut(poidsBrutCalculé);
+  }, [totalColis, selectedArticles, commande]);
 
   if (!isOpen) return null;
 
@@ -23,15 +41,18 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
     setShowArticleForm(true);
     
     // Initialiser avec tous les articles de la commande
-    const initialArticles = commande.items.map(item => ({
-      articleId: item.article._id,
-      reference: item.article.reference,
-      specification: item.article.specification,
-      taille: item.article.taille,
-      selected: true,
-      quantite: Math.floor(item.quantiteKg / 20), // Approximation du nombre de colis
-      poidsNet: item.quantiteKg
-    }));
+    const initialArticles = commande.items.map(item => {
+      const kgPerCarton = getKgPerCarton(item.article);
+      return {
+        articleId: item.article._id,
+        reference: item.article.reference,
+        specification: item.article.specification,
+        taille: item.article.taille,
+        selected: true,
+        quantite: Math.floor(item.quantiteKg / kgPerCarton), // Utiliser le poids par carton de l'article
+        poidsNet: item.quantiteKg
+      };
+    });
     
     setSelectedArticles(initialArticles);
     

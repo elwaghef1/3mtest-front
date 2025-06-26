@@ -2,6 +2,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import logoBase64 from '../components/logoBase64';
+import { getCartonQuantityFromKg } from '../utils/cartonsUtils';
 
 /**
  * Service amélioré pour générer un PDF unifié contenant tous les documents d'une sortie
@@ -275,7 +276,7 @@ const generateEnhancedPackingListPage = (doc, sortie, commande) => {
         cargo.itemsAlloues.forEach((item) => {
           const article = item.article;
           const quantiteKg = parseFloat(item.quantiteAllouee) || 0;
-          const numBox = Math.ceil(quantiteKg / 20);
+          const numBox = Math.ceil(getCartonQuantityFromKg(quantiteKg, article));
           const poidsCarton = parseFloat(cargo.poidsCarton) || 1.12;
           const grossWeight = quantiteKg + (poidsCarton * numBox);
           
@@ -381,7 +382,7 @@ const generateEnhancedPackingListPage = (doc, sortie, commande) => {
       if (cargo.itemsAlloues && cargo.itemsAlloues.length > 0) {
         cargo.itemsAlloues.forEach((item) => {
           const quantiteKg = parseFloat(item.quantiteAllouee) || 0;
-          const numBox = Math.ceil(quantiteKg / 20);
+          const numBox = Math.ceil(getCartonQuantityFromKg(quantiteKg, item.article));
           const poidsCarton = parseFloat(cargo.poidsCarton) || 1.12;
           const grossWeight = quantiteKg + (poidsCarton * numBox);
           

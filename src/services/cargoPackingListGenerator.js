@@ -1,6 +1,7 @@
 // frontend/src/services/cargoPackingListGenerator.js
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { getCartonQuantityFromKg } from '../utils/cartonsUtils';
 
 // Logo base64 (vous pouvez remplacer par votre vrai logo)
 const logoBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
@@ -68,7 +69,7 @@ export const generateCargoPackingListPDF = (commande, cargo) => {
     cargo.itemsAlloues.forEach((item) => {
       const article = item.article;
       const quantiteKg = parseFloat(item.quantiteAllouee) || 0;
-      const numBox = Math.ceil(quantiteKg / 20); // 20kg par carton
+      const numBox = Math.ceil(getCartonQuantityFromKg(quantiteKg, article)); // Utilise le kg par carton de l'article
       const poidsCarton = parseFloat(cargo.poidsCarton) || 1.12; // poids d'un carton vide
       const grossWeight = quantiteKg + (poidsCarton * numBox);
       

@@ -1,5 +1,6 @@
 // frontend/src/components/TransfertDetails.js
 import React from 'react';
+import { getCartonQuantityFromKg } from '../utils/cartonsUtils';
 
 // Fonction utilitaire pour formater un article (détail)
 const formatArticle = (a) => {
@@ -104,7 +105,7 @@ function TransfertDetails({ transfert, onClose }) {
                   </td>
                   <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
                     <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full font-medium">
-                      {item.quantiteCarton || (item.quantiteKg ? (item.quantiteKg / 20).toFixed(2) : '—')}
+                      {item.quantiteCarton || (item.quantiteKg && item.article ? getCartonQuantityFromKg(item.quantiteKg, item.article).toFixed(2) : '—')}
                     </span>
                   </td>
                 </tr>
@@ -122,7 +123,7 @@ function TransfertDetails({ transfert, onClose }) {
                 </td>
                 <td className="border border-gray-300 px-4 py-3 text-sm text-center text-gray-700">
                   <span className="inline-block bg-gray-100 text-gray-800 px-3 py-1 rounded-full font-medium">
-                    {transfert.quantiteCarton || (transfert.quantiteKg ? (transfert.quantiteKg / 20).toFixed(2) : '—')}
+                    {transfert.quantiteCarton || (transfert.quantiteKg && transfert.article ? getCartonQuantityFromKg(transfert.quantiteKg, transfert.article).toFixed(2) : '—')}
                   </span>
                 </td>
               </tr>
@@ -147,7 +148,12 @@ function TransfertDetails({ transfert, onClose }) {
             <div className="text-center">
               <p className="text-sm text-gray-600">Quantité totale (Cartons)</p>
               <p className="text-xl font-bold text-orange-600">
-                {transfert.quantiteCarton || (transfert.quantiteKg ? (transfert.quantiteKg / 20).toFixed(2) : '—')}
+                {transfert.quantiteCarton || (isMultiple && transfert.items ? 
+                  transfert.items.reduce((sum, item) => {
+                    return sum + (item.quantiteCarton || (item.quantiteKg && item.article ? getCartonQuantityFromKg(item.quantiteKg, item.article) : 0));
+                  }, 0).toFixed(2) :
+                  (transfert.quantiteKg && transfert.article ? getCartonQuantityFromKg(transfert.quantiteKg, transfert.article).toFixed(2) : '—')
+                )}
               </p>
             </div>
           </div>

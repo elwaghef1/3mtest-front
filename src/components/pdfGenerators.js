@@ -19,6 +19,14 @@ const formatCurrencyForPDF = (value, currency = 'EUR') => {
   }
 };
 
+// Fonction utilitaire pour récupérer le poids par carton d'un article
+const getKgPerCarton = (article) => {
+  if (typeof article === 'object' && article.kgParCarton) {
+    return parseFloat(article.kgParCarton);
+  }
+  return 20; // valeur par défaut
+};
+
 // Fonction pour générer le Packing List
 export const generatePackingListPDF = (commande) => {
   const doc = new jsPDF('p', 'mm', 'a4');
@@ -109,7 +117,8 @@ export const generatePackingListPDF = (commande) => {
     const expiryText = Array.isArray(expiryDate) ? expiryDate.join("\n") : expiryDate;
 
     const quantiteKg = parseFloat(item.quantiteKg) || 0;
-    const cartons = item.quantiteCarton || Math.ceil(quantiteKg / 20);
+    const kgPerCarton = getKgPerCarton(item.article);
+    const cartons = item.quantiteCarton || Math.ceil(quantiteKg / kgPerCarton);
     const netWeight = `${quantiteKg} KG`;
     const grossWeight = `${(quantiteKg + cartons * poidsCarton).toFixed(2)} KG`;
 
@@ -430,7 +439,7 @@ export const generateInvoicePDF = (commande) => {
   const afterTableY = doc.lastAutoTable.finalY + 8;
 
   // Utilisation des conditions de vente depuis la commande
-  const conditions = commande.conditionsDeVente || "Packing: 20 kg per carton\nOrigin: Mauritania\nPayment Terms: 100% CAD TT\nIncoterms: FOB Nouadhibou – Mauritania";
+  const conditions = commande.conditionsDeVente || "Packing: Variable par article (voir détails)\nOrigin: Mauritania\nPayment Terms: 100% CAD TT\nIncoterms: FOB Nouadhibou – Mauritania";
   const conditionsLines = conditions.split('\n');
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
@@ -643,7 +652,7 @@ export const generateProformaInvoicePDF = (commande) => {
   const afterTableY = doc.lastAutoTable.finalY + 8;
 
   // Utilisation des conditions de vente depuis la commande
-  const conditions = commande.conditionsDeVente || "Packing: 20 kg per carton\nOrigin: Mauritania\nPayment Terms: 100% CAD TT\nIncoterms: FOB Nouadhibou – Mauritania";
+  const conditions = commande.conditionsDeVente || "Packing: Variable par article (voir détails)\nOrigin: Mauritania\nPayment Terms: 100% CAD TT\nIncoterms: FOB Nouadhibou – Mauritania";
   const conditionsLines = conditions.split('\n');
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
@@ -1701,7 +1710,16 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
         // Créer une ligne pour chaque article sélectionné avec VRAIS rowSpan
         selectedArticles.forEach((article, index) => {
           const qty = article.quantiteCarton || 0;
-          const netWeight = qty * 20; // 20kg par carton
+          
+          // Trouver l'article original dans la commande pour récupérer le kgParCarton
+          const originalArticle = commande.items.find(item => 
+            item.article._id === article.articleId || 
+            item.article._id === article.reference ||
+            item.article.reference === article.reference
+          );
+          const kgPerCarton = getKgPerCarton(originalArticle?.article);
+          
+          const netWeight = qty * kgPerCarton;
           const grossWeight = qty * (containerInfo.poidsCarton || 22);
           const isFirstArticle = index === 0;
           const rowSpanCount = selectedArticles.length;
@@ -2425,7 +2443,7 @@ export const generateBonDeTransfertPDF = (transfer) => {
       article.reference || 'N/A',
       article.taille || 'N/A',
       transfer.quantiteKg?.toString() || '0',
-      transfer.quantiteCarton?.toFixed(2) || (transfer.quantiteKg ? (transfer.quantiteKg / 20).toFixed(2) : '0'),
+      transfer.quantiteCarton?.toFixed(2) || (transfer.quantiteKg ? (transfer.quantiteKg / getKgPerCarton(article)).toFixed(2) : '0'),
       batchNumbers
     ]];
 
@@ -2770,7 +2788,8 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
           
           const group = cargoArticles.get(articleKey);
           const quantiteAllouee = parseFloat(item.quantiteAllouee) || 0;
-          const quantiteCarton = parseFloat(item.quantiteCarton) || Math.ceil(quantiteAllouee / 20);
+          const kgPerCarton = getKgPerCarton(item.article);
+          const quantiteCarton = parseFloat(item.quantiteCarton) || Math.ceil(quantiteAllouee / kgPerCarton);
           
           group.quantiteKg += quantiteAllouee;
           group.quantiteCarton += quantiteCarton;
@@ -2855,6 +2874,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     
     if (totalNet > 0 || totalCartons > 0) {
       const packagingWeight = parseFloat(commande.poidsCarton) || 0.8;
+      // Utiliser la valeur par défaut de 20kg pour le fallback générique
       const estimatedCartons = totalCartons || Math.ceil(totalNet / 20);
       const poidsBrut = totalNet + (estimatedCartons * packagingWeight);
       

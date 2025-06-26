@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import Button from './Button';
 import { generateAutorisationSortiePDF } from './pdfGenerators';
+import { calculateCartonsFromKg, calculateKgFromCartons, getKgPerCarton } from '../utils/cartonsUtils';
 import {
   XMarkIcon,
   PlusIcon,
@@ -112,7 +113,7 @@ const AutorisationSortieModal = ({ onClose }) => {
     const numValue = parseInt(value) || 0;
     setSelectedArticles(prev => prev.map((item, i) => 
       i === index 
-        ? { ...item, quantiteCarton: numValue, quantiteKg: numValue * 20 }
+        ? { ...item, quantiteCarton: numValue, quantiteKg: calculateKgFromCartons(numValue, item) }
         : item
     ));
   };
@@ -121,7 +122,7 @@ const AutorisationSortieModal = ({ onClose }) => {
     const numValue = parseFloat(value) || 0;
     setSelectedArticles(prev => prev.map((item, i) => 
       i === index 
-        ? { ...item, quantiteKg: numValue, quantiteCarton: numValue / 20 }
+        ? { ...item, quantiteKg: numValue, quantiteCarton: calculateCartonsFromKg(numValue, item) }
         : item
     ));
   };

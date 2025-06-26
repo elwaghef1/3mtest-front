@@ -12,6 +12,8 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
   const [prixSMCP, setPrixSMCP] = useState('');
   // Nouvel état pour la monnaie du prix SMCP
   const [prixSMCPCurrency, setPrixSMCPCurrency] = useState('MRU');
+  // Nouvel état pour le poids par carton
+  const [kgParCarton, setKgParCarton] = useState(20);
   const [loading, setLoading] = useState(false);
 
   // Préremplissage ou réinitialisation en fonction du mode (création/édition)
@@ -25,6 +27,7 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
       setTypeCarton(article.typeCarton || '');
       setPrixSMCP(article.prixSMCP != null ? article.prixSMCP : '');
       setPrixSMCPCurrency(article.prixSMCPCurrency || 'MRU');
+      setKgParCarton(article.kgParCarton || 20);
     } else {
       setReference('');
       setIntitule('');
@@ -34,6 +37,7 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
       setTypeCarton('');
       setPrixSMCP('');
       setPrixSMCPCurrency('MRU');
+      setKgParCarton(20);
     }
   }, [article]);
 
@@ -49,7 +53,8 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
       taille,
       typeCarton,
       prixSMCP: prixSMCP ? Number(prixSMCP) : undefined,
-      prixSMCPCurrency  // envoi de la monnaie sélectionnée
+      prixSMCPCurrency,  // envoi de la monnaie sélectionnée
+      kgParCarton: Number(kgParCarton)  // envoi du poids par carton
     };
 
     try {
@@ -160,6 +165,23 @@ function ArticleForm({ article, onClose, onArticleCreated }) {
             <option value="EUR">EUR</option>
             <option value="USD">USD</option>
           </select>
+        </div>
+
+        {/* Champ pour le poids par carton */}
+        <div>
+          <label>Kg par carton</label>
+          <input
+            className="w-full border px-2 py-1"
+            type="number"
+            step="0.1"
+            min="0.1"
+            value={kgParCarton}
+            onChange={(e) => setKgParCarton(e.target.value)}
+            placeholder="20"
+          />
+          <p className="text-sm text-gray-500 mt-1">
+            Poids en kilogrammes d'un carton pour cet article (par défaut: 20 kg)
+          </p>
         </div>
 
         <div className="flex justify-end space-x-2 mt-4">

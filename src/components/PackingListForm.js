@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Button from './Button';
 import './PackingListForm.css';
 import { generatePackingListFromFormPDF } from './pdfGenerators';
+import { getCartonQuantityFromKg } from '../utils/cartonsUtils';
 
 const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
   const [containerData, setContainerData] = useState([]);
@@ -65,7 +66,7 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
       reference: selectedArticle.reference,
       specification: selectedArticle.specification,
       taille: selectedArticle.taille,
-      quantiteCarton: Math.ceil(selectedArticle.quantiteKg / 20) || 1,
+      quantiteCarton: Math.ceil(getCartonQuantityFromKg(selectedArticle.quantiteKg, selectedArticle)) || 1,
       selected: true,
       prodDate: 'JUNE2025',
       box: '2*10KG'
@@ -124,7 +125,14 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
 
     const selectedArticles = container.articles.filter(article => article.selected);
     const totalBoxes = selectedArticles.reduce((sum, article) => sum + article.quantiteCarton, 0);
-    const netWeight = totalBoxes * 20; // 20kg par carton
+    
+    // Calculer le poids net en utilisant le kgParCarton de chaque article
+    const netWeight = selectedArticles.reduce((sum, article) => {
+      const articleData = commande?.items?.find(item => item.article?._id === article.id);
+      const kgPerCarton = articleData?.article?.kgParCarton || 20;
+      return sum + (article.quantiteCarton * kgPerCarton);
+    }, 0);
+    
     const grossWeight = totalBoxes * container.containerInfo.poidsCarton;
 
     return {
@@ -626,7 +634,11 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
                                 backgroundColor: '#f1f5f9'
                               }}>
                                 <span style={{ fontSize: '11px', fontWeight: 'bold' }}>
-                                  {(article.quantiteCarton * 20).toFixed(0)} KG
+                                  {(() => {
+                                    const articleData = commande?.items?.find(item => item.article?._id === article.id);
+                                    const kgPerCarton = articleData?.article?.kgParCarton || 20;
+                                    return (article.quantiteCarton * kgPerCarton).toFixed(0);
+                                  })()} KG
                                 </span>
                               </td>
                               

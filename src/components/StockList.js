@@ -18,9 +18,19 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { Link } from 'react-router-dom';
+import { getCartonQuantityFromKg } from '../utils/cartonsUtils';
+import { convertKgToCarton } from '../utils/cartonsUtils';
+
+// Fonction helper pour récupérer l'article correspondant à un stock
+const getArticleForStock = (stock, articles) => {
+  if (!stock || !stock.article) return null;
+  const articleId = typeof stock.article === 'object' ? stock.article._id : stock.article;
+  return articles.find(article => article._id === articleId) || stock.article;
+};
 
 export default function StockList() {
   const [stocks, setStocks] = useState([]);
+  const [articles, setArticles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -154,9 +164,13 @@ export default function StockList() {
   const fetchStocks = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/stock');
-      setStocks(res.data);
-      setFiltered(res.data);
+      const [stockRes, articlesRes] = await Promise.all([
+        axios.get('/stock'),
+        axios.get('/articles')
+      ]);
+      setStocks(stockRes.data);
+      setArticles(articlesRes.data);
+      setFiltered(stockRes.data);
       setError(null);
     } catch (err) {
       console.error('Erreur récupération stocks:', err);
@@ -267,13 +281,20 @@ export default function StockList() {
     // Calcul des statistiques globales
     const totalKg = filtered.reduce((acc, s) => acc + (s.quantiteKg || 0), 0);
     const totalTonnes = totalKg / 1000;
-    const totalCartons = totalKg / 20;
+    // Calculer les cartons en utilisant le poids par carton de chaque article
+    const totalCartons = filtered.reduce((acc, s) => {
+      const article = getArticleForStock(s, articles);
+      return acc + getCartonQuantityFromKg(s.quantiteKg || 0, article);
+    }, 0);
     const totalCommercialisableKg = filtered.reduce(
       (acc, s) => acc + (s.quantiteCommercialisableKg || 0),
       0
     );
     const totalCommercialisableTonnes = totalCommercialisableKg / 1000;
-    const totalCommercialisableCartons = totalCommercialisableKg / 20;
+    const totalCommercialisableCartons = filtered.reduce((acc, s) => {
+      const article = getArticleForStock(s, articles);
+      return acc + getCartonQuantityFromKg(s.quantiteCommercialisableKg || 0, article);
+    }, 0);
 
     let statsY = 35;
     doc.text(`Disponible (Tonnes) : ${pdfNumber(totalTonnes)} T`, 14, statsY);
@@ -327,13 +348,14 @@ export default function StockList() {
     const rows = filtered.map((stock) => {
       const stockCurrency = stock.monnaie || 'USD';
       const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
+      const article = getArticleForStock(stock, articles);
       return {
         article: formatArticle(stock.article),
         depot: stock.depot?.intitule || '—',
         quantiteKg: pdfNumber(stock.quantiteKg || 0),
-        cartons: pdfNumber((stock.quantiteKg || 0) / 20),
+        cartons: pdfNumber(getCartonQuantityFromKg(stock.quantiteKg || 0, article)),
         commercialisableKg: pdfNumber(stock.quantiteCommercialisableKg || 0),
-        commercialisableCartons: pdfNumber((stock.quantiteCommercialisableKg || 0) / 20),
+        commercialisableCartons: pdfNumber(getCartonQuantityFromKg(stock.quantiteCommercialisableKg || 0, article)),
         cump: pdfNumber((stock.valeur || 0) * 1000 * factor),
       };
     });
@@ -476,14 +498,15 @@ export default function StockList() {
       const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
       const valeurKg = stock.valeur * factor; // Valeur par kg
       const valeurTotale = (stock.quantiteKg || 0) * valeurKg; // Valeur totale de l'article
+      const article = getArticleForStock(stock, articles);
       
       return {
         'Article': formatArticle(stock.article),
         'Dépôt': stock.depot?.intitule || '—',
         'Quantité (Kg)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteKg || 0),
-        'Cartons': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((stock.quantiteKg || 0) / 20),
+        'Cartons': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getCartonQuantityFromKg(stock.quantiteKg || 0, article)),
         'Commercialisable (Kg)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteCommercialisableKg || 0),
-        'Commercialisable (Cartons)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((stock.quantiteCommercialisableKg || 0) / 20),
+        'Commercialisable (Cartons)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getCartonQuantityFromKg(stock.quantiteCommercialisableKg || 0, article)),
         [`Valeur kg (${displayCurrency})`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valeurKg),
         [`Valeur Totale (${displayCurrency})`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valeurTotale),
       };
@@ -587,7 +610,10 @@ export default function StockList() {
             <CubeIcon className="h-8 w-8 mr-3" />
             <div>
               <div className="text-2xl font-bold">
-                {formatNumber(filtered.reduce((acc, s) => acc + (s.quantiteKg || 0), 0) / 20)}
+                {formatNumber(filtered.reduce((acc, s) => {
+                  const article = getArticleForStock(s, articles);
+                  return acc + getCartonQuantityFromKg(s.quantiteKg || 0, article);
+                }, 0))}
               </div>
               <div className="text-sm">Disponible (Cartons)</div>
             </div>
@@ -611,7 +637,10 @@ export default function StockList() {
             <CubeIcon className="h-8 w-8 mr-3" />
             <div>
               <div className="text-2xl font-bold">
-                {formatNumber(filtered.reduce((acc, s) => acc + (s.quantiteCommercialisableKg || 0), 0) / 20)}
+                {formatNumber(filtered.reduce((acc, s) => {
+                  const article = getArticleForStock(s, articles);
+                  return acc + getCartonQuantityFromKg(s.quantiteCommercialisableKg || 0, article);
+                }, 0))}
               </div>
               <div className="text-sm">Commercialisable (Cartons)</div>
             </div>
@@ -822,7 +851,7 @@ export default function StockList() {
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-gray-700 border border-gray-400">
                             <span className="bg-red-800 px-3 py-1 rounded-full text-sm text-white">
-                              {formatNumber(s.quantiteKg / 20)}
+                              {formatNumber(getCartonQuantityFromKg(s.quantiteKg, getArticleForStock(s, articles)))}
                             </span>
                           </td>
                         </>
@@ -834,7 +863,7 @@ export default function StockList() {
                       </td>
                       <td className="px-4 py-3 text-center border border-gray-400">
                         <span className="bg-green-800 px-3 py-1 rounded-full text-sm text-white">
-                          {formatNumber(s.quantiteCommercialisableKg / 20)}
+                          {formatNumber(getCartonQuantityFromKg(s.quantiteCommercialisableKg, getArticleForStock(s, articles)))}
                         </span>
                       </td>
                       {!isMobile && (

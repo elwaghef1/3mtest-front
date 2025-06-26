@@ -3,6 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import axios from '../api/axios';
 import Button from './Button';
 import PriceCalculatorModal from './PriceCalculatorModal';
+import { convertKgToCarton } from '../utils/cartonsUtils';
 
 function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
   const [depots, setDepots] = useState([]);
@@ -46,7 +47,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         prixUnitaire: item.prixUnitaire || '',
         monnaie: item.monnaie || 'MRU',
         prixLocation: item.prixLocation || '',
-        quantiteCarton: item.quantiteKg / 20,
+        quantiteCarton: convertKgToCarton(item.quantiteKg, item.article, articles),
       }));
       setItems(initialItems);
     }
@@ -90,7 +91,9 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
     newItems[index][field] = value;
     if (field === 'quantiteKg') {
       const kg = parseFloat(value) || 0;
-      newItems[index]['quantiteCarton'] = kg / 20;
+      const articleId = newItems[index].article;
+      const selectedArticle = articles.find(a => a._id === articleId);
+      newItems[index]['quantiteCarton'] = convertKgToCarton(kg, selectedArticle, articles);
     }
     setItems(newItems);
   };
