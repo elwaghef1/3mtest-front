@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from '../api/axios';
 import Button from './Button';
+import { convertKgToCarton, calculateKgFromCartons } from '../utils/cartonsUtils';
 
 function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
   // Champs globaux
@@ -21,6 +22,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
     {
       article: '',
       quantiteKg: '',
+      quantiteCarton: 0,
       availableLots: [],
       selectedLot: '',
       stockDisponible: 0,
@@ -126,6 +128,24 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
 
     const newItems = [...items];
     newItems[index][field] = value;
+    
+    const articleId = field === 'article' ? value : newItems[index].article;
+    const selectedArticle = articles.find(a => a._id === articleId);
+    
+    // Gestion de la conversion automatique kg ↔ cartons
+    if (field === 'quantiteKg') {
+      const kg = parseFloat(value) || 0;
+      newItems[index]['quantiteCarton'] = convertKgToCarton(kg, selectedArticle);
+    } else if (field === 'quantiteCarton') {
+      const cartons = parseFloat(value) || 0;
+      newItems[index]['quantiteKg'] = calculateKgFromCartons(cartons, selectedArticle);
+    } else if (field === 'article' && selectedArticle) {
+      // Recalculer les cartons quand l'article change (en gardant les kg)
+      const kg = parseFloat(newItems[index]['quantiteKg']) || 0;
+      if (kg > 0) {
+        newItems[index]['quantiteCarton'] = convertKgToCarton(kg, selectedArticle);
+      }
+    }
 
     // Si l'article change, charger les lots disponibles
     if (field === 'article') {
@@ -142,6 +162,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
       {
         article: '',
         quantiteKg: '',
+        quantiteCarton: 0,
         availableLots: [],
         selectedLot: '',
         stockDisponible: 0,
@@ -200,21 +221,29 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
     // Vérifier que tous les items ont les données requises
     const validItems = items.filter(item => 
       item.article && 
-      item.quantiteKg && 
-      parseFloat(item.quantiteKg) > 0 && 
+      (
+        (item.quantiteKg && parseFloat(item.quantiteKg) > 0) ||
+        (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0)
+      ) &&
       item.selectedLot
     );
 
     if (validItems.length === 0) {
-      setErrorMessage("Au moins un article avec une quantité et un lot doit être spécifié.");
+      setErrorMessage("Au moins un article avec une quantité (kg ou cartons) et un lot doit être spécifié.");
       setLoading(false);
       return;
     }
 
     // Vérifier les quantités par rapport aux stocks disponibles
     for (const item of validItems) {
-      const quantite = parseFloat(item.quantiteKg);
-      if (quantite > item.stockDisponible) {
+      // S'assurer qu'on a une quantité en kg, soit directement soit par conversion
+      let quantiteKg = parseFloat(item.quantiteKg) || 0;
+      if (quantiteKg === 0 && item.quantiteCarton) {
+        const selectedArticle = articles.find(a => a._id === item.article);
+        quantiteKg = calculateKgFromCartons(parseFloat(item.quantiteCarton), selectedArticle);
+      }
+      
+      if (quantiteKg > item.stockDisponible) {
         setErrorMessage(`Quantité insuffisante pour l'article sélectionné. Stock disponible: ${item.stockDisponible} Kg`);
         setLoading(false);
         return;
@@ -229,11 +258,20 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
       moyenDeTransfert,
       immatricule,
       dateTransfert: dateTransfert ? new Date(dateTransfert) : undefined,
-      items: validItems.map(item => ({
-        article: item.article,
-        quantiteKg: parseFloat(item.quantiteKg),
-        selectedLotId: item.selectedLot,
-      })),
+      items: validItems.map(item => {
+        // S'assurer qu'on a une quantité en kg, soit directement soit par conversion
+        let quantiteKg = parseFloat(item.quantiteKg) || 0;
+        if (quantiteKg === 0 && item.quantiteCarton) {
+          const selectedArticle = articles.find(a => a._id === item.article);
+          quantiteKg = calculateKgFromCartons(parseFloat(item.quantiteCarton), selectedArticle);
+        }
+        
+        return {
+          article: item.article,
+          quantiteKg: quantiteKg,
+          selectedLotId: item.selectedLot,
+        };
+      }),
     };
 
     // Stocker les données et afficher la confirmation
@@ -385,8 +423,24 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
 
           {items.map((item, index) => (
             <div key={index} className="p-6 border rounded-lg bg-white shadow-sm">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Article */}
+              {/* Première ligne : Quantité (cartons) et Article */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <div className="space-y-1">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                    📦 Quantité à transférer (Cartons) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
+                    value={item.quantiteCarton}
+                    onChange={(e) => handleItemChange(index, 'quantiteCarton', e.target.value)}
+                    placeholder="Conversion automatique"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 La conversion kg ↔ cartons se fait automatiquement
+                  </p>
+                </div>
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-gray-700">
                     Article *
@@ -423,11 +477,13 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                     </p>
                   )}
                 </div>
+              </div>
 
-                {/* Quantité */}
+              {/* Deuxième ligne : Quantité (kg) et Lot */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Quantité à transférer (Kg) *
+                  <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                    ⚖️ Quantité à transférer (Kg)
                   </label>
                   <input
                     type="number"
@@ -435,32 +491,38 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                     className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
                     value={item.quantiteKg}
                     onChange={(e) => handleItemChange(index, 'quantiteKg', e.target.value)}
-                    required
                   />
                 </div>
+                {item.availableLots.length > 0 ? (
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Lot (Batch Number) *
+                    </label>
+                    <select
+                      className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
+                      value={item.selectedLot}
+                      onChange={(e) => handleItemChange(index, 'selectedLot', e.target.value)}
+                      required
+                    >
+                      <option value="">-- Choisir un lot --</option>
+                      {item.availableLots.map((lot) => (
+                        <option key={lot._id} value={lot._id}>
+                          {formatLotLabel(lot, item.article)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700 text-gray-400">
+                      Lot (Batch Number) *
+                    </label>
+                    <div className="w-full border border-gray-200 rounded-md shadow-sm p-3 bg-gray-100 text-gray-500 text-center">
+                      Sélectionnez d'abord un article et un dépôt de départ
+                    </div>
+                  </div>
+                )}
               </div>
-
-              {/* Sélection du lot */}
-              {item.availableLots.length > 0 && (
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Lot (Batch Number) *
-                  </label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
-                    value={item.selectedLot}
-                    onChange={(e) => handleItemChange(index, 'selectedLot', e.target.value)}
-                    required
-                  >
-                    <option value="">-- Choisir un lot --</option>
-                    {item.availableLots.map((lot) => (
-                      <option key={lot._id} value={lot._id}>
-                        {formatLotLabel(lot, item.article)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               {/* Bouton de suppression */}
               {items.length > 1 && (
@@ -572,6 +634,9 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                     const lot = items.find(i => i.article === item.article)?.availableLots?.find(l => l._id === item.selectedLotId);
                     const articleName = article ? [article.reference, article.specification, article.taille].filter(Boolean).join(' – ') : 'Article inconnu';
                     
+                    // Calculer la quantité en cartons
+                    const quantiteCartons = article ? convertKgToCarton(item.quantiteKg, article) : 0;
+                    
                     return (
                       <div key={index} className="flex justify-between items-center p-4 bg-white rounded border shadow-sm">{/*Augmenté le padding et ajouté shadow*/}
                         <div className="flex-1">
@@ -582,16 +647,26 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                         </div>
                         <div className="text-right ml-4">{/*Ajouté margin-left pour plus d'espace*/}
                           <div className="font-semibold text-blue-600 text-lg">{item.quantiteKg} Kg</div>{/*Augmenté la taille de police*/}
+                          <div className="text-sm text-gray-500">{quantiteCartons.toFixed(2)} Cartons</div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
                 <div className="mt-5 pt-4 border-t border-blue-200">{/*Augmenté margins et padding*/}
-                  <div className="flex justify-between items-center font-bold text-lg">{/*Augmenté la taille de police*/}
+                  <div className="flex justify-between items-center font-bold text-lg mb-2">{/*Augmenté la taille de police*/}
                     <span>Total :</span>
                     <span className="text-blue-600 text-xl">{/*Augmenté la taille de police pour le total*/}
                       {transfertData.items.reduce((sum, item) => sum + item.quantiteKg, 0)} Kg
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-gray-600">
+                    <span>Total (Cartons) :</span>
+                    <span>
+                      {transfertData.items.reduce((sum, item) => {
+                        const article = articles.find(a => a._id === item.article);
+                        return sum + (article ? convertKgToCarton(item.quantiteKg, article) : 0);
+                      }, 0).toFixed(2)} Cartons
                     </span>
                   </div>
                 </div>

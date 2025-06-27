@@ -28,6 +28,9 @@ import * as XLSX from 'xlsx';
 import QRCode from 'qrcode';
 
 // Import du logo en base64
+
+// Import des utilitaires de conversion
+import { convertKgToCarton } from '../utils/cartonsUtils';
 import logoBase64 from './logoBase64';
 
 moment.locale('fr');
@@ -36,6 +39,15 @@ moment.locale('fr');
 function totalQuantity(items) {
   if (!items) return 0;
   return items.reduce((sum, item) => sum + (item.quantiteKg || 0), 0);
+}
+
+// Fonction utilitaire pour calculer le total des cartons
+function totalCartons(items) {
+  if (!items) return 0;
+  return items.reduce((sum, item) => {
+    const cartons = convertKgToCarton(item.quantiteKg || 0, item.article);
+    return sum + cartons;
+  }, 0);
 }
 
 // Fonction utilitaire pour calculer le total monétaire
@@ -269,6 +281,7 @@ function EntreeList() {
   // Génération du Bon d'Entrée PDF
   function generateBonDEntreePDF(entree) {
     const totalWeight = entree.items.reduce((acc, i) => acc + (i.quantiteKg || 0), 0);
+    const totalCartonsCount = totalCartons(entree.items);
     const totalMoney = entree.items.reduce(
       (acc, i) => acc + (i.quantiteKg || 0) * (i.prixUnitaire || 0),
       0
@@ -280,10 +293,12 @@ function EntreeList() {
         ? `${parts.join(' – ')}`
         : 'Article inconnu';
       const qte = item.quantiteKg || 0;
+      const cartons = convertKgToCarton(qte, item.article);
       const pu  = item.prixUnitaire || 0;
       return [
         articleStr,
         formatNumber(qte),
+        formatNumber(cartons),
         formatNumber(pu),
         formatNumber(qte * pu),
       ];
@@ -332,15 +347,16 @@ function EntreeList() {
     // --- TABLEAU D’ENTRÉE ---
     doc.autoTable({
       startY: titleY + 10,
-      head: [['Article','Quantité (Kg)','Prix Unitaire','Total']],
+      head: [['Article','Quantité (Kg)','Quantité (Cartons)','Prix Unitaire','Total']],
       body: rows,
       foot: [[
         { content: 'Total', colSpan: 1, styles: { halign: 'left', fontStyle: 'bold' } },
         { content: formatNumber(totalWeight), styles: { halign: 'left', fontStyle: 'bold' } },
+        { content: formatNumber(totalCartonsCount), styles: { halign: 'left', fontStyle: 'bold' } },
         { content: '' },
         { content: formatNumber(totalMoney), styles: { halign: 'left', fontStyle: 'bold' } },
       ]],
-      styles:     { fontSize: 10, halign: 'left' },
+      styles:     { fontSize: 9, halign: 'left' },
       headStyles: { fillColor: [0,102,204], textColor: 255, fontStyle: 'bold' },
       footStyles: { fontStyle: 'bold' },
       margin:     { left: m, right: m },
@@ -682,6 +698,7 @@ const exportToPDF = () => {
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Dépôt</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Articles</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Quantité Totale (Kg)</th>
+                <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Quantité Totale (Cartons)</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Différence Tunnel</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Prix Total</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Coût Location</th>
@@ -733,6 +750,9 @@ const exportToPDF = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
                       {totalQuantity(e.items)}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
+                      {totalCartons(e.items).toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-sm text-center border border-gray-400">
                       {formatTunnelDifference(totalTunnelDifference(e.items))}
@@ -801,7 +821,7 @@ const exportToPDF = () => {
 
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[100vh] overflow-y-auto">
             <EntreeForm
               onClose={handleCloseForm}
               onEntreeCreated={handleEntreeCreatedOrUpdated}
