@@ -21,6 +21,7 @@ import { Link } from 'react-router-dom';
 import { getCartonQuantityFromKg } from '../utils/cartonsUtils';
 import { convertKgToCarton } from '../utils/cartonsUtils';
 import logoBase64 from './logoBase64';
+import ExcelJS from 'exceljs';
 
 // Fonction helper pour récupérer l'article correspondant à un stock
 const getArticleForStock = (stock, articles) => {
@@ -666,85 +667,186 @@ export default function StockList() {
     doc.save(`stock_commercialisable_${new Date().toISOString().slice(0,10)}.pdf`);
   };
 
-  // Export Excel (avec formatage comptable français et design amélioré)
-  const exportToExcel = () => {
-    // Préparation des données avec calculs
-    const data = filtered.map((stock) => {
-      const stockCurrency = stock.monnaie || 'USD';
-      const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
-      const valeurKg = stock.valeur * factor; // Valeur par kg
-      const valeurTotale = (stock.quantiteKg || 0) * valeurKg; // Valeur totale de l'article
-      const article = getArticleForStock(stock, articles);
-      
-      return {
-        'Article': formatArticle(stock.article),
-        'Dépôt': stock.depot?.intitule || '—',
-        'Quantité (Kg)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteKg || 0),
-        'Cartons': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getCartonQuantityFromKg(stock.quantiteKg || 0, article)),
-        'Commercialisable (Kg)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stock.quantiteCommercialisableKg || 0),
-        'Commercialisable (Cartons)': new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(getCartonQuantityFromKg(stock.quantiteCommercialisableKg || 0, article)),
-        [`Valeur kg (${displayCurrency})`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valeurKg),
-        [`Valeur Totale (${displayCurrency})`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(valeurTotale),
-      };
+  // Export Excel dynamique (avec dépôts détectés automatiquement)
+const exportToExcel = async () => {
+  // 1. Collecte des dépôts uniques
+  const depotsSet = new Set();
+  filtered.forEach(s => {
+    if (s.depot?.intitule) depotsSet.add(s.depot.intitule);
+  });
+  const uniqueDepots = Array.from(depotsSet).sort();
+
+  // 2. Groupement & agrégation (calcul direct de totalValue)
+  const speciesMap = new Map();
+  for (const stock of filtered) {
+    const name = formatArticle(stock.article);
+    if (!speciesMap.has(name)) {
+      const depotsObj = {};
+      uniqueDepots.forEach(d => (depotsObj[d] = 0));
+      speciesMap.set(name, {
+        name,
+        depots: depotsObj,
+        totalValue: 0
+      });
+    }
+    const grp = speciesMap.get(name);
+    const qty = stock.quantiteKg || 0;
+    const depotName = stock.depot?.intitule || '';
+    // Somme des quantités par dépôt
+    if (depotName && grp.depots.hasOwnProperty(depotName)) {
+      grp.depots[depotName] += qty;
+    }
+    // Calcul de la valeur totale issue de la BDD
+    if (stock.valeur != null) {
+      const factor = conversionRates[displayCurrency] 
+                   / conversionRates[stock.monnaie || 'USD'];
+      grp.totalValue += stock.valeur * qty * factor;
+    }
+  }
+
+  // Préparer le tableau final
+  const groupedData = [];
+  speciesMap.forEach(grp => {
+    const totalKg = Object.values(grp.depots).reduce((a, b) => a + b, 0);
+    const article = getArticleForStock(
+      { article: { nomScientifique: grp.name } },
+      articles
+    );
+    groupedData.push({
+      name: grp.name,
+      depots: grp.depots,
+      totalKg,
+      cartons: getCartonQuantityFromKg(totalKg, article),
+      totalValue: grp.totalValue
     });
+  });
 
-    // Ajouter une ligne de total
-    const totalValueInDisplay = filtered.reduce((acc, s) => {
-      const stockCurrency = s.monnaie || 'USD';
-      const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
-      return acc + (s.valeur * s.quantiteKg * factor);
-    }, 0);
+  // 3. Création du Workbook & Worksheet
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Stock');
 
-    // Ligne de séparation
-    data.push({
-      'Article': '',
-      'Dépôt': '',
-      'Quantité (Kg)': '',
-      'Cartons': '',
-      'Commercialisable (Kg)': '',
-      'Commercialisable (Cartons)': '',
-      [`Valeur kg (${displayCurrency})`]: '',
-      [`Valeur Totale (${displayCurrency})`]: ''
+  // 4. Titre principal (fusionné & rouge)
+  const totalCols = 1 + uniqueDepots.length * 2 + 3;
+  ws.mergeCells(1, 1, 1, totalCols);
+  const titleCell = ws.getCell(1, 1);
+  titleCell.value = 'ETAT DE STOCK';
+  titleCell.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF0000' } };
+  ws.getRow(1).height = 30;
+
+  // 5. En-têtes dynamiques (ligne 2)
+  const headers = ['Article'];
+  uniqueDepots.forEach(d => {
+    headers.push(`${d} (Kg)`, `${d} (Cartons)`);
+  });
+  headers.push(
+    'Total (Kg)',
+    'Total (Cartons)',
+    `Valeur Totale (${displayCurrency})`
+  );
+  const headerRow = ws.addRow(headers);
+  headerRow.height = 25;
+  headerRow.eachCell((cell, col) => {
+    // Couleurs & police
+    if (col === 1) {
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF1F497D'} };
+      cell.font = { bold:true, color:{argb:'FFFFFFFF'} };
+    } else if (col <= 1 + 2*uniqueDepots.length + 2) {
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFFFFF00'} };
+      cell.font = { bold:true, color:{argb:'FF000000'} };
+    } else {
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF92D050'} };
+      cell.font = { bold:true, color:{argb:'FF000000'} };
+    }
+    // Alignement & bordures noires fines
+    cell.alignment = { horizontal:'center', vertical:'middle' };
+    cell.border = {
+      top:    { style:'thin', color:{argb:'FF000000'} },
+      left:   { style:'thin', color:{argb:'FF000000'} },
+      bottom: { style:'thin', color:{argb:'FF000000'} },
+      right:  { style:'thin', color:{argb:'FF000000'} }
+    };
+  });
+
+  // 6. Largeurs de colonnes
+  ws.columns = headers.map((h,i) => {
+    if (i === 0) return { header:h, width:30 };
+    if (h.includes('Valeur')) return { header:h, width:20 };
+    return { header:h, width:15 };
+  });
+
+  // 7. Index de la colonne Valeur Totale
+  const idxTotalValue = headers.indexOf(`Valeur Totale (${displayCurrency})`) + 1;
+
+  // 8. Ajouter les lignes de données
+  groupedData.forEach(sp => {
+    const row = [sp.name];
+    uniqueDepots.forEach(d => {
+      const q = sp.depots[d] || 0;
+      const ct = getCartonQuantityFromKg(q, { article:{ nomScientifique: sp.name } });
+      row.push(q, ct);
     });
+    row.push(sp.totalKg, sp.cartons, sp.totalValue);
+    const dataRow = ws.addRow(row);
+    dataRow.getCell(1).font = { bold:true };
+    dataRow.alignment = { vertical:'middle' };
 
-    // Ligne de total
-    data.push({
-      'Article': '',
-      'Dépôt': '',
-      'Quantité (Kg)': '',
-      'Cartons': '',
-      'Commercialisable (Kg)': '',
-      'Commercialisable (Cartons)': '',
-      [`Valeur kg (${displayCurrency})`]: '*** TOTAL STOCK ***',
-      [`Valeur Totale (${displayCurrency})`]: new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(totalValueInDisplay),
-      'Coût de Revient': '',
+    dataRow.eachCell((cell, col) => {
+      if (col > 1 && col !== idxTotalValue) {
+        cell.numFmt = '0.00';
+        cell.alignment = { horizontal:'right', vertical:'middle' };
+      }
+      if (col === idxTotalValue) {
+        cell.numFmt = '0.00';
+        cell.alignment = { horizontal:'right', vertical:'middle' };
+      }
     });
+  });
 
-    // Créer la feuille de calcul
-    const worksheet = XLSX.utils.json_to_sheet(data);
+  // 9. Ligne de TOTAUX (vert, police agrandie, bord sup épais)
+  const totals = ['TOTAUX'];
+  let grandKg = 0, grandCartons = 0, grandValueSum = 0;
+  groupedData.forEach(sp => {
+    grandKg     += sp.totalKg;
+    grandCartons+= sp.cartons;
+    grandValueSum += sp.totalValue;
+  });
+  // Totaux par dépôt
+  uniqueDepots.forEach(d => {
+    const sumKg    = groupedData.reduce((s, sp) => s + (sp.depots[d]||0), 0);
+    const sumCart  = groupedData.reduce((s, sp) => s + getCartonQuantityFromKg(sp.depots[d]||0, { article:{ nomScientifique: sp.name } }), 0);
+    totals.splice(1 + uniqueDepots.indexOf(d)*2, 0, sumKg, sumCart);
+  });
+  totals.push(grandKg, grandCartons, grandValueSum);
 
-    // Définir la largeur des colonnes pour une meilleure lisibilité
-    const colWidths = [
-      { wch: 50 }, // Article
-      { wch: 20 }, // Dépôt
-      { wch: 15 }, // Quantité (Kg)
-      { wch: 12 }, // Cartons
-      { wch: 20 }, // Commercialisable (Kg)
-      { wch: 25 }, // Commercialisable (Cartons)
-      { wch: 18 }, // Valeur kg
-      { wch: 25 }, // Valeur Totale
-      { wch: 15 }, // Coût de Revient
-    ];
-    worksheet['!cols'] = colWidths;
+  const totalRow = ws.addRow(totals);
+  totalRow.height = 20;
+  totalRow.eachCell((cell, col) => {
+    cell.font = { size:14, bold:true, color:{argb:'black'} };
+    cell.alignment = { vertical:'middle' };
+    if (col > 1) {
+      cell.numFmt = '0.00';
+      cell.alignment = { horizontal:'right', vertical:'middle' };
+    }
+    cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FF92D050'} };
+    cell.border = {
+      top: { style:'medium', color:{argb:'FF000000'} }
+    };
+  });
 
-    // Créer le classeur et ajouter la feuille
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Stock');
-    
-    // Sauvegarder avec un nom incluant la date
-    const today = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(workbook, `stock_report_${today}.xlsx`);
-  };
+  // 10. Générer & télécharger
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {
+    type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `stock_report_${new Date().toISOString().slice(0,10)}.xlsx`;
+  a.click();
+  window.URL.revokeObjectURL(url);
+};
 
   return (
     <div className="p-4 lg:p-6">
