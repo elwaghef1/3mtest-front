@@ -390,10 +390,6 @@ const CommandeList = () => {
         color: 'bg-red-600 text-white',
         label: 'Incomplet',
       },
-      ANNULE: {
-        color: 'bg-red-800 text-white',
-        label: 'Annulée',
-      },
     };
     const { color, label } = config[statut] || { color: 'bg-gray-600 text-white', label: statut || 'Inconnu' };
     return (
@@ -517,8 +513,8 @@ const CommandeList = () => {
       // Afficher une notification de succès
       setNotificationDetails({
         type: 'success',
-        message: 'Commande annulée avec succès',
-        details: `La commande ${commandeToDelete.reference} a été annulée et le stock a été restauré`
+        message: 'Commande supprimée avec succès',
+        details: `La commande ${commandeToDelete.reference} a été supprimée et le stock a été restauré`
       });
       setShowNotification(true);
       
@@ -529,11 +525,11 @@ const CommandeList = () => {
       // Cacher la notification après 5 secondes
       setTimeout(() => setShowNotification(false), 5000);
     } catch (error) {
-      console.error('Erreur lors de l\'annulation:', error);
+      console.error('Erreur lors de la suppression:', error);
       setNotificationDetails({
         type: 'error',
-        message: 'Erreur lors de l\'annulation',
-        details: error.response?.data?.message || 'Une erreur est survenue lors de l\'annulation de la commande'
+        message: 'Erreur lors de la suppression',
+        details: error.response?.data?.message || 'Une erreur est survenue lors de la suppression de la commande'
       });
       setShowNotification(true);
     } finally {
@@ -543,10 +539,9 @@ const CommandeList = () => {
 
   // Fonction pour vérifier si une commande peut être modifiée
   const canEditCommande = (commande) => {
-    // Ne peut pas modifier si la commande a des quantités manquantes, est en attente, livrée ou annulée
+    // Ne peut pas modifier seulement si la commande a des quantités manquantes ou est en attente
     return commande.statutBonDeCommande !== 'EN_ATTENTE_STOCK' &&
-           commande.statutBonDeCommande !== 'AVEC_QUANTITES_MANQUANTES' &&
-           commande.statutBonDeCommande !== 'ANNULE';
+           commande.statutBonDeCommande !== 'AVEC_QUANTITES_MANQUANTES';
   };
 
   // Fonction pour obtenir le titre du bouton de modification
@@ -558,18 +553,14 @@ const CommandeList = () => {
       return 'Commande avec quantités manquantes - Modification désactivée';
     }
     if (commande.statutBonDeCommande === 'LIVREE') {
-      return 'Commande livrée - Modification désactivée';
-    }
-    if (commande.statutBonDeCommande === 'ANNULE') {
-      return 'Commande annulée - Modification désactivée';
+      return 'Modifier la commande livrée';
     }
     return 'Modifier la commande';
   };
 
-  // Fonction pour vérifier si une commande peut être annulée
+  // Fonction pour vérifier si une commande peut être supprimée
   const canDeleteCommande = (commande) => {
-    return commande.statutBonDeCommande !== 'LIVREE' && 
-           commande.statutBonDeCommande !== 'ANNULE';
+    return commande.statutBonDeCommande !== 'LIVREE';
   };
 
   // Fonctions d'export et d'impression (identiques aux versions précédentes)
@@ -906,8 +897,7 @@ const CommandeList = () => {
   const canDeliver = (commande) => {
     return commande.statutBonDeCommande !== 'EN_ATTENTE_STOCK' && 
            commande.statutBonDeCommande !== 'AVEC_QUANTITES_MANQUANTES' &&
-           commande.statutBonDeCommande !== 'LIVREE' &&
-           commande.statutBonDeCommande !== 'ANNULE';
+           commande.statutBonDeCommande !== 'LIVREE';
   };
 
   // Fonction pour obtenir le titre du bouton livrer
@@ -916,8 +906,6 @@ const CommandeList = () => {
       return 'Commande déjà livrée';
     } else if (commande.statutBonDeCommande === 'EN_ATTENTE_STOCK' || commande.statutBonDeCommande === 'AVEC_QUANTITES_MANQUANTES') {
       return 'Commande incomplète - Livraison impossible';
-    } else if (commande.statutBonDeCommande === 'ANNULE') {
-      return 'Commande annulée - Livraison impossible';
     }
     return 'Livraison partielle';
   };
@@ -1066,7 +1054,6 @@ const CommandeList = () => {
               <option value="LIVREE">Livrée</option>
               <option value="PARTIELLEMENT_LIVREE">Partiellement livrée</option>
               <option value="EN_ATTENTE_STOCK">En attente de stock</option>
-              <option value="ANNULE">Annulée</option>
             </select>
           </div>
           <div className="flex items-end">
@@ -1170,11 +1157,7 @@ const CommandeList = () => {
               // Vue mobile - cartes
               <div className="divide-y divide-gray-200">
                 {currentItems.map((commande) => (
-                  <div key={commande._id} className={`p-4 space-y-3 ${
-                    commande.statutBonDeCommande === 'ANNULE' 
-                      ? 'bg-red-50 border-l-4 border-red-500' 
-                      : ''
-                  }`}>
+                  <div key={commande._id} className="p-4 space-y-3">
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-medium text-gray-900">{commande.reference}</h3>
@@ -1274,18 +1257,17 @@ const CommandeList = () => {
                         >
                           Batches
                         </Button>
-                        {/* Bouton d'annulation - toujours affiché mais grisé pour les commandes livrées ou déjà annulées */}
+                        {/* Bouton de suppression - toujours affiché mais grisé pour les commandes livrées */}
                         <Button
                           onClick={() => canDeleteCommande(commande) ? handleShowDeleteModal(commande) : null}
                           variant={canDeleteCommande(commande) ? "danger" : "secondary"}
                           size="md"
                           icon={<TrashIcon className="h-5 w-5" />}
-                          title={canDeleteCommande(commande) ? "Annuler la commande" : 
-                            (commande.statutBonDeCommande === 'ANNULE' ? "Commande déjà annulée" : "Impossible d'annuler une commande livrée")}
-                          className={`font-semibold min-w-[90px] ${!canDeleteCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''} ${commande.statutBonDeCommande === 'ANNULE' ? 'bg-red-800 text-white' : ''}`}
+                          title={canDeleteCommande(commande) ? "Supprimer la commande" : "Impossible de supprimer une commande livrée"}
+                          className={`font-semibold min-w-[90px] ${!canDeleteCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''}`}
                           disabled={!canDeleteCommande(commande)}
                         >
-                          {commande.statutBonDeCommande === 'ANNULE' ? 'Annulée' : 'Annuler'}
+                          Supprimer
                         </Button>
                       </div>
                     </div>
@@ -1325,11 +1307,7 @@ const CommandeList = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {currentItems.map((commande) => (
-                    <tr key={commande._id} className={`
-                      ${commande.statutBonDeCommande === 'ANNULE' 
-                        ? 'bg-red-50 border-l-4 border-red-500 hover:bg-red-100' 
-                        : 'hover:bg-gray-50'}
-                    `}>
+                    <tr key={commande._id} className="hover:bg-gray-50">
                       <td className="px-3 py-4 whitespace-nowrap max-w-[130px]">
                         <div className="truncate">
                           <div className="text-sm font-medium text-gray-900 truncate mb-1">{commande.reference}</div>
@@ -1420,18 +1398,16 @@ const CommandeList = () => {
                             <TruckIcon className="h-4 w-4 mr-1" />
                             {/* Livrer */}
                           </Button>
-                          {/* Bouton d'annulation - toujours affiché mais grisé pour les commandes livrées ou déjà annulées */}
+                          {/* Bouton de suppression - toujours affiché mais grisé pour les commandes livrées */}
                           <Button
                             onClick={() => canDeleteCommande(commande) ? handleShowDeleteModal(commande) : null}
                             variant={canDeleteCommande(commande) ? "danger" : "secondary"}
                             size="md"
                             icon={<TrashIcon className="h-5 w-5" />}
-                            title={canDeleteCommande(commande) ? "Annuler la commande" : 
-                              (commande.statutBonDeCommande === 'ANNULE' ? "Commande déjà annulée" : "Impossible d'annuler une commande livrée")}
-                            className={`font-semibold min-w-[90px] ${!canDeleteCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''} ${commande.statutBonDeCommande === 'ANNULE' ? 'bg-red-800 text-white' : ''}`}
+                            title={canDeleteCommande(commande) ? "Supprimer la commande" : "Impossible de supprimer une commande livrée"}
+                            className={`font-semibold min-w-[90px] ${!canDeleteCommande(commande) ? 'opacity-50 cursor-not-allowed' : ''}`}
                             disabled={!canDeleteCommande(commande)}
                           >
-                            {commande.statutBonDeCommande === 'ANNULE' ? 'Annulée' : 'Annuler'}
                           </Button>
                         </div>
                       </td>
@@ -1495,7 +1471,7 @@ const CommandeList = () => {
         />
       )} */}
 
-      {/* Modal de confirmation d'annulation */}
+      {/* Modal de confirmation de suppression */}
       {showDeleteModal && commandeToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -1507,11 +1483,11 @@ const CommandeList = () => {
               </div>
               <div className="text-center">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 mb-2">
-                  Confirmer l'annulation
+                  Confirmer la suppression
                 </h3>
                 <div className="mb-4">
                   <p className="text-sm text-gray-500 mb-2">
-                    Êtes-vous sûr de vouloir annuler la commande suivante ?
+                    Êtes-vous sûr de vouloir supprimer la commande suivante ?
                   </p>
                   <div className="bg-gray-50 p-3 rounded-lg text-left">
                     <p className="text-sm font-medium text-gray-900">
@@ -1526,7 +1502,7 @@ const CommandeList = () => {
                   </div>
                   <div className="mt-3 p-3 bg-yellow-50 rounded-lg">
                     <p className="text-sm text-yellow-800">
-                      ⚠️ <strong>Attention :</strong> La commande sera marquée comme annulée et restera dans le listing. 
+                      ⚠️ <strong>Attention :</strong> Cette action est irréversible. 
                       Le stock des articles sera automatiquement restauré.
                     </p>
                   </div>
@@ -1549,7 +1525,7 @@ const CommandeList = () => {
                   disabled={isDeleting}
                   icon={<TrashIcon className="h-5 w-5" />}
                 >
-                  {isDeleting ? 'Annulation...' : 'Confirmer l\'annulation'}
+                  {isDeleting ? 'Suppression...' : 'Supprimer définitivement'}
                 </Button>
               </div>
             </div>

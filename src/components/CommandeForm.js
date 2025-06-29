@@ -659,7 +659,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
   };
 
     // Fonction pour calculer et afficher le statut de stock d'un item
-  const getStockStatus = (item, index) => {
+  const getStockStatus = (item) => {
     const stockInfo = getStockInfo(item.article, item.depot);
     if (!stockInfo || !item.quantiteKg) return null;
     
@@ -668,15 +668,21 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     
     // 🔧 CORRECTION: En mode édition, ne valider que la différence de quantité
     let qtyToValidate = qtyRequested;
-    if (initialCommande && initialCommande.items && initialCommande.items[index]) {
-      const originalQty = parseFloat(initialCommande.items[index].quantiteKg) || 0;
+      if (initialCommande) {
+     const original = initialCommande.items.find(orig =>
+       orig.article._id === item.article &&
+       orig.depot._id   === item.depot
+     );
+     const originalQty = original
+       ? parseFloat(original.quantiteKg) || 0
+       : 0;
       const difference = qtyRequested - originalQty;
       
       // Si on diminue la quantité, pas besoin de validation de stock
       if (difference <= 0) {
         return {
           type: 'success',
-          message: `✅ Modification OK (quantité ${difference < 0 ? 'réduite' : 'inchangée'})`,
+          message: `✅ Modification OK (${difference < 0 ? '–' : '0'} Kg)`,
           color: 'text-green-600 bg-green-50'
         };
       }

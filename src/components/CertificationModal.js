@@ -243,7 +243,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
                       </td>
                       <td className="border border-gray-300 p-3">Produit de la pêche</td>
                       <td className="border border-gray-300 p-3">Entier congelé</td>
-                      <td className="border border-gray-300 p-3">AFCO GROUP SA – 02.133</td>
+                      <td className="border border-gray-300 p-3">MSM – 02.133</td>
                       <td className="border border-gray-300 p-3">
                         <input
                           type="number"

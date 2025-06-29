@@ -2557,54 +2557,39 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     }
   }
 
-  // 5. Merge cells according to the template
+  // 5. Merge cells for header and specific sections (according to template)
   sheet.mergeCells('C5:H6');   // Exporter info block (2 rows)
   sheet.mergeCells('C7:I7');   // Intermediate party line
   sheet.mergeCells('C9:I9');   // Consignee name
   sheet.mergeCells('C10:F13'); // Consignee address block (multi-row)
-  // Transport/port lines don't require merges except for using separate columns for city/country and hyphen
-  // Container lines:
-  // (No horizontal merges for container number, but merge seal number cells)
+  // Transport/port lines: no horizontal merges needed (separate columns for city/country and hyphen)
+  // Container lines: merge seal number cells for layout
   sheet.mergeCells('G18:H18');
   sheet.mergeCells('G19:H19');
   sheet.mergeCells('G20:H20');
-  // Products header and data:
-  sheet.mergeCells('F26:I26'); // "POISSON CONGELE" heading
-  sheet.mergeCells('F27:G27'); // "ESPECES" header
-  // (H27, I27, K27 are single, J27 is not used for header)
-  // First species entry (spanning 4 rows 29-32):
-  sheet.mergeCells('C29:C32'); // line number
-  sheet.mergeCells('D29:F32'); // species name block
-  sheet.mergeCells('H29:H32'); // total cartons
-  sheet.mergeCells('I29:I32'); // total net weight
-  sheet.mergeCells('J29:J32'); // gross per box (if any)
-  sheet.mergeCells('K29:K32'); // total gross weight
-  // Second species entry (spanning 2 rows 33-34, as per template):
-  sheet.mergeCells('C33:C34'); // second line number (merge added for vertical centering)
-  sheet.mergeCells('D33:G34'); // second species name
-  sheet.mergeCells('H33:H34'); // cartons
-  sheet.mergeCells('I33:I34'); // net weight
-  // (J33/J34 left separate/blank, no gross per box displayed for second line)
-  sheet.mergeCells('K33:K34'); // gross weight
+  // Products header and table layout:
+  sheet.mergeCells('F26:I26'); // "POISSON CONGELE" main heading
+  sheet.mergeCells('D27:G27'); // "ESPECES" header (covering species name columns D à G)
+  // (H27, I27, K27 are single columns for their headers; J27 is left blank as not used in header)
+  // *Aucune fusion verticale* pour les lignes produits: chaque article occupe une seule ligne.
   // Totals row:
-  sheet.mergeCells('F38:G38'); // "TOTAL" label spanning species columns
-  // (H38, I38, J38, K38 remain separate for totals)
+  sheet.mergeCells('F38:G38'); // "TOTAL" label spanning species columns (F-G)
   // OP line:
-  sheet.mergeCells('F41:G41'); // "OP :" and underline spaces
+  sheet.mergeCells('F41:G41'); // "OP :" label and underline spaces
   // (H41 and I41 not merged to allow number and year separately)
-  // Customs office line:
+  // Customs office lines:
   sheet.mergeCells('D43:K43'); // First "BUREAU DOUANE PECHE..." centered
-  sheet.mergeCells('C56:K56'); // Second "BUREAU DOUANE..." (merge for centering second copy)
-  // BL line:
+  sheet.mergeCells('C56:K56'); // Second "BUREAU DOUANE..." centered
+  // BL (Bill of Lading) line:
   sheet.mergeCells('F45:G45'); // "BL:" label and underline spaces
   sheet.mergeCells('H45:I45'); // BL number cell
   // Second copy origin country:
   sheet.mergeCells('J54:K54'); // "MAURITANIE" on second copy
-  // Second copy destination country:
-  sheet.mergeCells('I58:L59'); // "COTE D'IVOIRE" on second copy (2 rows high if needed for stamp area)
-  // Bottom date/place line:
+  // Second copy destination country (stamp area, 2 rows):
+  sheet.mergeCells('I58:L59'); // "COTE D'IVOIRE" on second copy
+  // Bottom place/date lines:
   sheet.mergeCells('C60:E60'); // "NOUADHIBOU," for first copy
-  sheet.mergeCells('F60:H60'); // date for first copy
+  sheet.mergeCells('F60:H60'); // date for first copy (merged across F-H)
   sheet.mergeCells('I60:J60'); // "NOUADHIBOU," for second copy
   // (K60 and L60 not merged; date for second copy will be in K60, L60 left blank)
 
@@ -2617,14 +2602,10 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   };
 
   // 7. Fill in static labels and dynamic data with proper style:
-  // Ref and PO - utiliser les données réelles de la commande
+  // Reference (Ref) and PO - use actual data from the order (commande)
   setCellStyle('C4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = 'Ref:';
-  
-  // Utiliser la référence de la commande
   const refText = commande.reference || 'N/A';
   setCellStyle('D4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = refText;
-  
-  // Utiliser le numéro OP de la commande pour PO
   const poText = commande.numeroOP || commande.numeroBooking || 'N/A';
   setCellStyle('E4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = `PO : ${poText}`;
 
@@ -2632,8 +2613,8 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   const exporterText = "SMCP  BP: 259, Nouadhibou, Mauritanie, P/C MSM SEAFOOD SARL.";
   setCellStyle('C5', {fontSize: 10, bold: true, underline: false, hAlign: 'left', vAlign: 'top', wrap: true}).value = exporterText;
 
-  // Intermediate party (if any) on merged C7:I7 - e.g., Maral Food S.L.
-  const intermediateName = commande.client?.raisonSociale || '';  // using client name as intermediate if applicable
+  // Intermediate party (if any) on merged C7:I7 (e.g., client)
+  const intermediateName = commande.client?.raisonSociale || '';
   setCellStyle('C7', {fontSize: 10, bold: true, underline: true, hAlign: 'left', vAlign: 'center'}).value = intermediateName;
 
   // Consignee (Destinataire) name on merged C9:I9
@@ -2647,53 +2628,31 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   // Origin country (in K9)
   setCellStyle('K9', {fontSize: 10, bold: true, underline: false, hAlign: 'center'}).value = 'MAURITANIE';
 
-  // Transport details:
+  // Transport details (vessel, origin/destination ports):
   setCellStyle('C14', {fontSize: 9, bold: true}).value = 'M/V :';  // Vessel label
-  // Vessel name in D14
   const vesselName = certificateData.cargo?.nom || 'N/A';
   setCellStyle('D14', {fontSize: 9, bold: true}).value = vesselName;
-  // Origin port and country on row 15 (D15, E15, F15)
-  const originCity = commande.portDepart || 'NOUADHIBOU';
-  setCellStyle('D15', {fontSize: 9, bold: true}).value = originCity.toUpperCase();
+  // Origin port and country on row 15
+  const originCity = (commande.portDepart || 'NOUADHIBOU').toUpperCase();
+  setCellStyle('D15', {fontSize: 9, bold: true}).value = originCity;
   setCellStyle('E15', {fontSize: 9, bold: true, hAlign: 'center'}).value = '-';
   setCellStyle('F15', {fontSize: 9, bold: true}).value = 'MAURITANIE';
-  // Destination port and country on row 16 (D16, E16, F16)
+  // Destination port and country on row 16
   let destCity = commande.pif || ''; 
-  // if (!destCity && commande.adresseConsigne) {
-  //   // Try to extract city from address (e.g., last line if available)
-  //   const addrLines = commande.adresseConsigne.split('\n');
-  //   const lastLine = addrLines[addrLines.length - 1];
-  //   // If last line contains a city name (e.g., ends with a city or city code), use that
-  //   destCity = lastLine.replace(/[0-9]/g, '').trim();  // remove any postal codes/numbers
-  //   if (destCity.toUpperCase() === commande.destination?.toUpperCase()) {
-  //     destCity = ''; // if we only got country name, ignore (to avoid duplicate country as city)
-  //   }
-  // }
   if (destCity) {
     setCellStyle('D16', {fontSize: 9, bold: true}).value = destCity.toUpperCase();
     setCellStyle('E16', {fontSize: 9, bold: true, hAlign: 'center'}).value = '-';
   } else {
-    // No specific city -> leave D16 and E16 blank (no hyphen if city missing)
-    sheet.getCell('D16').value = '';  // already grey-filled
+    sheet.getCell('D16').value = '';
     sheet.getCell('E16').value = '';
   }
   const destCountry = (commande.destination || '').toUpperCase();
   setCellStyle('F16', {fontSize: 9, bold: true}).value = destCountry || 'N/A';
 
-  // Container(s) and Seal(s) lines (up to 3):
-  // Static labels "N° CONT :" and "PL :" on each line 18-20
-  ['C18','C19','C20'].forEach(ref => {
-    setCellStyle(ref, {fontSize: 9, bold: true}).value = 'N° CONT :';
-  });
-  ['F18','F19','F20'].forEach(ref => {
-    setCellStyle(ref, {fontSize: 9, bold: true}).value = 'PL :';
-  });
-  // Fill container number and seal if present
-  // Améliorer l'extraction des conteneurs depuis la commande avec fallback intelligent
+  // Container(s) and Seal(s) lines - dynamically fill up to 3 containers
   const containers = [];
-  
-  // Méthode 1 : Extraire depuis commande.cargo (source principale)
-  if (commande.cargo && Array.isArray(commande.cargo) && commande.cargo.length > 0) {
+  // Method 1: From commande.cargo if present
+  if (commande.cargo && Array.isArray(commande.cargo)) {
     commande.cargo.forEach(cargo => {
       if (cargo.noDeConteneur || cargo.containerNumber) {
         containers.push({
@@ -2703,9 +2662,8 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
       }
     });
   }
-  
-  // Méthode 2 : Extraire depuis les items si pas de cargo
-  if (containers.length === 0 && commande.items && Array.isArray(commande.items) && commande.items.length > 0) {
+  // Method 2: From commande.items if no cargo
+  if (containers.length === 0 && Array.isArray(commande.items)) {
     const uniqueContainers = new Map();
     commande.items.forEach(item => {
       const containerNum = item.containerNumber || item.noConteneur || item.conteneur;
@@ -2718,12 +2676,10 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     });
     containers.push(...uniqueContainers.values());
   }
-  
-  // Méthode 3 : Utiliser les valeurs globales de la commande (fallback)
+  // Method 3: Use global values from commande as fallback
   if (containers.length === 0) {
     const globalContainer = commande.noDeConteneur || commande.containerNumber || commande.conteneur;
     const globalSeal = commande.noPlomb || commande.sealNumber || commande.plomb;
-    
     if (globalContainer) {
       containers.push({
         containerNumber: globalContainer,
@@ -2731,66 +2687,108 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
       });
     }
   }
-  
-  // Méthode 4 : Si toujours aucun conteneur, essayer depuis certificateData
-  if (containers.length === 0 && certificateData.containers && Array.isArray(certificateData.containers)) {
+  // Method 4: Last resort, from certificateData if available
+  if (containers.length === 0 && Array.isArray(certificateData.containers)) {
     containers.push(...certificateData.containers);
   }
-  // Populate up to 3 entries
-  for (let i = 0; i < 3; i++) {
+  const maxContainers = Math.min(containers.length, 3);
+  console.log(`📦 Affichage de ${containers.length} conteneur(s) dans le certificat d'origine (max 3 affichés)`);
+  for (let i = 0; i < maxContainers; i++) {
+    const rowIndex = 18 + i;
     const cont = containers[i];
+    // Labels "N° CONT :" (C) and "PL :" (F) with values in D and G respectively
+    setCellStyle(`C${rowIndex}`, {fontSize: 9, bold: true}).value = 'N° CONT :';
+    setCellStyle(`F${rowIndex}`, {fontSize: 9, bold: true}).value = 'PL :';
     if (cont) {
-      setCellStyle(`D${18 + i}`, {fontSize: 9, bold: true}).value = cont.containerNumber;
-      setCellStyle(`G${18 + i}`, {fontSize: 9, bold: true}).value = cont.sealNumber || '';
-      // Align container numbers and seals to left for clarity
-      sheet.getCell(`D${18 + i}`).alignment = { horizontal: 'left', vertical: 'center' };
-      sheet.getCell(`G${18 + i}`).alignment = { horizontal: 'left', vertical: 'center' };
+      setCellStyle(`D${rowIndex}`, {fontSize: 9, bold: true}).value = cont.containerNumber;
+      setCellStyle(`G${rowIndex}`, {fontSize: 9, bold: true}).value = cont.sealNumber || '';
+      sheet.getCell(`D${rowIndex}`).alignment = { horizontal: 'left', vertical: 'center' };
+      sheet.getCell(`G${rowIndex}`).alignment = { horizontal: 'left', vertical: 'center' };
+      console.log(`   ✅ Conteneur ${i + 1}: ${cont.containerNumber} - Plomb: ${cont.sealNumber || 'N/A'}`);
     } else {
-      // No container for this line: leave blank (labels already set)
-      sheet.getCell(`D${18 + i}`).value = '';
-      sheet.getCell(`G${18 + i}`).value = '';
+      sheet.getCell(`D${rowIndex}`).value = '';
+      sheet.getCell(`G${rowIndex}`).value = '';
     }
   }
+  if (containers.length > 3) {
+    console.log(`   ⚠️ Note: ${containers.length - 3} conteneur(s) supplémentaire(s) non affiché(s) dans le certificat`);
+  }
 
-  // Product details (species entries):
-  // Améliorer l'extraction et le regroupement des articles depuis la commande - EXTRACTION COMPLÈTE
+  // Product details (species entries) - build and group article list
+  const buildArticleDescription = (article) => {
+    if (!article) return 'Article inconnu';
+    const parts = [];
+    if (article.article.reference) parts.push(article.article.reference);
+    if (article.article.specification) parts.push(article.article.specification);
+    if (article.article.taille) parts.push(article.article.taille);
+    let description = parts.filter(Boolean).join(' - ');
+    if (!description.trim()) {
+      description = 'POISSON CONGELE';
+    }
+    return description.toUpperCase();
+  };
+
   let articles = [];
-  
-  // Méthode 1 : Utiliser les articles fournis dans certificateData (si disponibles)
-  if (certificateData.articles && Array.isArray(certificateData.articles) && certificateData.articles.length > 0) {
-    articles = certificateData.articles.map(article => ({
-      reference: article.reference || article.intitule || 'Article inconnu',
-      totalColis: article.totalColis || article.quantiteCarton || 0,
-      poidsNet: article.poidsNet || article.quantiteKg || 0,
-      poidsBrut: article.poidsBrut || 0,
-      article: article
-    }));
-  } 
-  // Méthode 2 : Extraction complète depuis commande.cargo (priorité aux allocations cargo)
-  else if (commande.cargo && Array.isArray(commande.cargo) && commande.cargo.length > 0) {
+  // Méthode 1 : utiliser certificateData.articles s'ils sont fournis
+  if (Array.isArray(certificateData.articles) && certificateData.articles.length > 0) {
+    const articleGroups = new Map();
+    certificateData.articles.forEach(item => {
+      const rawRef = item.article?.reference || 'ARTICLE INCONNU';
+      const genus = rawRef.split(' ')[0].toUpperCase(); // Regrouper par genre (ex: "SARDINELLA")
+      const key = genus.toLowerCase();
+      if (!articleGroups.has(key)) {
+        articleGroups.set(key, {
+          reference: genus,
+          totalColis: 0,
+          poidsNet: 0,
+          poidsBrut: 0,
+          article: item.article,
+          count: 0
+        });
+      }
+      const group = articleGroups.get(key);
+      group.totalColis += parseFloat(item.totalColis || item.quantiteCarton || 0);
+      group.poidsNet += parseFloat(item.poidsNet || item.quantiteKg || 0);
+      group.poidsBrut += parseFloat(item.poidsBrut || 0);
+      group.count += 1;
+    });
+    articles = Array.from(articleGroups.values()).map(group => {
+      console.log(`📦 Article groupé: "${group.reference}" - ${group.count} occurrence(s), ${group.totalColis} cartons, ${group.poidsNet}kg`);
+      return {
+        reference: group.reference,
+        totalColis: Math.round(group.totalColis),
+        poidsNet: Math.round(group.poidsNet * 100) / 100,   // arrondi à 2 décimales
+        poidsBrut: Math.round(group.poidsBrut * 100) / 100, // arrondi à 2 décimales
+        article: group.article
+      };
+    });
+  }
+  // Méthode 2 : extraire depuis commande.cargo (items alloués) si pas d'articles direct
+  else if (Array.isArray(commande.cargo) && commande.cargo.length > 0) {
     const cargoArticles = new Map();
-    
+    // Helper getKgPerCarton (assumed to exist in this context)
+    const getKgPerCarton = (art) => {
+      // Si l'info existe dans l'article ou commande, sinon valeur par défaut
+      return parseFloat(commande.poidsParCarton) || 20;
+    };
     commande.cargo.forEach(cargo => {
-      if (cargo.itemsAlloues && Array.isArray(cargo.itemsAlloues) && cargo.itemsAlloues.length > 0) {
+      if (Array.isArray(cargo.itemsAlloues)) {
         cargo.itemsAlloues.forEach(item => {
-          const articleRef = item.article?.reference || item.article?.intitule || 'Article inconnu';
-          const articleKey = articleRef.toLowerCase().trim();
-          
-          if (!cargoArticles.has(articleKey)) {
-            cargoArticles.set(articleKey, {
-              reference: articleRef,
+          const description = buildArticleDescription(item);
+          const key = description.toLowerCase().trim();
+          if (!cargoArticles.has(key)) {
+            cargoArticles.set(key, {
+              reference: description,
               quantiteKg: 0,
               quantiteCarton: 0,
               article: item.article,
               allocations: []
             });
           }
-          
-          const group = cargoArticles.get(articleKey);
+          const group = cargoArticles.get(key);
           const quantiteAllouee = parseFloat(item.quantiteAllouee) || 0;
           const kgPerCarton = getKgPerCarton(item.article);
           const quantiteCarton = parseFloat(item.quantiteCarton) || Math.ceil(quantiteAllouee / kgPerCarton);
-          
           group.quantiteKg += quantiteAllouee;
           group.quantiteCarton += quantiteCarton;
           group.allocations.push({
@@ -2801,14 +2799,12 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
         });
       }
     });
-    
     if (cargoArticles.size > 0) {
       articles = Array.from(cargoArticles.values()).map(group => {
         const packagingWeight = parseFloat(commande.poidsCarton) || 0.8;
         const totalColis = Math.round(group.quantiteCarton);
         const poidsNet = group.quantiteKg;
         const poidsBrut = poidsNet + (totalColis * packagingWeight);
-        
         return {
           reference: group.reference,
           totalColis: totalColis,
@@ -2820,43 +2816,36 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
       });
     }
   }
-  
-  // Méthode 3 : Extraire depuis commande.items si pas de cargo
-  if (articles.length === 0 && commande.items && Array.isArray(commande.items) && commande.items.length > 0) {
+  // Méthode 3 : extraire depuis commande.items si pas de cargo
+  if (articles.length === 0 && Array.isArray(commande.items) && commande.items.length > 0) {
     const articleGroups = new Map();
-    
     commande.items.forEach(item => {
-      const articleRef = item.article?.reference || item.article?.intitule || item.reference || item.intitule || 'Article inconnu';
-      const articleKey = articleRef.toLowerCase().trim();
-      
-      if (!articleGroups.has(articleKey)) {
-        articleGroups.set(articleKey, {
-          reference: articleRef,
+      const description = buildArticleDescription(item.article || item);
+      const key = description.toLowerCase().trim();
+      if (!articleGroups.has(key)) {
+        articleGroups.set(key, {
+          reference: description,
           quantiteKg: 0,
           quantiteCarton: 0,
           article: item.article || item,
           items: []
         });
       }
-      
-      const group = articleGroups.get(articleKey);
+      const group = articleGroups.get(key);
       group.quantiteKg += parseFloat(item.quantiteKg) || 0;
       group.quantiteCarton += parseFloat(item.quantiteCarton) || 0;
       group.items.push(item);
-      
-      // Si pas de quantité carton mais qu'on a du poids, estimer les cartons
+      // Estimer le nombre de cartons si manquant
       if (!group.quantiteCarton && group.quantiteKg > 0) {
         const poidsParCarton = parseFloat(commande.poidsParCarton) || 20;
         group.quantiteCarton = Math.ceil(group.quantiteKg / poidsParCarton);
       }
     });
-    
     articles = Array.from(articleGroups.values()).map(group => {
       const packagingWeight = parseFloat(commande.poidsCarton) || 0.8;
       const totalColis = Math.round(group.quantiteCarton);
       const poidsNet = group.quantiteKg;
       const poidsBrut = poidsNet + (totalColis * packagingWeight);
-      
       return {
         reference: group.reference,
         totalColis: totalColis,
@@ -2866,18 +2855,14 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
       };
     });
   }
-  
-  // Méthode 4 : Fallback - créer un article générique si aucune donnée disponible
+  // Méthode 4 : fallback générique si aucune donnée détaillée disponible
   if (articles.length === 0) {
     const totalNet = parseFloat(commande.poidsTotal) || parseFloat(commande.totalPoidsNet) || 0;
     const totalCartons = parseFloat(commande.totalCartons) || parseFloat(commande.nombreCartons) || 0;
-    
     if (totalNet > 0 || totalCartons > 0) {
       const packagingWeight = parseFloat(commande.poidsCarton) || 0.8;
-      // Utiliser la valeur par défaut de 20kg pour le fallback générique
       const estimatedCartons = totalCartons || Math.ceil(totalNet / 20);
       const poidsBrut = totalNet + (estimatedCartons * packagingWeight);
-      
       articles.push({
         reference: 'POISSON CONGELE',
         totalColis: estimatedCartons,
@@ -2887,187 +2872,129 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
       });
     }
   }
-  
-  // Affichage dynamique de TOUS les articles avec leurs vraies quantités
-  console.log(`📊 Affichage de ${articles.length} article(s) dans le certificat d'origine`);
-  
-  articles.forEach((article, index) => {
-    const lineNumber = index + 1;
-    const startRow = 29 + (index * 2); // Chaque article prend 2 lignes
-    
-    // Afficher seulement les 3 premiers articles dans le certificat principal
-    if (index < 3) {
-      // Numéro de ligne
-      setCellStyle(`C${startRow}`, {fontSize: 9, bold: true, hAlign: 'center', vAlign: 'center'}).value = `${lineNumber}.0`;
-      
-      // Nom de l'espèce
-      const speciesName = (article.reference || article.article?.reference || '').toUpperCase();
-      setCellStyle(`D${startRow}`, {fontSize: 9, bold: true, hAlign: 'center', vAlign: 'center', wrap: true}).value = speciesName;
-      
-      // Calculs précis des quantités
-      const qtyBoxes = Math.round(article.totalColis || 0);
-      const netWeight = Math.round(article.poidsNet || 0);
-      const grossWeight = Math.round(article.poidsBrut || 0);
-      
-      // Populate les données
-      setCellStyle(`H${startRow}`, {fontSize: 10, bold: true, hAlign: 'center', vAlign: 'center'}).value = qtyBoxes;
-      setCellStyle(`I${startRow}`, {fontSize: 10, bold: true, hAlign: 'center', vAlign: 'center'}).value = netWeight;
-      
-      // Poids brut par carton (seulement pour le premier article)
-      if (index === 0 && qtyBoxes > 0) {
-        const grossPerBox = grossWeight / qtyBoxes;
-        setCellStyle(`J${startRow}`, {fontSize: 9, bold: true, hAlign: 'center', vAlign: 'center'}).value = grossPerBox ? `${grossPerBox.toFixed(1)}` : '';
-      } else {
-        sheet.getCell(`J${startRow}`).value = '';
-      }
-      
-      setCellStyle(`K${startRow}`, {fontSize: 10, bold: true, hAlign: 'center', vAlign: 'center'}).value = grossWeight;
-      
-      // Merger les cellules pour cet article (si nécessaire)
-      if (startRow + 1 <= 35) { // Limite pour éviter de déborder
-        try {
-          sheet.mergeCells(`C${startRow}:C${startRow + 1}`);
-          sheet.mergeCells(`D${startRow}:G${startRow + 1}`);
-          sheet.mergeCells(`H${startRow}:H${startRow + 1}`);
-          sheet.mergeCells(`I${startRow}:I${startRow + 1}`);
-          if (index === 0) {
-            sheet.mergeCells(`J${startRow}:J${startRow + 1}`);
-          }
-          sheet.mergeCells(`K${startRow}:K${startRow + 1}`);
-        } catch (e) {
-          console.warn(`Impossible de merger les cellules pour l'article ${index + 1}:`, e.message);
-        }
-      }
-      
-      console.log(`   ✅ Article ${lineNumber}: ${speciesName} - ${qtyBoxes} cartons, ${netWeight}kg net, ${grossWeight}kg brut`);
-    } else {
-      console.log(`   ⚠️ Article ${lineNumber}: ${article.reference} - ${article.totalColis} cartons, ${article.poidsNet}kg (non affiché - limite de 3 articles)`);
-    }
-  });
-  
-  // Si plus de 3 articles, ajouter une note
+
+  console.log(`📊 Préparation de ${articles.length} article(s) à afficher dans le certificat d'origine`);
   if (articles.length > 3) {
-    setCellStyle('D37', {fontSize: 8, bold: false, italic: true, hAlign: 'left'}).value = `Note: ${articles.length - 3} autre(s) article(s) non affiché(s)`;
+    console.log(`   ⚠️ Seulement 3 premiers articles seront affichés (les suivants seront cumulés dans la note).`);
   }
 
-  // Headers for products section (row 26-27)
+  // Product table headers
   setCellStyle('F26', {fontSize: 10, bold: true, underline: true, hAlign: 'center'}).value = 'POISSON CONGELE';
-  setCellStyle('F27', {fontSize: 9, bold: true, italic: true, underline: true, hAlign: 'center'}).value = 'ESPECES';
+  setCellStyle('D27', {fontSize: 9, bold: true, italic: true, underline: true, hAlign: 'center'}).value = 'ESPECES';
   setCellStyle('H27', {fontSize: 9, bold: true, italic: true, underline: true, hAlign: 'center'}).value = 'CARTON';
   setCellStyle('I27', {fontSize: 9, bold: true, italic: true, underline: true, hAlign: 'center'}).value = 'POIDS NET';
   setCellStyle('K27', {fontSize: 9, bold: true, italic: true, underline: true, hAlign: 'center'}).value = 'POIDS  BRUT';
 
-  // Totals row (row 38) - calculer les totaux dynamiquement
-  let totalColis = 0;
-  let totalNet = 0;
-  let totalBrut = 0;
-  
-  // Calculer les totaux à partir des articles extraits
-  articles.forEach(article => {
-    totalColis += article.totalColis || article.quantiteCarton || 0;
-    totalNet += article.poidsNet || article.quantiteKg || 0;
-    totalBrut += article.poidsBrut || 0;
+  // Display up to 3 articles in the certificate
+  articles.forEach((article, index) => {
+    if (index >= 3) return;  // skip extra articles (just keep note for them)
+    const row = 29 + index;
+    const lineNumber = `${index + 1}.0`;
+    // Numéro de ligne (colonne C)
+    setCellStyle(`C${row}`, {fontSize: 9, bold: true, hAlign: 'center'}).value = lineNumber;
+    // Description (colonne D à G fusionnées)
+    const description = article.reference || 'POISSON CONGELE';
+    setCellStyle(`D${row}`, {fontSize: 9, bold: true, hAlign: 'left', vAlign: 'center', wrap: true}).value = description;
+    // Quantités
+    const qtyBoxes = Math.round(article.totalColis || 0);
+    const netWeight = Math.round(article.poidsNet || 0);
+    const grossWeight = Math.round(article.poidsBrut || 0);
+    setCellStyle(`H${row}`, {fontSize: 10, bold: true, hAlign: 'center'}).value = qtyBoxes;
+    setCellStyle(`I${row}`, {fontSize: 10, bold: true, hAlign: 'center'}).value = netWeight;
+    if (index === 0 && qtyBoxes > 0) {
+      const grossPerBox = grossWeight / qtyBoxes;
+      setCellStyle(`J${row}`, {fontSize: 9, bold: true, hAlign: 'center'}).value = grossPerBox.toFixed(1);
+    } else {
+      sheet.getCell(`J${row}`).value = '';
+    }
+    setCellStyle(`K${row}`, {fontSize: 10, bold: true, hAlign: 'center'}).value = grossWeight;
+    // Fusionner les cellules D à G pour la description sur cette ligne
+    sheet.mergeCells(`D${row}:G${row}`);
+    // Hauteur de ligne personnalisée pour bien afficher le texte wrap (si description longue)
+    sheet.getRow(row).height = 30;
+    console.log(`   ✅ Ligne article ${lineNumber}: ${description} – ${qtyBoxes} cartons, ${netWeight} kg net, ${grossWeight} kg brut`);
   });
-  
-  // Si pas de poids brut calculé, l'estimer
+
+  // Si plus de 3 articles, ajouter une note signalant les articles non affichés
+  if (articles.length > 3) {
+    setCellStyle('D37', {fontSize: 8, bold: false, italic: true, hAlign: 'left'}).value = 
+      `Note: ${articles.length - 3} autre(s) article(s) non affiché(s) (quantités incluses dans les totaux).`;
+  }
+
+  // Totals row (row 38) – calculate dynamic totals
+  let totalColis = 0, totalNet = 0, totalBrut = 0;
+  articles.forEach(art => {
+    totalColis += art.totalColis || art.quantiteCarton || 0;
+    totalNet += art.poidsNet || art.quantiteKg || 0;
+    totalBrut += art.poidsBrut || 0;
+  });
   if (totalBrut === 0) {
     const packagingWeight = parseFloat(commande.poidsCarton) || 0.8;
     totalBrut = totalNet + (totalColis * packagingWeight);
   }
-  
-  // Utiliser les totaux fournis en priorité, sinon les calculés
+  // Use provided totals if available, otherwise use calculated
   const finalTotalColis = certificateData.totals?.totalColis || totalColis;
   const finalTotalNet = certificateData.totals?.poidsNet || totalNet;
   const finalTotalBrut = certificateData.totals?.poidsBrut || totalBrut;
-  
   setCellStyle('F38', {fontSize: 11, bold: true, hAlign: 'right'}).value = 'TOTAL';
   setCellStyle('H38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalColis;
   setCellStyle('I38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalNet.toFixed(0);
   setCellStyle('J38', {fontSize: 11, bold: true, hAlign: 'left'}).value = `P'':`;
   setCellStyle('K38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalBrut.toFixed(0);
-  
-  // Ajouter un trait continu au-dessus de la ligne des totaux (D38 à K38)
-  ['D38', 'E38', 'F38', 'G38', 'H38', 'I38', 'J38', 'K38'].forEach(cellRef => {
+  // Draw a top border above totals row (D38 to K38)
+  ['D38','E38','F38','G38','H38','I38','J38','K38'].forEach(cellRef => {
     const cell = sheet.getCell(cellRef);
-    cell.border = {
-      ...cell.border,
-      top: { style: 'thin' }
-    };
+    cell.border = { ...cell.border, top: { style: 'thin' } };
   });
-  
-  // (If needed, packaging weight total = totalBrut - totalNet could be shown, but original left it implicit)
 
-  // OP number line (row 41) - utiliser le numéro OP de la commande
+  // OP number line (row 41)
   setCellStyle('F41', {fontSize: 10, bold: true, underline: true, hAlign: 'right'}).value = 'OP :';
-  
-  // Utiliser le numéro OP de la commande
   const opNumber = commande.numeroOP || certificateData.opNumber || '';
-  
-  // Add a small space after "OP :" in the merged cell to simulate underline for blank
-  sheet.getCell('F41').value = sheet.getCell('F41').value + ' '; 
-  // Fill OP number and year
-  setCellStyle('H41', {fontSize: 10, bold: true, underline: false, hAlign: 'right'}).value = opNumber;
+  // Add small space after "OP :" in merged cell to simulate underline
+  sheet.getCell('F41').value = sheet.getCell('F41').value + ' ';
+  setCellStyle('H41', {fontSize: 10, bold: true, hAlign: 'right'}).value = opNumber;
   const year = new Date().getFullYear();
-  setCellStyle('I41', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = opNumber ? `/${year}` : `/${year}`;
-  // (If opNumber is blank, this will show "/2025" with no number in front, which matches leaving a blank to fill)
+  setCellStyle('I41', {fontSize: 10, bold: true, hAlign: 'left'}).value = opNumber ? `/${year}` : `/${year}`;
 
-  // Customs office (Bureau Douane) lines
+  // Customs office lines
   setCellStyle('D43', {fontSize: 9, bold: true, hAlign: 'center'}).value = 'BUREAU DOUANE PECHE NOUADHIBOU';
   setCellStyle('C56', {fontSize: 10, bold: true, hAlign: 'center'}).value = 'BUREAU DOUANE PECHE NOUADHIBOU';
 
-  // BL (Bill of Lading) line (row 45) - améliorer l'extraction du BL avec fallback intelligent
-  // "BL:" label with underline (merged F45:G45)
+  // BL (Bill of Lading) line (row 45)
   const blLabelCell = setCellStyle('F45', {fontSize: 10, bold: true, underline: true, hAlign: 'left'});
-  blLabelCell.value = 'BL:';  // "BL:" plus padding spaces underlined
-  
-  // BL number (merged H45:I45) - extraire depuis plusieurs sources possibles avec priorité
+  blLabelCell.value = 'BL:';  // "BL:" with underline
+  // Determine BL number from various possible fields
   let blNumber = '';
-  
-  // Priorité 1 : certificateData.blNumber (si fourni explicitement)
   if (certificateData.blNumber) {
     blNumber = certificateData.blNumber;
-  }
-  // Priorité 2 : commande.blNumber ou commande.numeroBL
-  else if (commande.blNumber || commande.numeroBL) {
+  } else if (commande.blNumber || commande.numeroBL) {
     blNumber = commande.blNumber || commande.numeroBL;
-  }
-  // Priorité 3 : commande.numeroBooking (souvent utilisé comme BL)
-  else if (commande.numeroBooking) {
+  } else if (commande.numeroBooking) {
     blNumber = commande.numeroBooking;
-  }
-  // Priorité 4 : Extraire depuis cargo
-  else if (commande.cargo && Array.isArray(commande.cargo) && commande.cargo.length > 0) {
-    const cargoWithBL = commande.cargo.find(cargo => cargo.blNumber || cargo.numeroBL || cargo.numeroBooking);
+  } else if (Array.isArray(commande.cargo)) {
+    const cargoWithBL = commande.cargo.find(c => c.blNumber || c.numeroBL || c.numeroBooking);
     if (cargoWithBL) {
       blNumber = cargoWithBL.blNumber || cargoWithBL.numeroBL || cargoWithBL.numeroBooking;
     }
-  }
-  // Priorité 5 : Utiliser la référence comme fallback
-  else if (commande.reference) {
+  } else if (commande.reference) {
     blNumber = commande.reference;
   }
-  
-  setCellStyle('H45', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = blNumber;
+  setCellStyle('H45', {fontSize: 10, bold: true, hAlign: 'left'}).value = blNumber;
 
-  // Second copy origin country (row 54)
+  // Second copy origin and destination countries
   setCellStyle('J54', {fontSize: 10, bold: true, hAlign: 'center'}).value = 'MAURITANIE';
-  // Second copy destination country (merged I58:L59)
   setCellStyle('I58', {fontSize: 10, bold: true, hAlign: 'center', vAlign: 'center'}).value = destCountry || 'N/A';
 
-  // Bottom place and date (row 60)
-  const issueDate = certificateData.cargo?.dateCertification 
-                    ? new Date(certificateData.cargo.dateCertification) 
-                    : new Date();
-  // Format date to avoid time portion (Excel will default format if none provided)
-  // Here we set a custom format for clarity (e.g., "DD/MM/YYYY")
+  // Bottom place and date lines (row 60)
+  const issueDate = certificateData.cargo?.dateCertification ? new Date(certificateData.cargo.dateCertification) : new Date();
   sheet.getCell('F60').value = issueDate;
   sheet.getCell('F60').numFmt = 'dd/mm/yyyy';
   sheet.getCell('K60').value = issueDate;
   sheet.getCell('K60').numFmt = 'dd/mm/yyyy';
   setCellStyle('C60', {fontSize: 9, bold: true, hAlign: 'left'}).value = 'NOUADHIBOU,';
-  setCellStyle('F60', {fontSize: 9, bold: true, hAlign: 'center'});  // date will be center of F60-H60 merged
+  setCellStyle('F60', {fontSize: 9, bold: true, hAlign: 'center'});  // date (first copy)
   setCellStyle('I60', {fontSize: 9, bold: true, hAlign: 'right'}).value = 'NOUADHIBOU,';
-  setCellStyle('K60', {fontSize: 9, bold: true, hAlign: 'left'});    // date (K60) left-aligned within its cell
+  setCellStyle('K60', {fontSize: 9, bold: true, hAlign: 'left'});    // date (second copy)
 
   // 8. Generate Excel file and trigger download
   workbook.xlsx.writeBuffer().then(buffer => {
