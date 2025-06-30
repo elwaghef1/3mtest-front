@@ -41,7 +41,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     numeroFactureProforma: '', // Nouveau champ - généré automatiquement
     typeCommande: 'NORMALE', // Nouveau champ
     numeroBooking: '',
-    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
+    cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
     noBonDeCommande: '',
     client: '',
     statutBonDeCommande: 'EN_COURS', // EN_COURS ou LIVREE
@@ -141,7 +141,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
           ? (initialCommande.cargo.length > 0 
               ? initialCommande.cargo.map(cargoItem => 
                   typeof cargoItem === 'string' 
-                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }
+                    ? { nom: cargoItem, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }
                     : { 
                         nom: cargoItem.nom || '', 
                         noDeConteneur: cargoItem.noDeConteneur || '', 
@@ -150,13 +150,14 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                         noPlomb: cargoItem.noPlomb || '',
                         refNemb: cargoItem.refNemb || '',
                         refEmb: cargoItem.refEmb || '',
+                        numeroFactureSMCP: cargoItem.numeroFactureSMCP || '',
                         dateCertification: cargoItem.dateCertification ? new Date(cargoItem.dateCertification).toISOString().slice(0, 10) : ''
                       }
                 )
-              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }])
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }])
           : (initialCommande.cargo 
-              ? [{ nom: initialCommande.cargo, noDeConteneur: initialCommande.noDeConteneur || '', areDeConteneur: initialCommande.areDeConteneur || '', poidsCarton: initialCommande.poidsCarton || '', noPlomb: initialCommande.noPlomb || '', refNemb: '', refEmb: '', dateCertification: '' }] 
-              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }]),
+              ? [{ nom: initialCommande.cargo, noDeConteneur: initialCommande.noDeConteneur || '', areDeConteneur: initialCommande.areDeConteneur || '', poidsCarton: initialCommande.poidsCarton || '', noPlomb: initialCommande.noPlomb || '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }] 
+              : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }]),
         noBonDeCommande: initialCommande.noBonDeCommande || '',
         client: initialCommande.client?._id || '',
         bank: initialCommande.bank?._id || '',
@@ -395,7 +396,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
   const addCargo = () => {
     setFormData({
       ...formData,
-      cargo: [...formData.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', dateCertification: '' }]
+      cargo: [...formData.cargo, { nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }]
     });
   };
 
@@ -1442,6 +1443,16 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                               onChange={(e) => updateCargo(index, 'refEmb', e.target.value)}
                               className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                               placeholder="XXXX/EMB/2025"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Numéro Facture SMCP</label>
+                            <input
+                              type="text"
+                              value={cargo.numeroFactureSMCP}
+                              onChange={(e) => updateCargo(index, 'numeroFactureSMCP', e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="XXXX/EXP/2025"
                             />
                           </div>
                           <div>

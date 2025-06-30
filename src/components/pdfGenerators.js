@@ -810,7 +810,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   const origineTransport = [
     [
       'Origine du produit :\n\nNom de l\'EIS ou du navire : MSM SEAFOOD\nAgrément ou immatriculation : 02-133\nLieu d\'Embarquement : MSM SEAFOOD\n(Entrepôt/EIS/quai)\nNom de l\'entrepôt : ---------------',
-      'Moyen de transport : ' + cargoData.nom + '\n\nN° Conteneur : ' + cargoData.noDeConteneur + '\nPL : ' + '---' + '\nPIF : ' + (commande.pif || '-----') + '\nDate de certification : ' + (cargoData.dateCertification ? new Date(cargoData.dateCertification).toLocaleDateString('fr-FR') : today) + '\nRéférence documentaire : B/L : ---'
+      'Moyen de transport : ' + cargoData.nom + '\n\nN° Conteneur : ' + cargoData.noDeConteneur + '\nPL : ' + cargoData.areDeConteneur + '\nPIF : ' + (commande.pif || '-----') + '\nDate de certification : ' + (cargoData.dateCertification ? new Date(cargoData.dateCertification).toLocaleDateString('fr-FR') : today) + '\nRéférence documentaire : B/L : ---'
     ]
   ];
 
@@ -2884,6 +2884,41 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   setCellStyle('H27', {fontSize: 9, bold: true, italic: true, underline: true, hAlign: 'center'}).value = 'CARTON';
   setCellStyle('I27', {fontSize: 9, bold: true, italic: true, underline: true, hAlign: 'center'}).value = 'POIDS NET';
   setCellStyle('K27', {fontSize: 9, bold: true, italic: true, underline: true, hAlign: 'center'}).value = 'POIDS  BRUT';
+
+  // Ajouter les numéros de facture SMCP à partir de L28 selon le nombre de cargos
+  if (commande.cargo && Array.isArray(commande.cargo)) {
+    commande.cargo.forEach((cargo, index) => {
+      const factRowIndex = 28 + index; // Commencer à L28, L29, L30, etc.
+      
+      // Numéro de facture SMCP (avec valeur par défaut si non défini)
+      const numeroFactureSMCP = cargo.numeroFactureSMCP || `XXXX/EXP/${new Date().getFullYear()}`;
+      
+      // Insérer seulement le numéro de facture SMCP
+      setCellStyle(`L${factRowIndex}`, {
+        fontSize: 8, 
+        bold: true, 
+        italic: false, 
+        hAlign: 'left', 
+        vAlign: 'center'
+      }).value = numeroFactureSMCP;
+      
+      console.log(`📋 Ajout facture SMCP ligne L${factRowIndex}: ${numeroFactureSMCP}`);
+    });
+  } else {
+    // Si pas de cargo défini, ajouter une ligne par défaut
+    const numeroFactureSMCP = `XXXX/EXP/${new Date().getFullYear()}`;
+    
+    // Insérer seulement le numéro de facture SMCP
+    setCellStyle('L28', {
+      fontSize: 8, 
+      bold: true, 
+      italic: false, 
+      hAlign: 'left', 
+      vAlign: 'center'
+    }).value = numeroFactureSMCP;
+    
+    console.log(`📋 Ajout facture SMCP par défaut ligne L28: ${numeroFactureSMCP}`);
+  }
 
   // Display up to 3 articles in the certificate
   articles.forEach((article, index) => {
