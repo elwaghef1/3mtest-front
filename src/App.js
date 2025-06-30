@@ -29,6 +29,7 @@ import BankAccountList from './components/BankAccountList.js';
 import QuantiteManquanteList from './components/QuantiteManquanteList.js';
 import QuantiteManquanteDashboard from './components/QuantiteManquanteDashboard.js';
 import ArticleMovements from './components/ArticleMovements.js';
+import ClientOrderHistory from './components/ClientOrderHistory.js';
 
 function App() {
   return (
@@ -57,13 +58,19 @@ function App() {
                   <PoissonList />
                 </PrivateRoute>
               }
-            />
-
-          <Route
+            />            <Route
               path="/clients"
               element={
                 <PrivateRoute>
                   <ClientList />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/clients/:clientId/historique"
+              element={
+                <PrivateRoute>
+                  <ClientOrderHistory />
                 </PrivateRoute>
               }
             />

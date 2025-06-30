@@ -4,9 +4,11 @@ import axios from '../api/axios';
 import Button from './Button';
 import ClientForm from './ClientForm';
 import Pagination from './Pagination';
-import { PlusIcon, PencilIcon, TrashIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
+import { PlusIcon, PencilIcon, TrashIcon, InformationCircleIcon, ClockIcon } from '@heroicons/react/24/solid';
+import { useNavigate } from 'react-router-dom';
 
 function ClientList() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -153,19 +155,27 @@ function ClientList() {
                   <td className="px-4 py-3 text-center border border-gray-400">
                     <div className="flex justify-center space-x-2">
                       <Button
+                        onClick={() => navigate(`/clients/${client._id}/historique`)}
+                        variant="primary"
+                        size="sm"
+                        leftIcon={<ClockIcon className="h-4 w-4" />}
+                        title="Historique des commandes"
+                      >Historique</Button>
+
+                      <Button
                         onClick={() => handleOpenFormToEdit(client)}
                         variant="warning"
                         size="sm"
                         leftIcon={<PencilIcon className="h-4 w-4" />}
                         title="Modifier"
-                      />
-                      <Button
+                      >Modifier</Button>
+                      {/* <Button
                         onClick={() => handleDeleteClient(client._id)}
                         variant="danger"
                         size="sm"
                         leftIcon={<TrashIcon className="h-4 w-4" />}
                         title="Supprimer"
-                      />
+                      /> */}
                     </div>
                   </td>
                 </tr>
