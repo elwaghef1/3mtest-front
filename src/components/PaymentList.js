@@ -17,7 +17,6 @@ function PaymentList() {
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState('');
   const [searchRef, setSearchRef] = useState('');
-  const [selectedCurrency, setSelectedCurrency] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -27,9 +26,6 @@ function PaymentList() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-
-  // État pour les statistiques par devise
-  const [statisticsByCurrency, setStatisticsByCurrency] = useState({});
 
   // Calcul des éléments à afficher pour la pagination
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -47,62 +43,13 @@ function PaymentList() {
     { prixTotal: 0, montantPaye: 0, reliquat: 0 }
   );
 
-  // Calcul des statistiques par devise
-  const calculateStatisticsByCurrency = () => {
-    const statsByCurrency = {};
-    
-    filtered.forEach(cmd => {
-      const currency = cmd.currency || 'EUR';
-      const paye = cmd.montantPaye || 0;
-      const reliquat = (cmd.prixTotal || 0) - paye;
-
-      // Initialiser la devise si elle n'existe pas
-      if (!statsByCurrency[currency]) {
-        statsByCurrency[currency] = {
-          totalCommandes: 0,
-          montantTotal: 0,
-          montantPaye: 0,
-          reliquat: 0,
-          commandesPaye: 0,
-          commandesPartiellementPaye: 0,
-          commandesNonPaye: 0
-        };
-      }
-
-      // Statistiques par devise
-      statsByCurrency[currency].totalCommandes++;
-      statsByCurrency[currency].montantTotal += cmd.prixTotal || 0;
-      statsByCurrency[currency].montantPaye += paye;
-      statsByCurrency[currency].reliquat += reliquat;
-
-      // Compter les statuts de paiement
-      switch (cmd.statutDePaiement) {
-        case 'PAYE':
-          statsByCurrency[currency].commandesPaye++;
-          break;
-        case 'PARTIELLEMENT_PAYE':
-          statsByCurrency[currency].commandesPartiellementPaye++;
-          break;
-        case 'NON_PAYE':
-        default:
-          statsByCurrency[currency].commandesNonPaye++;
-      }
-    });
-
-    setStatisticsByCurrency(statsByCurrency);
-  };
-
   useEffect(() => {
     fetchData();
   }, []);
 
   useEffect(() => {
     filterCommandes();
-  }, [commandes, selectedClient, searchRef, selectedCurrency]);
-
-  useEffect(() => {
-    calculateStatisticsByCurrency();
-  }, [filtered]);
+  }, [commandes, selectedClient, searchRef]);
 
   const fetchData = async () => {
     try {
@@ -138,40 +85,20 @@ function PaymentList() {
       );
     }
 
-    if (selectedCurrency) {
-      result = result.filter((cmd) => cmd.currency === selectedCurrency);
-    }
-
     setFiltered(result);
   };
 
   const resetFilters = () => {
     setSelectedClient('');
     setSearchRef('');
-    setSelectedCurrency('');
   };
 
-  // Fonction formatCurrency améliorée qui prend en compte la devise
-  const formatCurrency = (amount, currency = 'EUR') => {
-    if (amount == null) return new Intl.NumberFormat('fr-FR', {
+  const formatCurrency = (value) => {
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(0) + ' ' + currency;
-    
-    return new Intl.NumberFormat(
-      currency === 'USD' ? 'en-US' : 'fr-FR',
-      { 
-        style: 'currency', 
-        currency, 
-        minimumFractionDigits: 2 
-      }
-    ).format(amount);
-  };
-
-  // Obtenir la liste des devises uniques
-  const getAvailableCurrencies = () => {
-    const currencies = [...new Set(commandes.map(cmd => cmd.currency).filter(Boolean))];
-    return currencies.sort();
+    }).format(value || 0);
   };
 
   // Génère un badge de statut de paiement
@@ -221,63 +148,9 @@ function PaymentList() {
         <h1 className="text-2xl font-bold mb-4 md:mb-0">Gestion des Paiements</h1>
       </div>
 
-      {/* Bannières par devise */}
-      {Object.keys(statisticsByCurrency).length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Résumé par Devise</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(statisticsByCurrency)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([currency, stats]) => (
-              <div key={currency} className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-bold text-green-900">{currency}</h3>
-                  <div className="bg-green-100 px-2 py-1 rounded-full">
-                    <span className="text-sm font-medium text-green-800">
-                      {stats.totalCommandes} commande{stats.totalCommandes > 1 ? 's' : ''}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Montant Total</span>
-                    <span className="font-semibold text-blue-700">
-                      {formatCurrency(stats.montantTotal, currency)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Montant Payé</span>
-                    <span className="font-semibold text-green-700">
-                      {formatCurrency(stats.montantPaye, currency)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center border-t pt-2">
-                    <span className="text-sm font-medium text-gray-700">Reliquat</span>
-                    <span className={`font-bold text-lg ${
-                      stats.reliquat > 0 ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {formatCurrency(stats.reliquat, currency)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between text-xs text-gray-500 pt-1">
-                    <span>✅ {stats.commandesPaye} payées</span>
-                    <span>🔶 {stats.commandesPartiellementPaye} partielles</span>
-                    <span>❌ {stats.commandesNonPaye} non payées</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Filtres */}
       <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
             <select
@@ -303,22 +176,6 @@ function PaymentList() {
               value={searchRef}
               onChange={(e) => setSearchRef(e.target.value)}
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Devise</label>
-            <select
-              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-              value={selectedCurrency}
-              onChange={(e) => setSelectedCurrency(e.target.value)}
-            >
-              <option value="">Toutes les devises</option>
-              {getAvailableCurrencies().map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </select>
           </div>
 
           <div className="flex items-end">
@@ -366,7 +223,6 @@ function PaymentList() {
                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border border-gray-400">Prix Total</th>
                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border border-gray-400">Montant Payé</th>
                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border border-gray-400">Reliquat</th>
-                <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">Devise</th>
                 <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">Statut Paiement</th>
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">Date Livraison</th>
                 {/* <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">Actions</th> */}
@@ -382,16 +238,13 @@ function PaymentList() {
                     {cmd.client?.raisonSociale || '—'}
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border border-gray-400">
-                    {formatCurrency(cmd.prixTotal, cmd.currency)}
+                    {formatCurrency(cmd.prixTotal)}
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border border-gray-400">
-                    {formatCurrency(cmd.montantPaye, cmd.currency)}
+                    {formatCurrency(cmd.montantPaye)}
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border border-gray-400">
-                    {formatCurrency(cmd.reliquat, cmd.currency)}
-                  </td>
-                  <td className="px-4 py-3 text-center text-sm text-gray-700 font-medium border border-gray-400">
-                    {cmd.currency || 'EUR'}
+                    {formatCurrency(cmd.reliquat)}
                   </td>
                   <td className="px-4 py-3 text-center border border-gray-400">
                     {getPaymentBadge(cmd.statutDePaiement)}
@@ -416,18 +269,18 @@ function PaymentList() {
             <tfoot className="bg-gray-100">
               <tr>
                 <td className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400" colSpan="2">
-                  Total {selectedCurrency ? `(${selectedCurrency})` : '(toutes devises)'}
+                  Total
                 </td>
                 <td className="px-4 py-3 text-sm font-bold text-white text-right bg-blue-800 border border-gray-400">
-                  {selectedCurrency ? formatCurrency(totals.prixTotal, selectedCurrency) : `${totals.prixTotal.toLocaleString('fr-FR', {minimumFractionDigits: 2})}`}
+                  {formatCurrency(totals.prixTotal)}
                 </td>
                 <td className="px-4 py-3 text-sm font-bold text-white text-right bg-green-800 border border-gray-400">
-                  {selectedCurrency ? formatCurrency(totals.montantPaye, selectedCurrency) : `${totals.montantPaye.toLocaleString('fr-FR', {minimumFractionDigits: 2})}`}
+                  {formatCurrency(totals.montantPaye)}
                 </td>
                 <td className="px-4 py-3 text-sm font-bold text-white text-right bg-red-800 border border-gray-400">
-                  {selectedCurrency ? formatCurrency(totals.reliquat, selectedCurrency) : `${totals.reliquat.toLocaleString('fr-FR', {minimumFractionDigits: 2})}`}
+                  {formatCurrency(totals.reliquat)}
                 </td>
-                <td className="border border-gray-400" colSpan="4"></td>
+                <td className="border border-gray-400" colSpan="3"></td>
               </tr>
             </tfoot>
           </table>
@@ -451,7 +304,7 @@ function PaymentList() {
             <CommandeDetails 
               commande={detailsCommande} 
               onClose={handleCloseDetails}
-              formatCurrency={(amount) => formatCurrency(amount, detailsCommande?.currency)}
+              formatCurrency={formatCurrency}
               formatNumber={(value) => new Intl.NumberFormat('fr-FR').format(value || 0)}
             />
           </div>
