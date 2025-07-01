@@ -346,21 +346,37 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     
     updatedItems[index][field] = value;
     
+    // Récupérer le poids par carton de l'article sélectionné pour les calculs
+    let kgParCarton = 20; // valeur par défaut
+    if (updatedItems[index].article) {
+      const selectedArticle = articles.find(art => art._id === updatedItems[index].article);
+      if (selectedArticle && selectedArticle.kgParCarton) {
+        kgParCarton = selectedArticle.kgParCarton;
+      }
+    }
+    
+    // Calculs selon le champ modifié
     if (field === 'quantiteKg' || field === 'prixUnitaire' || field === 'article') {
       const quantiteKg = parseFloat(updatedItems[index].quantiteKg) || 0;
       const prixUnitaire = parseFloat(updatedItems[index].prixUnitaire) || 0;
       
-      // Récupérer le poids par carton de l'article sélectionné
-      let kgParCarton = 20; // valeur par défaut
-      if (updatedItems[index].article) {
-        const selectedArticle = articles.find(art => art._id === updatedItems[index].article);
-        if (selectedArticle && selectedArticle.kgParCarton) {
-          kgParCarton = selectedArticle.kgParCarton;
-        }
+      // Si on modifie les Kg, recalculer les cartons
+      if (field === 'quantiteKg' || field === 'article') {
+        const cartons = quantiteKg / kgParCarton;
+        updatedItems[index].quantiteCarton = Math.round(cartons * 100) / 100; // Arrondir à 2 décimales
       }
       
-      updatedItems[index].quantiteCarton = quantiteKg / kgParCarton;
-      updatedItems[index].prixTotal = prixUnitaire * quantiteKg;
+      updatedItems[index].prixTotal = Math.round(prixUnitaire * quantiteKg * 100) / 100; // Arrondir à 2 décimales
+    }
+    
+    // Si on modifie les cartons, recalculer les Kg
+    if (field === 'quantiteCarton') {
+      const quantiteCarton = parseFloat(updatedItems[index].quantiteCarton) || 0;
+      const prixUnitaire = parseFloat(updatedItems[index].prixUnitaire) || 0;
+      
+      const kg = quantiteCarton * kgParCarton;
+      updatedItems[index].quantiteKg = Math.round(kg * 100) / 100; // Arrondir à 2 décimales
+      updatedItems[index].prixTotal = Math.round(prixUnitaire * kg * 100) / 100; // Arrondir à 2 décimales
     }
     
     // Effacer le message d'erreur s'il y en a un
@@ -1238,11 +1254,21 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                       onChange={(e) => updateItem(index, 'quantiteKg', e.target.value)}
                       disabled={formData.statutBonDeCommande === 'LIVREE'}
                     />
+                    {/* Indicateur de conversion Kg/Cartons */}
+                    {formData.statutBonDeCommande !== 'LIVREE' && item.article && (() => {
+                      const selectedArticle = articles.find(art => art._id === item.article);
+                      const kgParCarton = selectedArticle?.kgParCarton || 20;
+                      return (
+                        <div className="absolute -bottom-5 left-0 text-xs text-blue-600">
+                          💡 {kgParCarton} Kg/carton
+                        </div>
+                      );
+                    })()}
                     {/* Indicateur de stock en temps réel pour la création */}
                     {formData.statutBonDeCommande !== 'LIVREE' && item.article && item.depot && item.quantiteKg && (() => {
                       const status = getStockStatus(item, index);
                       return status && status.type !== 'success' ? (
-                        <div className="absolute -bottom-6 left-0 text-xs text-orange-600">
+                        <div className="absolute -bottom-8 left-0 text-xs text-orange-600">
                           {status.type === 'warning' ? '⚠️ Stock partiel' : '❌ Stock indisponible'}
                         </div>
                       ) : null;
@@ -1262,12 +1288,18 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   />
                 </div>
                 <div className="flex flex-col">
-                  <label className="mb-1 text-sm font-medium text-gray-700">Quantité (Cartons)</label>
+                  <label className="mb-1 text-sm font-medium text-gray-700">
+                    Quantité (Cartons)
+                    <span className="text-xs text-gray-500 ml-1">↔️ Synchronisé avec Kg</span>
+                  </label>
                   <input
                     type="number"
-                    className="p-2 border rounded bg-gray-100 border-gray-300"
+                    step="0.01"
+                    placeholder="0"
+                    className={getInputClass(item.quantiteCarton, formData.statutBonDeCommande === 'LIVREE' ? 'bg-gray-200' : '')}
                     value={item.quantiteCarton}
-                    readOnly
+                    onChange={(e) => updateItem(index, 'quantiteCarton', e.target.value)}
+                    disabled={formData.statutBonDeCommande === 'LIVREE'}
                   />
                 </div>
                 <div className="flex flex-col">
