@@ -47,6 +47,8 @@ const ClientOrderHistory = () => {
     commandesIncompletes: 0
   });
 
+  const [statisticsByCurrency, setStatisticsByCurrency] = useState({});
+
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
 
@@ -122,26 +124,60 @@ const ClientOrderHistory = () => {
       commandesEnCours: 0,
       commandesIncompletes: 0
     };
+
+    // Statistiques par devise
+    const statsByCurrency = {};
+
     filteredCommandes.forEach(c => {
-      stats.montantTotal += c.prixTotal || 0;
+      const currency = c.currency || 'EUR';
       const paye = c.montantPaye || 0;
-      stats.reliquatGeneral += (c.prixTotal || 0) - paye;
+      const reliquat = (c.prixTotal || 0) - paye;
+
+      // Statistiques globales
+      stats.montantTotal += c.prixTotal || 0;
+      stats.reliquatGeneral += reliquat;
+
+      // Initialiser la devise si elle n'existe pas
+      if (!statsByCurrency[currency]) {
+        statsByCurrency[currency] = {
+          totalCommandes: 0,
+          montantTotal: 0,
+          montantPaye: 0,
+          reliquat: 0,
+          commandesLivrees: 0,
+          commandesEnCours: 0,
+          commandesIncompletes: 0
+        };
+      }
+
+      // Statistiques par devise
+      statsByCurrency[currency].totalCommandes++;
+      statsByCurrency[currency].montantTotal += c.prixTotal || 0;
+      statsByCurrency[currency].montantPaye += paye;
+      statsByCurrency[currency].reliquat += reliquat;
+
+      // Compter les statuts
       switch (c.statutBonDeCommande) {
         case 'LIVREE':
         case 'COMPLET':
           stats.commandesLivrees++;
+          statsByCurrency[currency].commandesLivrees++;
           break;
         case 'INCOMPLET':
         case 'A_COMPLETER':
         case 'PARTIELLEMENT_LIVREE':
         case 'AVEC_QUANTITES_MANQUANTES':
           stats.commandesIncompletes++;
+          statsByCurrency[currency].commandesIncompletes++;
           break;
         default:
           stats.commandesEnCours++;
+          statsByCurrency[currency].commandesEnCours++;
       }
     });
+
     setStatistics(stats);
+    setStatisticsByCurrency(statsByCurrency);
   };
 
   const formatNumber = (value) =>
@@ -306,8 +342,62 @@ const ClientOrderHistory = () => {
           </div>
         </div>
 
+        {/* Bannières par devise */}
+        {Object.keys(statisticsByCurrency).length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Résumé par Devise</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Object.entries(statisticsByCurrency)
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([currency, stats]) => (
+                <div key={currency} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold text-blue-900">{currency}</h3>
+                    <div className="bg-blue-100 px-2 py-1 rounded-full">
+                      <span className="text-sm font-medium text-blue-800">
+                        {stats.totalCommandes} commande{stats.totalCommandes > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Montant Total</span>
+                      <span className="font-semibold text-green-700">
+                        {formatCurrency(stats.montantTotal, currency)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Montant Payé</span>
+                      <span className="font-semibold text-blue-700">
+                        {formatCurrency(stats.montantPaye, currency)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center border-t pt-2">
+                      <span className="text-sm font-medium text-gray-700">Reliquat</span>
+                      <span className={`font-bold text-lg ${
+                        stats.reliquat > 0 ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {formatCurrency(stats.reliquat, currency)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between text-xs text-gray-500 pt-1">
+                      <span>✓ {stats.commandesLivrees} livrées</span>
+                      <span>⏳ {stats.commandesEnCours} en cours</span>
+                      <span>⚠️ {stats.commandesIncompletes} incomplètes</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Statistiques */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        {/* <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           {[
             { label: 'Total Commandes', value: statistics.totalCommandes, color: 'blue' },
             { label: 'Montant Total',   value: formatCurrency(statistics.montantTotal),   color: 'green' },
@@ -321,7 +411,7 @@ const ClientOrderHistory = () => {
               <div className="text-sm text-gray-600">{stat.label}</div>
             </div>
           ))}
-        </div>
+        </div> */}
 
         {/* Filtres */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
