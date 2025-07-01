@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import axios from '../api/axios';
 import Button from './Button';
-import CommandeDetails from './CommandeDetails';
+// Chargement paresseux du composant de détails pour réduire le bundle initial
+
 import {
   CheckCircleIcon,
   ExclamationCircleIcon,
@@ -10,6 +11,8 @@ import {
 } from '@heroicons/react/24/solid';
 import { ArrowPathIcon } from '@heroicons/react/24/outline';
 import Pagination from './Pagination';
+
+const CommandeDetails = React.lazy(() => import('./CommandeDetails'));
 
 function PaymentList() {
   const [commandes, setCommandes] = useState([]);
@@ -28,35 +31,83 @@ function PaymentList() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // État pour les statistiques par devise
+  // Statistiques par devise
   const [statisticsByCurrency, setStatisticsByCurrency] = useState({});
 
-  // Calcul des éléments à afficher pour la pagination
+  // Calcul des indices pour la pagination
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filtered.slice(indexOfFirstItem, indexOfLastItem);
 
-  // Calcul des totaux sur l'ensemble des commandes filtrées
-  const totals = filtered.reduce(
-    (acc, cmd) => {
-      acc.prixTotal += cmd.prixTotal || 0;
-      acc.montantPaye += cmd.montantPaye || 0;
-      acc.reliquat += cmd.reliquat || 0;
-      return acc;
-    },
-    { prixTotal: 0, montantPaye: 0, reliquat: 0 }
-  );
+  // Totaux globaux (toutes devises confondues) sur les commandes filtrées
+  const totals = filtered.reduce((acc, cmd) => {
+    acc.prixTotal += cmd.prixTotal || 0;
+    acc.montantPaye += cmd.montantPaye || 0;
+    acc.reliquat += cmd.reliquat || 0;
+    return acc;
+  }, { prixTotal: 0, montantPaye: 0, reliquat: 0 });
 
-  // Calcul des statistiques par devise
-  const calculateStatisticsByCurrency = () => {
+  // Formateur de montant en devise (gère EUR vs USD pour format local)
+  const formatCurrency = (amount, currency = 'EUR') => {
+    if (amount == null) {
+      return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        .format(0) + ' ' + currency;
+    }
+    return new Intl.NumberFormat(
+      currency === 'USD' ? 'en-US' : 'fr-FR',
+      { style: 'currency', currency, minimumFractionDigits: 2 }
+    ).format(amount);
+  };
+
+  // Charger la liste de toutes les commandes *et* des clients au montage du composant
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        // On peut appeler l'API en mode "minimal" pour n'obtenir que les champs nécessaires
+        const [cmdRes, cliRes] = await Promise.all([
+          axios.get('/commandes?minimal=true'),   // n'obtient que les champs légers des commandes
+          axios.get('/clients'),
+        ]);
+        setCommandes(cmdRes.data);
+        setClients(cliRes.data);
+        setFiltered(cmdRes.data);
+      } catch (err) {
+        console.error('Erreur:', err);
+        setError('Erreur de chargement des données');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Filtrage local des commandes en fonction des sélections (client, référence, devise)
+  useEffect(() => {
+    let result = [...commandes];
+    if (selectedClient) {
+      result = result.filter(cmd => cmd.client?._id === selectedClient);
+    }
+    if (searchRef) {
+      result = result.filter(cmd =>
+        cmd.reference?.toLowerCase().includes(searchRef.toLowerCase())
+      );
+    }
+    if (selectedCurrency) {
+      result = result.filter(cmd => cmd.currency === selectedCurrency);
+    }
+    setFiltered(result);
+    setCurrentPage(1);  // Réinitialiser à la première page à chaque nouveau filtre
+  }, [commandes, selectedClient, searchRef, selectedCurrency]);
+
+  // Calculer les statistiques par devise à chaque changement de la liste filtrée
+  useEffect(() => {
     const statsByCurrency = {};
-    
     filtered.forEach(cmd => {
       const currency = cmd.currency || 'EUR';
       const paye = cmd.montantPaye || 0;
       const reliquat = (cmd.prixTotal || 0) - paye;
-
-      // Initialiser la devise si elle n'existe pas
       if (!statsByCurrency[currency]) {
         statsByCurrency[currency] = {
           totalCommandes: 0,
@@ -68,14 +119,10 @@ function PaymentList() {
           commandesNonPaye: 0
         };
       }
-
-      // Statistiques par devise
       statsByCurrency[currency].totalCommandes++;
       statsByCurrency[currency].montantTotal += cmd.prixTotal || 0;
       statsByCurrency[currency].montantPaye += paye;
       statsByCurrency[currency].reliquat += reliquat;
-
-      // Compter les statuts de paiement
       switch (cmd.statutDePaiement) {
         case 'PAYE':
           statsByCurrency[currency].commandesPaye++;
@@ -88,124 +135,52 @@ function PaymentList() {
           statsByCurrency[currency].commandesNonPaye++;
       }
     });
-
     setStatisticsByCurrency(statsByCurrency);
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    filterCommandes();
-  }, [commandes, selectedClient, searchRef, selectedCurrency]);
-
-  useEffect(() => {
-    calculateStatisticsByCurrency();
   }, [filtered]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const [cmdRes, cliRes] = await Promise.all([
-        axios.get('/commandes'),
-        axios.get('/clients'),
-      ]);
-
-      setCommandes(cmdRes.data);
-      setClients(cliRes.data);
-      setFiltered(cmdRes.data);
-    } catch (err) {
-      console.error('Erreur:', err);
-      setError('Erreur de chargement des données');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterCommandes = () => {
-    let result = [...commandes];
-
-    if (selectedClient) {
-      result = result.filter((cmd) => cmd.client?._id === selectedClient);
-    }
-
-    if (searchRef) {
-      result = result.filter((cmd) =>
-        cmd.reference?.toLowerCase().includes(searchRef.toLowerCase())
-      );
-    }
-
-    if (selectedCurrency) {
-      result = result.filter((cmd) => cmd.currency === selectedCurrency);
-    }
-
-    setFiltered(result);
-  };
-
+  // Réinitialiser tous les filtres
   const resetFilters = () => {
     setSelectedClient('');
     setSearchRef('');
     setSelectedCurrency('');
   };
 
-  // Fonction formatCurrency améliorée qui prend en compte la devise
-  const formatCurrency = (amount, currency = 'EUR') => {
-    if (amount == null) return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(0) + ' ' + currency;
-    
-    return new Intl.NumberFormat(
-      currency === 'USD' ? 'en-US' : 'fr-FR',
-      { 
-        style: 'currency', 
-        currency, 
-        minimumFractionDigits: 2 
-      }
-    ).format(amount);
-  };
-
-  // Obtenir la liste des devises uniques
+  // Liste des devises disponibles dans les commandes (pour alimenter le <select>)
   const getAvailableCurrencies = () => {
     const currencies = [...new Set(commandes.map(cmd => cmd.currency).filter(Boolean))];
     return currencies.sort();
   };
 
-  // Génère un badge de statut de paiement
+  // Génération d'un badge visuel pour le statut de paiement
   const getPaymentBadge = (etatPaiement) => {
     const config = {
       PAYE: {
-        color: 'bg-green-800 text-white',
-        icon: <CheckCircleIcon className="h-4 w-4 mr-1" />,
+        bg: 'bg-green-800 text-white',
+        icon: <CheckCircleIcon className="h-4 w-4 mr-1" />
       },
       PARTIELLEMENT_PAYE: {
-        color: 'bg-orange-600 text-white',
-        icon: <ExclamationCircleIcon className="h-4 w-4 mr-1" />,
+        bg: 'bg-orange-600 text-white',
+        icon: <ExclamationCircleIcon className="h-4 w-4 mr-1" />
       },
       NON_PAYE: {
-        color: 'bg-red-800 text-white',
-        icon: <XCircleIcon className="h-4 w-4 mr-1" />,
+        bg: 'bg-red-800 text-white',
+        icon: <XCircleIcon className="h-4 w-4 mr-1" />
       },
       default: {
-        color: 'bg-gray-800 text-white',
-        icon: null,
+        bg: 'bg-gray-800 text-white',
+        icon: null
       },
     };
-
-    const { color, icon } = config[etatPaiement] || config.default;
-
+    const { bg, icon } = config[etatPaiement] || config.default;
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${color}`}>
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${bg}`}>
         {icon}
         {etatPaiement ? etatPaiement.replace(/_/g, ' ') : 'Inconnu'}
       </span>
     );
   };
 
-  // Gestion du popup "Détails"
+  // Ouverture/fermeture du popup de détails
   const handleShowDetails = (cmd) => {
     setDetailsCommande(cmd);
     setShowDetails(true);
@@ -216,12 +191,12 @@ function PaymentList() {
 
   return (
     <div className="p-4 lg:p-6">
-      {/* Header */}
+      {/* Titre de la page */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <h1 className="text-2xl font-bold mb-4 md:mb-0">Gestion des Paiements</h1>
       </div>
 
-      {/* Bannières par devise */}
+      {/* Bannières récap par devise */}
       {Object.keys(statisticsByCurrency).length > 0 && (
         <div className="mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Résumé par Devise</h2>
@@ -229,53 +204,49 @@ function PaymentList() {
             {Object.entries(statisticsByCurrency)
               .sort(([a], [b]) => a.localeCompare(b))
               .map(([currency, stats]) => (
-              <div key={currency} className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-bold text-green-900">{currency}</h3>
-                  <div className="bg-green-100 px-2 py-1 rounded-full">
-                    <span className="text-sm font-medium text-green-800">
-                      {stats.totalCommandes} commande{stats.totalCommandes > 1 ? 's' : ''}
-                    </span>
+                <div key={currency} className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold text-green-900">{currency}</h3>
+                    <div className="bg-green-100 px-2 py-1 rounded-full">
+                      <span className="text-sm font-medium text-green-800">
+                        {stats.totalCommandes} commande{stats.totalCommandes > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Montant Total</span>
+                      <span className="font-semibold text-blue-700">
+                        {formatCurrency(stats.montantTotal, currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Montant Payé</span>
+                      <span className="font-semibold text-green-700">
+                        {formatCurrency(stats.montantPaye, currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center border-t pt-2">
+                      <span className="text-sm font-medium text-gray-700">Reliquat</span>
+                      <span className={`font-bold text-lg ${
+                        stats.reliquat > 0 ? 'text-red-600' : 'text-green-600'
+                      }`}>
+                        {formatCurrency(stats.reliquat, currency)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-500 pt-1">
+                      <span>✅ {stats.commandesPaye} payées</span>
+                      <span>🔶 {stats.commandesPartiellementPaye} partielles</span>
+                      <span>❌ {stats.commandesNonPaye} non payées</span>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Montant Total</span>
-                    <span className="font-semibold text-blue-700">
-                      {formatCurrency(stats.montantTotal, currency)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Montant Payé</span>
-                    <span className="font-semibold text-green-700">
-                      {formatCurrency(stats.montantPaye, currency)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between items-center border-t pt-2">
-                    <span className="text-sm font-medium text-gray-700">Reliquat</span>
-                    <span className={`font-bold text-lg ${
-                      stats.reliquat > 0 ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {formatCurrency(stats.reliquat, currency)}
-                    </span>
-                  </div>
-                  
-                  <div className="flex justify-between text-xs text-gray-500 pt-1">
-                    <span>✅ {stats.commandesPaye} payées</span>
-                    <span>🔶 {stats.commandesPartiellementPaye} partielles</span>
-                    <span>❌ {stats.commandesNonPaye} non payées</span>
-                  </div>
-                </div>
-              </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Filtres */}
+      {/* Filtres de recherche */}
       <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
@@ -286,14 +257,13 @@ function PaymentList() {
               onChange={(e) => setSelectedClient(e.target.value)}
             >
               <option value="">Tous les clients</option>
-              {clients.map((cli) => (
+              {clients.map(cli => (
                 <option key={cli._id} value={cli._id}>
                   {cli.raisonSociale}
                 </option>
               ))}
             </select>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Référence</label>
             <input
@@ -304,7 +274,6 @@ function PaymentList() {
               onChange={(e) => setSearchRef(e.target.value)}
             />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Devise</label>
             <select
@@ -313,14 +282,13 @@ function PaymentList() {
               onChange={(e) => setSelectedCurrency(e.target.value)}
             >
               <option value="">Toutes les devises</option>
-              {getAvailableCurrencies().map((currency) => (
+              {getAvailableCurrencies().map(currency => (
                 <option key={currency} value={currency}>
                   {currency}
                 </option>
               ))}
             </select>
           </div>
-
           <div className="flex items-end">
             <Button
               onClick={resetFilters}
@@ -335,105 +303,103 @@ function PaymentList() {
         </div>
       </div>
 
-      {/* Erreur */}
+      {/* Message d'erreur si échec */}
       {error && (
         <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-4">
           {error} - Veuillez rafraîchir la page
         </div>
       )}
 
-      {/* Loading */}
+      {/* Indicateur de chargement */}
       {loading ? (
         <div className="text-center py-8">
           <div className="animate-spin inline-block w-8 h-8 border-4 border-blue-500 rounded-full border-t-transparent"></div>
           <p className="mt-2 text-gray-600">Chargement en cours...</p>
         </div>
       ) : filtered.length === 0 ? (
-        // Aucun résultat
+        // Aucun résultat après filtrage
         <div className="text-center py-12 bg-white rounded-lg border">
           <InformationCircleIcon className="h-12 w-12 mx-auto text-gray-400" />
           <h3 className="mt-4 text-lg font-medium">Aucune commande trouvée</h3>
-          <p className="mt-1 text-gray-500">Essayez d'ajuster vos filtres de recherche</p>
+          <p className="mt-1 text-gray-500">Essayez d’ajuster vos filtres de recherche</p>
         </div>
       ) : (
-        // Tableau avec ligne de totaux et bordures style Excel
+        // Tableau des résultats avec ligne de total en pied
         <div className="overflow-x-auto rounded-lg border shadow-sm">
           <table className="min-w-full border-collapse border border-gray-400">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">Référence</th>
-                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">Client</th>
-                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border border-gray-400">Prix Total</th>
-                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border border-gray-400">Montant Payé</th>
-                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border border-gray-400">Reliquat</th>
-                <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">Devise</th>
-                <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">Statut Paiement</th>
-                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border border-gray-400">Date Livraison</th>
-                {/* <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">Actions</th> */}
+                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border">Référence</th>
+                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border">Client</th>
+                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border">Prix Total</th>
+                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border">Montant Payé</th>
+                <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border">Reliquat</th>
+                <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border">Devise</th>
+                <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border">Statut Paiement</th>
+                <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border">Date Livraison</th>
               </tr>
             </thead>
             <tbody className="bg-white">
-              {currentItems.map((cmd) => (
+              {currentItems.map(cmd => (
                 <tr key={cmd._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-900 border border-gray-400">
+                  <td className="px-4 py-3 text-sm text-gray-900 border">
                     <div className="font-medium">{cmd.reference}</div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 border border-gray-400">
+                  <td className="px-4 py-3 text-sm text-gray-500 border">
                     {cmd.client?.raisonSociale || '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border border-gray-400">
+                  <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border">
                     {formatCurrency(cmd.prixTotal, cmd.currency)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border border-gray-400">
+                  <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border">
                     {formatCurrency(cmd.montantPaye, cmd.currency)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border border-gray-400">
+                  <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border">
                     {formatCurrency(cmd.reliquat, cmd.currency)}
                   </td>
-                  <td className="px-4 py-3 text-center text-sm text-gray-700 font-medium border border-gray-400">
+                  <td className="px-4 py-3 text-center text-sm text-gray-700 font-medium border">
                     {cmd.currency || 'EUR'}
                   </td>
-                  <td className="px-4 py-3 text-center border border-gray-400">
+                  <td className="px-4 py-3 text-center border">
                     {getPaymentBadge(cmd.statutDePaiement)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 border border-gray-400">
+                  <td className="px-4 py-3 text-sm text-gray-500 border">
                     {cmd.datePrevueDeChargement
                       ? new Date(cmd.datePrevueDeChargement).toLocaleDateString()
                       : '—'}
                   </td>
-                  {/* <td className="px-4 py-3 text-center border border-gray-400">
-                    <button
-                      onClick={() => handleShowDetails(cmd)}
-                      className="p-2 text-gray-600 hover:bg-blue-50 rounded-md"
-                      title="Détails"
-                    >
-                      <InformationCircleIcon className="h-5 w-5" />
-                    </button>
-                  </td> */}
                 </tr>
               ))}
             </tbody>
             <tfoot className="bg-gray-100">
               <tr>
-                <td className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400" colSpan="2">
+                <td className="px-4 py-3 text-sm font-bold text-gray-700 border" colSpan="2">
                   Total {selectedCurrency ? `(${selectedCurrency})` : '(toutes devises)'}
                 </td>
-                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-blue-800 border border-gray-400">
-                  {selectedCurrency ? formatCurrency(totals.prixTotal, selectedCurrency) : `${totals.prixTotal.toLocaleString('fr-FR', {minimumFractionDigits: 2})}`}
+                {/* On affiche les totaux en distinguant le cas multi-devises (pas de format currency global) */}
+                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-blue-800 border">
+                  {selectedCurrency 
+                    ? formatCurrency(totals.prixTotal, selectedCurrency) 
+                    : totals.prixTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
                 </td>
-                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-green-800 border border-gray-400">
-                  {selectedCurrency ? formatCurrency(totals.montantPaye, selectedCurrency) : `${totals.montantPaye.toLocaleString('fr-FR', {minimumFractionDigits: 2})}`}
+                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-green-800 border">
+                  {selectedCurrency 
+                    ? formatCurrency(totals.montantPaye, selectedCurrency) 
+                    : totals.montantPaye.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
                 </td>
-                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-red-800 border border-gray-400">
-                  {selectedCurrency ? formatCurrency(totals.reliquat, selectedCurrency) : `${totals.reliquat.toLocaleString('fr-FR', {minimumFractionDigits: 2})}`}
+                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-red-800 border">
+                  {selectedCurrency 
+                    ? formatCurrency(totals.reliquat, selectedCurrency) 
+                    : totals.reliquat.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
                 </td>
-                <td className="border border-gray-400" colSpan="4"></td>
+                <td className="border" colSpan="4"></td>
               </tr>
             </tfoot>
           </table>
         </div>
       )}
 
+      {/* Pagination */}
       {filtered.length > 0 && (
         <Pagination
           currentPage={currentPage}
@@ -444,16 +410,18 @@ function PaymentList() {
         />
       )}
 
-      {/* Modal Détails */}
+      {/* Modal de détails, chargé en lazy loading */}
       {showDetails && detailsCommande && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-8">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[100vh] overflow-y-auto">
-            <CommandeDetails 
-              commande={detailsCommande} 
-              onClose={handleCloseDetails}
-              formatCurrency={(amount) => formatCurrency(amount, detailsCommande?.currency)}
-              formatNumber={(value) => new Intl.NumberFormat('fr-FR').format(value || 0)}
-            />
+            <Suspense fallback={<div className="p-6">Chargement des détails...</div>}>
+              <CommandeDetails 
+                commande={detailsCommande} 
+                onClose={handleCloseDetails}
+                formatCurrency={(amount) => formatCurrency(amount, detailsCommande?.currency)}
+                formatNumber={(value) => new Intl.NumberFormat('fr-FR').format(value || 0)}
+              />
+            </Suspense>
           </div>
         </div>
       )}

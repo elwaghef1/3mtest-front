@@ -28,6 +28,7 @@ const ClientOrderHistory = () => {
 
   const [client, setClient] = useState(null);
   const [commandes, setCommandes] = useState([]);
+  const [filteredCommandes, setFilteredCommandes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -36,7 +37,6 @@ const ClientOrderHistory = () => {
 
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
-  const [filteredCommandes, setFilteredCommandes] = useState([]);
 
   const [statistics, setStatistics] = useState({
     totalCommandes: 0,
@@ -46,66 +46,70 @@ const ClientOrderHistory = () => {
     commandesEnCours: 0,
     commandesIncompletes: 0
   });
-
   const [statisticsByCurrency, setStatisticsByCurrency] = useState({});
 
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedCommande, setSelectedCommande] = useState(null);
 
-  // --- Helpers PDF number formatting (identical to StockList) ---
-  const pdfNumber = (value) => {
-    const num = parseFloat(value || 0);
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-      useGrouping: true
-    }).format(num).replace(/\s/g, '\u00A0');
+  // Formatage de nombres (utilisé pour PDF/export et affichage)
+  const formatNumber = (value) =>
+    new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      .format(value || 0);
+  const formatCurrency = (amount, currency = 'EUR') => {
+    if (amount == null) return formatNumber(0) + ' ' + currency;
+    return new Intl.NumberFormat(
+      currency === 'USD' ? 'en-US' : 'fr-FR',
+      { style: 'currency', currency, minimumFractionDigits: 2 }
+    ).format(amount);
   };
-  const pdfNumberDecimal = (value) => {
-    const num = parseFloat(value || 0);
-    return new Intl.NumberFormat('fr-FR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-      useGrouping: true
-    }).format(num).replace(/\s/g, '\u00A0');
-  };
-  // ------------------------------------------------------------
 
+  // Icônes et libellés de statuts
+  const getStatusIcon = (statut) => {
+    if (['LIVREE','COMPLET'].includes(statut))
+      return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
+    if (['INCOMPLET','A_COMPLETER','PARTIELLEMENT_LIVREE','AVEC_QUANTITES_MANQUANTES'].includes(statut))
+      return <ExclamationCircleIcon className="h-5 w-5 text-orange-500" />;
+    if (statut === 'EN_ATTENTE_STOCK')
+      return <ClockIcon className="h-5 w-5 text-purple-500" />;
+    return <ClockIcon className="h-5 w-5 text-blue-500" />;
+  };
+  const getStatusLabel = (statut) => ({
+    EN_COURS: 'En cours',
+    LIVREE: 'Livrée',
+    INCOMPLET: 'Incomplet',
+    A_COMPLETER: 'À compléter',
+    COMPLET: 'Complet',
+    EN_ATTENTE_STOCK: 'En attente stock',
+    PARTIELLEMENT_LIVREE: 'Partiellement livrée',
+    AVEC_QUANTITES_MANQUANTES: 'Quantités manquantes'
+  }[statut] || statut);
+
+  const calculateReliquatCommande = (c) =>
+    (c.prixTotal || 0) - (c.montantPaye || 0);
+
+  // Fetch des données client et commandes à l'initialisation
   useEffect(() => {
-    fetchClientData();
-    fetchCommandesData();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [clientRes, commandesRes] = await Promise.all([
+          axios.get(`/clients/${clientId}`),
+          axios.get(`/commandes?client=${clientId}`)  // Filtre côté API par client
+        ]);
+        setClient(clientRes.data);
+        setCommandes(commandesRes.data);
+        setError(null);
+      } catch {
+        setError("Erreur lors du chargement des données du client ou des commandes");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, [clientId]);
 
+  // Application des filtres de date à chaque changement
   useEffect(() => {
-    applyFilters();
-  }, [commandes, startDate, endDate]);
-
-  useEffect(() => {
-    calculateStatistics();
-  }, [filteredCommandes]);
-
-  const fetchClientData = async () => {
-    try {
-      const res = await axios.get(`/clients/${clientId}`);
-      setClient(res.data);
-    } catch {
-      setError('Client non trouvé');
-    }
-  };
-
-  const fetchCommandesData = async () => {
-    try {
-      setLoading(true);
-      const res = await axios.get(`/commandes?client=${clientId}`);
-      setCommandes(res.data);
-    } catch {
-      setError('Erreur lors du chargement des commandes');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const applyFilters = () => {
     let filt = [...commandes];
     if (startDate && endDate) {
       filt = filt.filter(c =>
@@ -113,9 +117,10 @@ const ClientOrderHistory = () => {
       );
     }
     setFilteredCommandes(filt);
-  };
+  }, [commandes, startDate, endDate]);
 
-  const calculateStatistics = () => {
+  // Calcul des statistiques globales et par devise à chaque mise à jour de la liste filtrée
+  useEffect(() => {
     const stats = {
       totalCommandes: filteredCommandes.length,
       montantTotal: 0,
@@ -124,39 +129,27 @@ const ClientOrderHistory = () => {
       commandesEnCours: 0,
       commandesIncompletes: 0
     };
-
-    // Statistiques par devise
     const statsByCurrency = {};
-
     filteredCommandes.forEach(c => {
       const currency = c.currency || 'EUR';
       const paye = c.montantPaye || 0;
       const reliquat = (c.prixTotal || 0) - paye;
-
-      // Statistiques globales
+      // Cumuler stats globales
       stats.montantTotal += c.prixTotal || 0;
       stats.reliquatGeneral += reliquat;
-
-      // Initialiser la devise si elle n'existe pas
+      // Initialiser stats devise
       if (!statsByCurrency[currency]) {
         statsByCurrency[currency] = {
-          totalCommandes: 0,
-          montantTotal: 0,
-          montantPaye: 0,
-          reliquat: 0,
-          commandesLivrees: 0,
-          commandesEnCours: 0,
-          commandesIncompletes: 0
+          totalCommandes: 0, montantTotal: 0, montantPaye: 0, reliquat: 0,
+          commandesLivrees: 0, commandesEnCours: 0, commandesIncompletes: 0
         };
       }
-
-      // Statistiques par devise
+      // Cumuler stats par devise
       statsByCurrency[currency].totalCommandes++;
       statsByCurrency[currency].montantTotal += c.prixTotal || 0;
       statsByCurrency[currency].montantPaye += paye;
       statsByCurrency[currency].reliquat += reliquat;
-
-      // Compter les statuts
+      // Compter les statuts par devise et globalement
       switch (c.statutBonDeCommande) {
         case 'LIVREE':
         case 'COMPLET':
@@ -175,120 +168,85 @@ const ClientOrderHistory = () => {
           statsByCurrency[currency].commandesEnCours++;
       }
     });
-
     setStatistics(stats);
     setStatisticsByCurrency(statsByCurrency);
-  };
+  }, [filteredCommandes]);
 
-  const formatNumber = (value) =>
-    new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-      .format(value || 0);
-
-  const formatCurrency = (amount, currency = 'EUR') => {
-    if (amount == null) return formatNumber(0) + ' ' + currency;
-    return new Intl.NumberFormat(
-      currency === 'USD' ? 'en-US' : 'fr-FR',
-      { style: 'currency', currency, minimumFractionDigits: 2 }
-    ).format(amount);
-  };
-
-  const getStatusIcon = statut => {
-    if (['LIVREE','COMPLET'].includes(statut))
-      return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
-    if (['INCOMPLET','A_COMPLETER','PARTIELLEMENT_LIVREE','AVEC_QUANTITES_MANQUANTES'].includes(statut))
-      return <ExclamationCircleIcon className="h-5 w-5 text-orange-500" />;
-    if (statut === 'EN_ATTENTE_STOCK')
-      return <ClockIcon className="h-5 w-5 text-purple-500" />;
-    return <ClockIcon className="h-5 w-5 text-blue-500" />;
-  };
-
-  const getStatusLabel = statut => ({
-    EN_COURS: 'En cours',
-    LIVREE: 'Livrée',
-    INCOMPLET: 'Incomplet',
-    A_COMPLETER: 'À compléter',
-    COMPLET: 'Complet',
-    EN_ATTENTE_STOCK: 'En attente stock',
-    PARTIELLEMENT_LIVREE: 'Partiellement livrée',
-    AVEC_QUANTITES_MANQUANTES: 'Quantités manquantes'
-  }[statut] || statut);
-
-  const calculateReliquatCommande = c =>
-    (c.prixTotal || 0) - (c.montantPaye || 0);
-
-  const getDocStatusIcon = value => {
-    if (['ENVOYEE DHL','FAIT','IMPRIME','APPROUVEE','PRET'].includes(value))
-      return <CheckCircleIcon className="h-4 w-4 text-green-500" />;
-    if (['ENVOYEE','DEPOSEE'].includes(value))
-      return <ExclamationCircleIcon className="h-4 w-4 text-yellow-500" />;
-    return <ClockIcon className="h-4 w-4 text-gray-500" />;
-  };
-
-  const exportToExcel = () => {
-    const data = filteredCommandes.map(c => ({
-      Référence: c.reference,
-      Date: moment(c.dateCommande).format('DD/MM/YYYY'),
-      Statut: getStatusLabel(c.statutBonDeCommande),
-      'Montant Total': formatNumber(c.prixTotal),
-      'Montant Payé': formatNumber(c.montantPaye),
-      Reliquat: formatNumber(calculateReliquatCommande(c)),
-      Devise: c.currency
-    }));
-    data.push(
-      {},
-      { Référence: 'STATISTIQUES' },
-      { Référence: 'Total Commandes', Date: formatNumber(statistics.totalCommandes) },
-      { Référence: 'Montant Total', Date: formatNumber(statistics.montantTotal) },
-      { Référence: 'Reliquat Général', Date: formatNumber(statistics.reliquatGeneral) }
-    );
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Historique Commandes');
-    XLSX.writeFile(
-      wb,
-      `historique_commandes_${client?.raisonSociale || 'client'}_${moment().format('YYYY-MM-DD')}.xlsx`
-    );
-  };
-
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.text('Historique des Commandes', 20, 20);
-
-    if (client) {
-      doc.setFontSize(12);
-      doc.text(`Client: ${client.raisonSociale}`, 20, 35);
+  // Export Excel – importation dynamique de XLSX pour alléger le bundle initial
+  const exportToExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');  // Chargement dynamique
+      const data = filteredCommandes.map(c => ({
+        Référence: c.reference,
+        Date: moment(c.dateCommande).format('DD/MM/YYYY'),
+        Statut: getStatusLabel(c.statutBonDeCommande),
+        'Montant Total': formatNumber(c.prixTotal),
+        'Montant Payé': formatNumber(c.montantPaye),
+        Reliquat: formatNumber(calculateReliquatCommande(c)),
+        Devise: c.currency
+      }));
+      // Ajout de quelques statistiques de synthèse à la fin
+      data.push(
+        {},
+        { Référence: 'STATISTIQUES' },
+        { Référence: 'Total Commandes', Date: formatNumber(statistics.totalCommandes) },
+        { Référence: 'Montant Total', Date: formatNumber(statistics.montantTotal) },
+        { Référence: 'Reliquat Général', Date: formatNumber(statistics.reliquatGeneral) }
+      );
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Historique Commandes');
+      XLSX.writeFile(
+        wb,
+        `historique_commandes_${client?.raisonSociale || 'client'}_${moment().format('YYYY-MM-DD')}.xlsx`
+      );
+    } catch (err) {
+      console.error("Erreur lors de l'export Excel :", err);
     }
+  };
 
-    // Statistiques format PDF
-    doc.setFontSize(14);
-    doc.text('Statistiques', 20, 65);
-    doc.setFontSize(10);
-    doc.text(`Total commandes: ${pdfNumber(statistics.totalCommandes)}`, 20, 75);
-    doc.text(`Montant total: ${pdfNumberDecimal(statistics.montantTotal)} €`, 20, 85);
-    doc.text(`Reliquat général: ${pdfNumberDecimal(statistics.reliquatGeneral)} €`, 20, 95);
-
-    // Tableau des commandes
-    const tableData = filteredCommandes.map(c => [
-      c.reference,
-      moment(c.dateCommande).format('DD/MM/YYYY'),
-      getStatusLabel(c.statutBonDeCommande),
-      `${pdfNumberDecimal(c.prixTotal)} ${c.currency}`,
-      `${pdfNumberDecimal(c.montantPaye)} ${c.currency}`,
-      `${pdfNumberDecimal(calculateReliquatCommande(c))} ${c.currency}`
-    ]);
-
-    doc.autoTable({
-      head: [['Référence','Date','Statut','Montant Total','Montant Payé','Reliquat']],
-      body: tableData,
-      startY: 110,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [71,85,105] }
-    });
-
-    doc.save(
-      `historique_commandes_${client?.raisonSociale || 'client'}_${moment().format('YYYY-MM-DD')}.pdf`
-    );
+  // Export PDF – importation dynamique de jsPDF et autoTable uniquement au clic
+  const exportToPDF = async () => {
+    try {
+      const jsPDFModule = await import('jspdf');
+      const jsPDF = jsPDFModule.default;
+      await import('jspdf-autotable');  // charge la dépendance pour les tableaux
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.text('Historique des Commandes', 20, 20);
+      if (client) {
+        doc.setFontSize(12);
+        doc.text(`Client: ${client.raisonSociale}`, 20, 35);
+      }
+      // Statistiques principales dans le PDF
+      doc.setFontSize(14);
+      doc.text('Statistiques', 20, 65);
+      doc.setFontSize(10);
+      doc.text(`Total commandes: ${statistics.totalCommandes}`, 20, 75);
+      doc.text(`Montant total: ${formatNumber(statistics.montantTotal)} €`, 20, 85);
+      doc.text(`Reliquat général: ${formatNumber(statistics.reliquatGeneral)} €`, 20, 95);
+      // Tableau des commandes
+      const tableData = filteredCommandes.map(c => [
+        c.reference,
+        moment(c.dateCommande).format('DD/MM/YYYY'),
+        getStatusLabel(c.statutBonDeCommande),
+        `${formatNumber(c.prixTotal)} ${c.currency}`,
+        `${formatNumber(c.montantPaye)} ${c.currency}`,
+        `${formatNumber(calculateReliquatCommande(c))} ${c.currency}`
+      ]);
+      doc.autoTable({
+        head: [['Référence','Date','Statut','Montant Total','Montant Payé','Reliquat']],
+        body: tableData,
+        startY: 110,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [71,85,105] }
+      });
+      doc.save(
+        `historique_commandes_${client?.raisonSociale || 'client'}_${moment().format('YYYY-MM-DD')}.pdf`
+      );
+    } catch (err) {
+      console.error("Erreur lors de l'export PDF :", err);
+    }
   };
 
   if (error) {
@@ -309,6 +267,7 @@ const ClientOrderHistory = () => {
     );
   }
 
+  // Pagination – indices de début et de fin pour la page courante
   const indexOfLast  = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const currentItems = filteredCommandes.slice(indexOfFirst, indexOfLast);
@@ -342,7 +301,7 @@ const ClientOrderHistory = () => {
           </div>
         </div>
 
-        {/* Bannières par devise */}
+        {/* Bannières récapitulatives par devise */}
         {Object.keys(statisticsByCurrency).length > 0 && (
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Résumé par Devise</h2>
@@ -350,70 +309,49 @@ const ClientOrderHistory = () => {
               {Object.entries(statisticsByCurrency)
                 .sort(([a], [b]) => a.localeCompare(b))
                 .map(([currency, stats]) => (
-                <div key={currency} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-bold text-blue-900">{currency}</h3>
-                    <div className="bg-blue-100 px-2 py-1 rounded-full">
-                      <span className="text-sm font-medium text-blue-800">
-                        {stats.totalCommandes} commande{stats.totalCommandes > 1 ? 's' : ''}
-                      </span>
+                  <div key={currency} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-bold text-blue-900">{currency}</h3>
+                      <div className="bg-blue-100 px-2 py-1 rounded-full">
+                        <span className="text-sm font-medium text-blue-800">
+                          {stats.totalCommandes} commande{stats.totalCommandes > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Montant Total</span>
+                        <span className="font-semibold text-green-700">
+                          {formatCurrency(stats.montantTotal, currency)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Montant Payé</span>
+                        <span className="font-semibold text-blue-700">
+                          {formatCurrency(stats.montantPaye, currency)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-t pt-2">
+                        <span className="text-sm font-medium text-gray-700">Reliquat</span>
+                        <span className={`font-bold text-lg ${
+                          stats.reliquat > 0 ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          {formatCurrency(stats.reliquat, currency)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 pt-1">
+                        <span>✓ {stats.commandesLivrees} livrées</span>
+                        <span>⏳ {stats.commandesEnCours} en cours</span>
+                        <span>⚠️ {stats.commandesIncompletes} incomplètes</span>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Montant Total</span>
-                      <span className="font-semibold text-green-700">
-                        {formatCurrency(stats.montantTotal, currency)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Montant Payé</span>
-                      <span className="font-semibold text-blue-700">
-                        {formatCurrency(stats.montantPaye, currency)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center border-t pt-2">
-                      <span className="text-sm font-medium text-gray-700">Reliquat</span>
-                      <span className={`font-bold text-lg ${
-                        stats.reliquat > 0 ? 'text-red-600' : 'text-green-600'
-                      }`}>
-                        {formatCurrency(stats.reliquat, currency)}
-                      </span>
-                    </div>
-                    
-                    <div className="flex justify-between text-xs text-gray-500 pt-1">
-                      <span>✓ {stats.commandesLivrees} livrées</span>
-                      <span>⏳ {stats.commandesEnCours} en cours</span>
-                      <span>⚠️ {stats.commandesIncompletes} incomplètes</span>
-                    </div>
-                  </div>
-                </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Statistiques */}
-        {/* <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          {[
-            { label: 'Total Commandes', value: statistics.totalCommandes, color: 'blue' },
-            { label: 'Montant Total',   value: formatCurrency(statistics.montantTotal),   color: 'green' },
-            { label: 'Reliquat Général', value: formatCurrency(statistics.reliquatGeneral), color: 'red' },
-            { label: 'Livrées',         value: statistics.commandesLivrees,               color: 'green' },
-            { label: 'En Cours',        value: statistics.commandesEnCours,              color: 'yellow' },
-            { label: 'Incomplètes',     value: statistics.commandesIncompletes,           color: 'orange'}
-          ].map((stat,i) => (
-            <div key={i} className="bg-white rounded-lg shadow p-4">
-              <div className={`text-2xl font-bold text-${stat.color}-600`}>{stat.value}</div>
-              <div className="text-sm text-gray-600">{stat.label}</div>
-            </div>
-          ))}
-        </div> */}
-
-        {/* Filtres */}
+        {/* Filtres de date */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex gap-4 items-center">
@@ -445,7 +383,6 @@ const ClientOrderHistory = () => {
         {/* Tableau des commandes */}
         {loading ? (
           <div className="text-center py-8">
-
             <div className="animate-spin w-8 h-8 border-4 border-blue-500 rounded-full border-t-transparent mx-auto"></div>
             <p className="mt-2 text-gray-600">Chargement en cours...</p>
           </div>
@@ -474,16 +411,22 @@ const ClientOrderHistory = () => {
                     return (
                       <tr key={c._id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 text-gray-900 border">{c.reference}</td>
-                        <td className="px-4 py-3 text-gray-700 border">{moment(c.dateCommande).format('DD/MM/YYYY')}</td>
+                        <td className="px-4 py-3 text-gray-700 border">
+                          {moment(c.dateCommande).format('DD/MM/YYYY')}
+                        </td>
                         <td className="px-4 py-3 border">
                           <div className="flex items-center space-x-2">
                             {getStatusIcon(c.statutBonDeCommande)}
                             <span>{getStatusLabel(c.statutBonDeCommande)}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-900 border">{formatCurrency(c.prixTotal, c.currency)}</td>
-                        <td className="px-4 py-3 text-right text-green-600 border">{formatCurrency(c.montantPaye, c.currency)}</td>
-                        <td className={`px-4 py-3 text-right border ${reliquat>0?'text-red-600 font-medium':'text-green-600'}`}>
+                        <td className="px-4 py-3 text-right text-gray-900 border">
+                          {formatCurrency(c.prixTotal, c.currency)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-green-600 border">
+                          {formatCurrency(c.montantPaye, c.currency)}
+                        </td>
+                        <td className={`px-4 py-3 text-right border ${reliquat > 0 ? 'text-red-600 font-medium' : 'text-green-600'}`}>
                           {formatCurrency(reliquat, c.currency)}
                         </td>
                         <td className="px-4 py-3 text-center border">
@@ -492,7 +435,9 @@ const ClientOrderHistory = () => {
                             variant="primary"
                             size="sm"
                             leftIcon={<EyeIcon className="h-4 w-4" />}
-                          />
+                          >
+                            Voir
+                          </Button>
                         </td>
                       </tr>
                     );
@@ -500,7 +445,7 @@ const ClientOrderHistory = () => {
                 </tbody>
               </table>
             </div>
-
+            {/* Pagination des résultats */}
             <div className="mt-6">
               <Pagination
                 currentPage={currentPage}
@@ -513,7 +458,7 @@ const ClientOrderHistory = () => {
           </>
         )}
 
-        {/* Modal de détails */}
+        {/* Modal Détails de la Commande (pop-up) */}
         {showDetailsModal && selectedCommande && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -526,61 +471,8 @@ const ClientOrderHistory = () => {
                   <XCircleIcon className="h-8 w-8 text-white" />
                 </button>
               </div>
-
               <div className="p-6 space-y-8">
-                {/* Le reste des sections (générales, financières, articles, livraison, documents) */}
-                {/* ... */}
-                <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                  <Button onClick={() => setShowDetailsModal(false)} variant="secondary">
-                    Fermer
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      const data = [{
-                        Référence: selectedCommande.reference,
-                        Date: moment(selectedCommande.dateCommande).format('DD/MM/YYYY'),
-                        Statut: getStatusLabel(selectedCommande.statutBonDeCommande),
-                        'Montant Total': selectedCommande.prixTotal,
-                        'Montant Payé': selectedCommande.montantPaye,
-                        Reliquat: calculateReliquatCommande(selectedCommande),
-                        Devise: selectedCommande.currency,
-                        'N° Booking': selectedCommande.numeroBooking,
-                        'N° Facture': selectedCommande.numeroFacture,
-                        Destination: selectedCommande.destination,
-                        Consigne: selectedCommande.consigne
-                      }];
-                      const ws = XLSX.utils.json_to_sheet(data);
-                      const wb = XLSX.utils.book_new();
-                      XLSX.utils.book_append_sheet(wb, ws, 'Détails Commande');
-                      XLSX.writeFile(wb, `details_commande_${selectedCommande.reference}_${moment().format('YYYY-MM-DD')}.xlsx`);
-                    }}
-                    variant="success"
-                    leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
-                  >
-                    Export Excel
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-         {/* Modal de détails */}
-        {showDetailsModal && selectedCommande && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-              <div className="bg-blue-600 text-white p-6 flex justify-between items-center rounded-t-xl">
-                <div>
-                  <h2 className="text-2xl font-bold">Détails de la Commande</h2>
-                  <p className="text-blue-100 mt-1">Référence: {selectedCommande.reference}</p>
-                </div>
-                <button onClick={() => setShowDetailsModal(false)}>
-                  <XCircleIcon className="h-8 w-8 text-white" />
-                </button>
-              </div>
-
-              <div className="p-6 space-y-8">
-                {/* Informations Générales */}
+                {/* INFORMATIONS GÉNÉRALES */}
                 <section>
                   <h3 className="text-lg font-bold border-b-2 border-blue-500 pb-2 mb-4">INFORMATIONS GÉNÉRALES</h3>
                   <div className="grid lg:grid-cols-2 gap-6">
@@ -593,7 +485,9 @@ const ClientOrderHistory = () => {
                           </tr>
                           <tr className="border-b border-gray-300">
                             <td className="py-2 px-3 bg-blue-100 font-semibold border">Date Commande</td>
-                            <td className="py-2 px-3 border">{moment(selectedCommande.dateCommande).format('DD/MM/YYYY HH:mm')}</td>
+                            <td className="py-2 px-3 border">
+                              {moment(selectedCommande.dateCommande).format('DD/MM/YYYY HH:mm')}
+                            </td>
                           </tr>
                           <tr className="border-b border-gray-300">
                             <td className="py-2 px-3 bg-blue-100 font-semibold border">Statut</td>
@@ -635,8 +529,7 @@ const ClientOrderHistory = () => {
                     </div>
                   </div>
                 </section>
-
-                {/* Informations Financières */}
+                {/* INFORMATIONS FINANCIÈRES */}
                 <section>
                   <h3 className="text-lg font-bold border-b-2 border-green-500 pb-2 mb-4">INFORMATIONS FINANCIÈRES</h3>
                   <div className="bg-gray-50 p-4 rounded-lg">
@@ -685,8 +578,7 @@ const ClientOrderHistory = () => {
                     </table>
                   </div>
                 </section>
-
-                {/* Articles */}
+                {/* ARTICLES COMMANDÉS */}
                 {selectedCommande.items?.length > 0 && (
                   <section>
                     <h3 className="text-lg font-bold border-b-2 border-purple-500 pb-2 mb-4">
@@ -708,7 +600,8 @@ const ClientOrderHistory = () => {
                           {selectedCommande.items.map((item, idx) => (
                             <tr key={idx} className="hover:bg-gray-50">
                               <td className="py-3 px-4 border">
-                                {item.article?.nom || item.article?.designation}
+                                {/* On affiche le nom de l'article s'il est renseigné via listeArticle */}
+                                {item.article?.nom || item.article?.designation || 'Article réf. '+item.article}
                               </td>
                               <td className="py-3 px-4 text-center border">
                                 {formatNumber(item.quantiteKg)}
@@ -729,7 +622,7 @@ const ClientOrderHistory = () => {
                                   item.statutStock === 'MANQUANT'    ? 'bg-red-100 text-red-800' :
                                   'bg-gray-100 text-gray-800'
                                 }`}>
-                                  {item.statutStock}
+                                  {item.statutStock || 'N/A'}
                                 </span>
                               </td>
                             </tr>
@@ -739,8 +632,7 @@ const ClientOrderHistory = () => {
                     </div>
                   </section>
                 )}
-
-                {/* Livraison */}
+                {/* INFORMATIONS DE LIVRAISON */}
                 <section>
                   <h3 className="text-lg font-bold border-b-2 border-orange-500 pb-2 mb-4">INFORMATIONS DE LIVRAISON</h3>
                   <div className="grid lg:grid-cols-2 gap-6">
@@ -790,8 +682,7 @@ const ClientOrderHistory = () => {
                     </div>
                   </div>
                 </section>
-
-                {/* Documents */}
+                {/* STATUTS DES DOCUMENTS */}
                 <section>
                   <h3 className="text-lg font-bold border-b-2 border-indigo-500 pb-2 mb-4">STATUTS DES DOCUMENTS</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -808,43 +699,58 @@ const ClientOrderHistory = () => {
                       <div key={idx} className="bg-gray-50 p-3 rounded-lg border flex items-center justify-between">
                         <div className="text-sm font-medium text-gray-700">{doc.label}</div>
                         <div className="inline-flex items-center space-x-1 text-xs font-medium">
-                          {getDocStatusIcon(doc.value)}
+                          {/* Icône de statut du document */}
+                          {['ENVOYEE DHL','FAIT','IMPRIME','APPROUVEE','PRET'].includes(doc.value) ? (
+                            <CheckCircleIcon className="h-4 w-4 text-green-500" />
+                          ) : (['ENVOYEE','DEPOSEE'].includes(doc.value) ? (
+                            <ExclamationCircleIcon className="h-4 w-4 text-yellow-500" />
+                          ) : (
+                            <ClockIcon className="h-4 w-4 text-gray-500" />
+                          ))}
                           <span>{doc.value || 'ÉTABLI'}</span>
                         </div>
                       </div>
                     ))}
                   </div>
                 </section>
-
-                {/* Actions modal */}
+                {/* Boutons d'actions dans le modal */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
                   <Button onClick={() => setShowDetailsModal(false)} variant="secondary">
                     Fermer
                   </Button>
                   <Button
-                    onClick={() => {
-                      const data = [{
-                        Référence: selectedCommande.reference,
-                        Date: moment(selectedCommande.dateCommande).format('DD/MM/YYYY'),
-                        Statut: getStatusLabel(selectedCommande.statutBonDeCommande),
-                        'Montant Total': selectedCommande.prixTotal,
-                        'Montant Payé': selectedCommande.montantPaye,
-                        Reliquat: calculateReliquatCommande(selectedCommande),
-                        Devise: selectedCommande.currency,
-                        'N° Booking': selectedCommande.numeroBooking,
-                        'N° Facture': selectedCommande.numeroFacture,
-                        Destination: selectedCommande.destination,
-                        Consigne: selectedCommande.consigne
-                      }];
-                      const ws = XLSX.utils.json_to_sheet(data);
-                      const wb = XLSX.utils.book_new();
-                      XLSX.utils.book_append_sheet(wb, ws, 'Détails Commande');
-                      XLSX.writeFile(wb, `details_commande_${selectedCommande.reference}_${moment().format('YYYY-MM-DD')}.xlsx`);
+                    onClick={async () => {
+                      try {
+                        const XLSX = await import('xlsx');
+                        const c = selectedCommande;
+                        const data = [{
+                          Référence: c.reference,
+                          Date: moment(c.dateCommande).format('DD/MM/YYYY'),
+                          Statut: getStatusLabel(c.statutBonDeCommande),
+                          'Montant Total': c.prixTotal,
+                          'Montant Payé': c.montantPaye,
+                          Reliquat: calculateReliquatCommande(c),
+                          Devise: c.currency,
+                          'N° Booking': c.numeroBooking,
+                          'N° Facture': c.numeroFacture,
+                          Destination: c.destination,
+                          Consigne: c.consigne
+                        }];
+                        const ws = XLSX.utils.json_to_sheet(data);
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, 'Détails Commande');
+                        XLSX.writeFile(
+                          wb,
+                          `details_commande_${c.reference}_${moment().format('YYYY-MM-DD')}.xlsx`
+                        );
+                      } catch (err) {
+                        console.error("Erreur export Excel détail :", err);
+                      }
                     }}
                     variant="success"
                     leftIcon={<DocumentArrowDownIcon className="h-4 w-4" />}
                   >
-                    Export Excel
+                    Exporter en Excel
                   </Button>
                 </div>
               </div>
