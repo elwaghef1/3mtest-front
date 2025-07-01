@@ -45,8 +45,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     noBonDeCommande: '',
     client: '',
     statutBonDeCommande: 'EN_COURS', // EN_COURS ou LIVREE
-    statutDePaiement: 'NON_PAYE',    // Calculé automatiquement
-    montantPaye: '',
+    statutDePaiement: 'NON_PAYE',    // Statut de paiement
     currency: 'EUR', // Sera mis à jour automatiquement selon le type
     numeroOP: '',
     destination: '',
@@ -163,7 +162,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         bank: initialCommande.bank?._id || '',
         statutBonDeCommande: initialCommande.statutBonDeCommande || 'EN_COURS',
         statutDePaiement: initialCommande.statutDePaiement || 'NON_PAYE',
-        montantPaye: initialCommande.montantPaye || '',
         currency: initialCommande.currency || (initialCommande.typeCommande === 'LOCALE' ? 'MRU' : 'EUR'),
         numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
         destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
@@ -486,24 +484,14 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     }
   }, [formData.typeCommande, initialCommande]);
 
-  // Recalcul automatique du total et du statut de paiement
+  // Recalcul automatique du total
   useEffect(() => {
     const newPrixTotal = items.reduce((sum, item) => sum + (parseFloat(item.prixTotal) || 0), 0);
-    const montantPaye = parseFloat(formData.montantPaye) || 0;
-    let newStatut = 'NON_PAYE';
-    if (newPrixTotal > 0) {
-      if (montantPaye >= newPrixTotal) {
-        newStatut = 'PAYE';
-      } else if (montantPaye > 0 && montantPaye < newPrixTotal) {
-        newStatut = 'PARTIELLEMENT_PAYE';
-      }
-    }
     setFormData(prev => ({
       ...prev,
-      prixTotal: newPrixTotal,
-      statutDePaiement: newStatut
+      prixTotal: newPrixTotal
     }));
-  }, [items, formData.montantPaye]);
+  }, [items]);
 
   // Fonction pour vérifier les stocks insuffisants
   const checkInsufficientStock = () => {
@@ -570,7 +558,6 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
       const payload = {
         ...formData,
         typeCommande: formData.typeCommande || 'NORMALE', // Valeur par défaut explicite
-        montantPaye: parseFloat(formData.montantPaye) || 0,
         prixTotal: parseFloat(formData.prixTotal) || 0,
         bank: formData.bank,
         moyenDePaiement: formData.moyenDePaiement,
@@ -1339,35 +1326,25 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         {/* Section Paiement & Informations Complémentaires */}
         <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
           <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
-            Paiement & Informations Complémentaires
+            Informations Complémentaires
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Montant Payé */}
-            <div className="flex flex-col">
-              <label className="mb-1 text-sm font-medium text-gray-700">Montant Payé</label>
-              <input
-                name="montantPaye"
-                type="number"
-                placeholder="0"
-                className={getInputClass(formData.montantPaye)}
-                value={formData.montantPaye}
-                onChange={handleChange}
-              />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
             {/* Devise */}
             <div className="flex flex-col">
               <label className="mb-1 text-sm font-medium text-gray-700">
-                Devise {formData.typeCommande === 'LOCALE' && (
+                Devise {formData.typeCommande !== 'LOCALE' ? '*' : ''} {formData.typeCommande === 'LOCALE' && (
                   <span className="text-xs text-green-600 font-normal">(Automatique pour commande locale)</span>
                 )}
               </label>
               <select
                 name="currency"
+                required={formData.typeCommande !== 'LOCALE'}
                 value={formData.currency}
                 onChange={handleChange}
                 className={getInputClass(formData.currency)}
                 disabled={false || formData.typeCommande === 'LOCALE'}
               >
+                <option value="">-- Choisir une devise --</option>
                 <option value="EUR">€ Euro</option>
                 <option value="USD">$ Dollar</option>
                 <option value="MRU">MRU Ouguiya</option>
