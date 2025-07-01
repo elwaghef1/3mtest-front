@@ -1104,7 +1104,7 @@ const CommandeList = () => {
       {!loading && !error && (
         <>
           {/* Statistiques */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="text-sm font-medium text-blue-600">Total Commandes</h3>
               <p className="text-2xl font-bold text-blue-900">{filtered.length}</p>
@@ -1149,7 +1149,7 @@ const CommandeList = () => {
                 })()}
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Table responsive */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
