@@ -12,13 +12,15 @@ import {
   CheckCircleIcon,
   ClockIcon,
   XCircleIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/solid';
 import moment from 'moment';
 import 'moment/locale/fr';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { generateInvoicePDF, generateProformaInvoicePDF } from './pdfGenerators';
 
 moment.locale('fr');
 
@@ -63,11 +65,27 @@ const ClientOrderHistory = () => {
     ).format(amount);
   };
 
+  // Formatage pour les exports (même format que les factures)
+  const formatCurrencyForExport = (value, currency = 'EUR') => {
+    const numValue = parseFloat(value) || 0;
+    if (currency === 'MRU') {
+      return `${numValue.toFixed(0)} MRU`;
+    } else if (currency === 'USD') {
+      return `$${numValue.toFixed(2)}`;
+    } else {
+      return `${numValue.toFixed(2)} €`;
+    }
+  };
+  
+  const formatNumberForExport = (value) => {
+    return parseFloat(value || 0).toFixed(2);
+  };
+
   // Icônes et libellés de statuts
   const getStatusIcon = (statut) => {
-    if (['LIVREE','COMPLET'].includes(statut))
+    if (statut === 'LIVREE')
       return <CheckCircleIcon className="h-5 w-5 text-green-500" />;
-    if (['INCOMPLET','A_COMPLETER','PARTIELLEMENT_LIVREE','AVEC_QUANTITES_MANQUANTES'].includes(statut))
+    if (['INCOMPLET','A_COMPLETER','PARTIELLEMENT_LIVREE','AVEC_QUANTITES_MANQUANTES','COMPLET'].includes(statut))
       return <ExclamationCircleIcon className="h-5 w-5 text-orange-500" />;
     if (statut === 'EN_ATTENTE_STOCK')
       return <ClockIcon className="h-5 w-5 text-purple-500" />;
@@ -134,9 +152,7 @@ const ClientOrderHistory = () => {
       const currency = c.currency || 'EUR';
       const paye = c.montantPaye || 0;
       const reliquat = (c.prixTotal || 0) - paye;
-      // Cumuler stats globales
-      stats.montantTotal += c.prixTotal || 0;
-      stats.reliquatGeneral += reliquat;
+      
       // Initialiser stats devise
       if (!statsByCurrency[currency]) {
         statsByCurrency[currency] = {
@@ -144,28 +160,27 @@ const ClientOrderHistory = () => {
           commandesLivrees: 0, commandesEnCours: 0, commandesIncompletes: 0
         };
       }
-      // Cumuler stats par devise
+      
+      // Cumuler stats par devise (toujours toutes les commandes)
       statsByCurrency[currency].totalCommandes++;
-      statsByCurrency[currency].montantTotal += c.prixTotal || 0;
-      statsByCurrency[currency].montantPaye += paye;
-      statsByCurrency[currency].reliquat += reliquat;
+      
       // Compter les statuts par devise et globalement
-      switch (c.statutBonDeCommande) {
-        case 'LIVREE':
-        case 'COMPLET':
-          stats.commandesLivrees++;
-          statsByCurrency[currency].commandesLivrees++;
-          break;
-        case 'INCOMPLET':
-        case 'A_COMPLETER':
-        case 'PARTIELLEMENT_LIVREE':
-        case 'AVEC_QUANTITES_MANQUANTES':
-          stats.commandesIncompletes++;
-          statsByCurrency[currency].commandesIncompletes++;
-          break;
-        default:
-          stats.commandesEnCours++;
-          statsByCurrency[currency].commandesEnCours++;
+      if (c.statutBonDeCommande === 'LIVREE') {
+        // Cumuler montants seulement pour les commandes livrées (LIVREE uniquement)
+        stats.montantTotal += c.prixTotal || 0;
+        stats.reliquatGeneral += reliquat;
+        statsByCurrency[currency].montantTotal += c.prixTotal || 0;
+        statsByCurrency[currency].montantPaye += paye;
+        statsByCurrency[currency].reliquat += reliquat;
+        
+        stats.commandesLivrees++;
+        statsByCurrency[currency].commandesLivrees++;
+      } else if (['INCOMPLET', 'A_COMPLETER', 'PARTIELLEMENT_LIVREE', 'AVEC_QUANTITES_MANQUANTES'].includes(c.statutBonDeCommande)) {
+        stats.commandesIncompletes++;
+        statsByCurrency[currency].commandesIncompletes++;
+      } else {
+        stats.commandesEnCours++;
+        statsByCurrency[currency].commandesEnCours++;
       }
     });
     setStatistics(stats);
@@ -176,29 +191,31 @@ const ClientOrderHistory = () => {
   const exportToExcel = async () => {
     try {
       const XLSX = await import('xlsx');  // Chargement dynamique
-      const data = filteredCommandes.map(c => ({
+      // Filtrer uniquement les commandes livrées
+      const commandesLivrees = filteredCommandes.filter(c => c.statutBonDeCommande === 'LIVREE');
+      const data = commandesLivrees.map(c => ({
         Référence: c.reference,
         Date: moment(c.dateCommande).format('DD/MM/YYYY'),
         Statut: getStatusLabel(c.statutBonDeCommande),
-        'Montant Total': formatNumber(c.prixTotal),
-        'Montant Payé': formatNumber(c.montantPaye),
-        Reliquat: formatNumber(calculateReliquatCommande(c)),
+        'Montant Total': formatNumberForExport(c.prixTotal),
+        'Montant Payé': formatNumberForExport(c.montantPaye),
+        Reliquat: formatNumberForExport(calculateReliquatCommande(c)),
         Devise: c.currency
       }));
       // Ajout de quelques statistiques de synthèse à la fin
       data.push(
         {},
-        { Référence: 'STATISTIQUES' },
-        { Référence: 'Total Commandes', Date: formatNumber(statistics.totalCommandes) },
-        { Référence: 'Montant Total', Date: formatNumber(statistics.montantTotal) },
-        { Référence: 'Reliquat Général', Date: formatNumber(statistics.reliquatGeneral) }
+        { Référence: 'STATISTIQUES (COMMANDES LIVRÉES UNIQUEMENT)' },
+        { Référence: 'Total Commandes Livrées', Date: formatNumberForExport(statistics.commandesLivrees) },
+        { Référence: 'Montant Total (Livrées)', Date: formatNumberForExport(statistics.montantTotal) },
+        { Référence: 'Reliquat Général (Livrées)', Date: formatNumberForExport(statistics.reliquatGeneral) }
       );
       const ws = XLSX.utils.json_to_sheet(data);
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Historique Commandes');
+      XLSX.utils.book_append_sheet(wb, ws, 'Commandes Livrées');
       XLSX.writeFile(
         wb,
-        `historique_commandes_${client?.raisonSociale || 'client'}_${moment().format('YYYY-MM-DD')}.xlsx`
+        `commandes_livrees_${client?.raisonSociale || 'client'}_${moment().format('YYYY-MM-DD')}.xlsx`
       );
     } catch (err) {
       console.error("Erreur lors de l'export Excel :", err);
@@ -213,36 +230,38 @@ const ClientOrderHistory = () => {
       await import('jspdf-autotable');  // charge la dépendance pour les tableaux
       const doc = new jsPDF();
       doc.setFontSize(20);
-      doc.text('Historique des Commandes', 20, 20);
+      doc.text('Commandes Livrées', 20, 20);
       if (client) {
         doc.setFontSize(12);
         doc.text(`Client: ${client.raisonSociale}`, 20, 35);
       }
       // Statistiques principales dans le PDF
       doc.setFontSize(14);
-      doc.text('Statistiques', 20, 65);
+      doc.text('Statistiques (Commandes Livrées Uniquement)', 20, 65);
       doc.setFontSize(10);
-      doc.text(`Total commandes: ${statistics.totalCommandes}`, 20, 75);
-      doc.text(`Montant total: ${formatNumber(statistics.montantTotal)} €`, 20, 85);
-      doc.text(`Reliquat général: ${formatNumber(statistics.reliquatGeneral)} €`, 20, 95);
-      // Tableau des commandes
-      const tableData = filteredCommandes.map(c => [
+      doc.text(`Commandes livrées: ${statistics.commandesLivrees}`, 20, 75);
+      doc.text(`Montant total (livrées): ${formatNumberForExport(statistics.montantTotal)} €`, 20, 82);
+      doc.text(`Reliquat général (livrées): ${formatNumberForExport(statistics.reliquatGeneral)} €`, 20, 89);
+      
+      // Filtrer uniquement les commandes livrées pour le tableau
+      const commandesLivrees = filteredCommandes.filter(c => c.statutBonDeCommande === 'LIVREE');
+      const tableData = commandesLivrees.map(c => [
         c.reference,
         moment(c.dateCommande).format('DD/MM/YYYY'),
         getStatusLabel(c.statutBonDeCommande),
-        `${formatNumber(c.prixTotal)} ${c.currency}`,
-        `${formatNumber(c.montantPaye)} ${c.currency}`,
-        `${formatNumber(calculateReliquatCommande(c))} ${c.currency}`
+        formatCurrencyForExport(c.prixTotal, c.currency),
+        formatCurrencyForExport(c.montantPaye, c.currency),
+        formatCurrencyForExport(calculateReliquatCommande(c), c.currency)
       ]);
       doc.autoTable({
         head: [['Référence','Date','Statut','Montant Total','Montant Payé','Reliquat']],
         body: tableData,
-        startY: 110,
+        startY: 95,
         styles: { fontSize: 8 },
         headStyles: { fillColor: [71,85,105] }
       });
       doc.save(
-        `historique_commandes_${client?.raisonSociale || 'client'}_${moment().format('YYYY-MM-DD')}.pdf`
+        `commandes_livrees_${client?.raisonSociale || 'client'}_${moment().format('YYYY-MM-DD')}.pdf`
       );
     } catch (err) {
       console.error("Erreur lors de l'export PDF :", err);
@@ -304,7 +323,9 @@ const ClientOrderHistory = () => {
         {/* Bannières récapitulatives par devise */}
         {Object.keys(statisticsByCurrency).length > 0 && (
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Résumé par Devise</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Résumé par Devise <span className="text-sm text-gray-600">(montants des commandes livrées uniquement)</span>
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(statisticsByCurrency)
                 .sort(([a], [b]) => a.localeCompare(b))
@@ -320,19 +341,19 @@ const ClientOrderHistory = () => {
                     </div>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Montant Total</span>
+                        <span className="text-sm text-gray-600">Montant Total (livrées)</span>
                         <span className="font-semibold text-green-700">
                           {formatCurrency(stats.montantTotal, currency)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Montant Payé</span>
+                        <span className="text-sm text-gray-600">Montant Payé (livrées)</span>
                         <span className="font-semibold text-blue-700">
                           {formatCurrency(stats.montantPaye, currency)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center border-t pt-2">
-                        <span className="text-sm font-medium text-gray-700">Reliquat</span>
+                        <span className="text-sm font-medium text-gray-700">Reliquat (livrées)</span>
                         <span className={`font-bold text-lg ${
                           stats.reliquat > 0 ? 'text-red-600' : 'text-green-600'
                         }`}>
@@ -402,6 +423,7 @@ const ClientOrderHistory = () => {
                     <th className="px-4 py-3 text-right font-bold text-gray-700 border">Montant Total</th>
                     <th className="px-4 py-3 text-right font-bold text-gray-700 border">Montant Payé</th>
                     <th className="px-4 py-3 text-right font-bold text-gray-700 border">Reliquat</th>
+                    <th className="px-4 py-3 text-center font-bold text-gray-700 border">Facture</th>
                     <th className="px-4 py-3 text-center font-bold text-gray-700 border">Actions</th>
                   </tr>
                 </thead>
@@ -428,6 +450,29 @@ const ClientOrderHistory = () => {
                         </td>
                         <td className={`px-4 py-3 text-right border ${reliquat > 0 ? 'text-red-600 font-medium' : 'text-green-600'}`}>
                           {formatCurrency(reliquat, c.currency)}
+                        </td>
+                        <td className="px-4 py-3 text-center border">
+                          {c.statutBonDeCommande === 'LIVREE' ? (
+                            <Button
+                              onClick={() => generateInvoicePDF(c)}
+                              variant="success"
+                              size="sm"
+                              leftIcon={<DocumentTextIcon className="h-4 w-4" />}
+                            >
+                              Facture
+                            </Button>
+                          ) : ['COMPLET', 'PARTIELLEMENT_LIVREE'].includes(c.statutBonDeCommande) ? (
+                            <Button
+                              onClick={() => generateProformaInvoicePDF(c)}
+                              variant="warning"
+                              size="sm"
+                              leftIcon={<DocumentTextIcon className="h-4 w-4" />}
+                            >
+                              Proforma
+                            </Button>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center border">
                           <Button
