@@ -104,6 +104,7 @@ function EntreeList() {
   const [selectedDepot, setSelectedDepot] = useState('');
   const [batchSearch, setBatchSearch] = useState('');
   const [articleSearch, setArticleSearch] = useState('');
+  const [selectedType, setSelectedType] = useState('');
 
   const [error, setError] = useState(null);
 
@@ -138,7 +139,7 @@ function EntreeList() {
 
   useEffect(() => {
     filterEntrees();
-  }, [entrees, startDate, endDate, selectedDepot, batchSearch, articleSearch]);
+  }, [entrees, startDate, endDate, selectedDepot, batchSearch, articleSearch, selectedType]);
 
   const fetchEntrees = async () => {
     try {
@@ -193,6 +194,14 @@ function EntreeList() {
             .toLowerCase()
             .includes(articleSearch.toLowerCase())
         );
+      });
+    }
+
+    // Filtrer par type (Normal ou Transfert)
+    if (selectedType !== '') {
+      result = result.filter((e) => {
+        const type = e.origine === 'TRANSFERT' ? 'TRANSFERT' : 'NORMAL';
+        return type === selectedType;
       });
     }
 
@@ -618,9 +627,9 @@ const exportToPDF = () => {
         />
       </div>
 
-      {/* Filtres Dépôt + Batch Number + Article */}
+      {/* Filtres Dépôt + Batch Number + Article + Type */}
       <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Dépôt</label>
             <select
@@ -632,6 +641,18 @@ const exportToPDF = () => {
               {depotOptions.map((depot, i) => (
                 <option key={i} value={depot}>{depot}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <select
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Tous les types</option>
+              <option value="NORMAL">Normal</option>
+              <option value="TRANSFERT">Transfert</option>
             </select>
           </div>
           <div>
@@ -658,6 +679,7 @@ const exportToPDF = () => {
             <button
               onClick={() => {
                 setSelectedDepot('');
+                setSelectedType('');
                 setBatchSearch('');
                 setArticleSearch('');
               }}
