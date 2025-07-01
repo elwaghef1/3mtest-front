@@ -371,30 +371,7 @@ function PaymentList() {
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-gray-100">
-              <tr>
-                <td className="px-4 py-3 text-sm font-bold text-gray-700 border" colSpan="2">
-                  Total {selectedCurrency ? `(${selectedCurrency})` : '(toutes devises)'}
-                </td>
-                {/* On affiche les totaux en distinguant le cas multi-devises (pas de format currency global) */}
-                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-blue-800 border">
-                  {selectedCurrency 
-                    ? formatCurrency(totals.prixTotal, selectedCurrency) 
-                    : totals.prixTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-green-800 border">
-                  {selectedCurrency 
-                    ? formatCurrency(totals.montantPaye, selectedCurrency) 
-                    : totals.montantPaye.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
-                </td>
-                <td className="px-4 py-3 text-sm font-bold text-white text-right bg-red-800 border">
-                  {selectedCurrency 
-                    ? formatCurrency(totals.reliquat, selectedCurrency) 
-                    : totals.reliquat.toLocaleString('fr-FR', { minimumFractionDigits: 2 })}
-                </td>
-                <td className="border" colSpan="4"></td>
-              </tr>
-            </tfoot>
+           
           </table>
         </div>
       )}
