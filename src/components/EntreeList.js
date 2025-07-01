@@ -338,24 +338,29 @@ function EntreeList() {
     y += lineHeight; // 28
     doc.text('msmseafoodsarl@gmail.com', startX, y + 5);
     y += lineHeight; // 40
-    doc.text('Tél. : +222 46 00 89 08', startX, y + 5);
-  
-    // Date en haut à droite
+    doc.text('Tél. : +222 46 00 89 08', startX, y + 5);    // Date en haut à droite
     doc.setFontSize(10)
        .text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, w - m, 15, { align: 'right' });
     doc.setFontSize(10)
       .text(`Bon d'entrée No : ${entree.bonCommande || '—'}`, w - m, 20, { align: 'right' });
-  
+
     // --- TITRE ---
     const titleY = 60;
     doc.setFont('helvetica','bold').setFontSize(15)
        .text("Bon d'Entrée", w / 2, titleY, { align: 'center' })
        .setDrawColor(0,102,204).setLineWidth(0.5)
        .line(m, titleY + 3, w - m, titleY + 3);
+
+    // --- INFORMATIONS DÉPÔT ET BATCH ---
+    const infoY = titleY + 15;
+    doc.setFont('helvetica','normal').setFontSize(10);
+    doc.text(`Dépôt : ${entree.depot?.intitule || 'Non spécifié'}`, m, infoY);
+    doc.text(`Batch Number : ${entree.batchNumber || 'Non spécifié'}`, m, infoY + 6);
+    doc.text(`Type : ${entree.origine === 'TRANSFERT' ? 'TRANSFERT' : 'NORMAL'}`, m, infoY + 12);
   
     // --- TABLEAU D’ENTRÉE ---
     doc.autoTable({
-      startY: titleY + 10,
+      startY: infoY + 20,
       head: [['Article','Quantité (Kg)','Quantité (Cartons)','Prix Unitaire','Total']],
       body: rows,
       foot: [[
@@ -796,9 +801,12 @@ const exportToPDF = () => {
                     </td>
                     <td className="px-4 py-3 text-center border border-gray-400">
                       <Button
-                        onClick={() => handleOpenFormToEdit(e)}
+                        onClick={e.origine === 'TRANSFERT' ? undefined : () => handleOpenFormToEdit(e)}
                         variant="warning"
                         size="sm"
+                        disabled={e.origine === 'TRANSFERT'}
+                        className={e.origine === 'TRANSFERT' ? 'opacity-50 cursor-not-allowed' : ''}
+                        title={e.origine === 'TRANSFERT' ? 'Modification interdite pour les entrées de transfert' : 'Modifier cette entrée'}
                       >
                         Modifier
                       </Button>
@@ -815,10 +823,13 @@ const exportToPDF = () => {
                     </td>
                     <td className="px-4 py-3 text-center border border-gray-400">
                       <Button
-                        onClick={() => handleDeleteClick(e)}
+                        onClick={e.origine === 'TRANSFERT' ? undefined : () => handleDeleteClick(e)}
                         variant="danger"
                         size="sm"
                         leftIcon={<TrashIcon className="h-4 w-4" />}
+                        disabled={e.origine === 'TRANSFERT'}
+                        className={e.origine === 'TRANSFERT' ? 'opacity-50 cursor-not-allowed' : ''}
+                        title={e.origine === 'TRANSFERT' ? 'Suppression interdite pour les entrées de transfert' : 'Supprimer cette entrée'}
                       >
                         Supprimer
                       </Button>
