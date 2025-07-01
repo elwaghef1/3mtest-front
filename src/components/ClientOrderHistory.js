@@ -13,7 +13,8 @@ import {
   ClockIcon,
   XCircleIcon,
   ExclamationCircleIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/solid';
 import moment from 'moment';
 import 'moment/locale/fr';
@@ -424,6 +425,7 @@ const ClientOrderHistory = () => {
                     <th className="px-4 py-3 text-right font-bold text-gray-700 border">Montant Payé</th>
                     <th className="px-4 py-3 text-right font-bold text-gray-700 border">Reliquat</th>
                     <th className="px-4 py-3 text-center font-bold text-gray-700 border">Facture</th>
+                    <th className="px-4 py-3 text-center font-bold text-gray-700 border">Paiements</th>
                     <th className="px-4 py-3 text-center font-bold text-gray-700 border">Actions</th>
                   </tr>
                 </thead>
@@ -469,6 +471,20 @@ const ClientOrderHistory = () => {
                               leftIcon={<DocumentTextIcon className="h-4 w-4" />}
                             >
                               Proforma
+                            </Button>
+                          ) : (
+                            <span className="text-gray-400 text-sm">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center border">
+                          {c.statutBonDeCommande === 'LIVREE' ? (
+                            <Button
+                              onClick={() => navigate(`/commandes/${c._id}/paiements`)}
+                              variant="primary"
+                              size="sm"
+                              leftIcon={<CreditCardIcon className="h-4 w-4" />}
+                            >
+                              Paiements
                             </Button>
                           ) : (
                             <span className="text-gray-400 text-sm">—</span>

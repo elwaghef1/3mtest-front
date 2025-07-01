@@ -30,6 +30,7 @@ import QuantiteManquanteList from './components/QuantiteManquanteList.js';
 import QuantiteManquanteDashboard from './components/QuantiteManquanteDashboard.js';
 import ArticleMovements from './components/ArticleMovements.js';
 import ClientOrderHistory from './components/ClientOrderHistory.js';
+import PaymentHistory from './components/PaymentHistory.js';
 
 function App() {
   return (
@@ -71,6 +72,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <ClientOrderHistory />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/commandes/:commandeId/paiements"
+              element={
+                <PrivateRoute>
+                  <PaymentHistory />
                 </PrivateRoute>
               }
             />
