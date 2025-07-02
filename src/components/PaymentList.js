@@ -224,18 +224,6 @@ function PaymentList() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold mb-2">Gestion des Paiements</h1>
-          <p className="text-sm text-gray-600">
-            Mode DEBUG: Affichage de toutes les commandes (normalement: commandes livrées uniquement)
-          </p>
-        </div>
-        <div className="mt-4 md:mt-0">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-            <h3 className="text-sm font-medium text-yellow-800">Mode Diagnostic</h3>
-            <p className="text-xs text-yellow-700 mt-1">
-              Vérifiez la console pour voir les données reçues. 
-              Cherchez des commandes avec statut "LIVREE".
-            </p>
-          </div>
         </div>
       </div>
 
