@@ -308,16 +308,15 @@ export default function StockList() {
     const groupedData = [];
     speciesMap.forEach(grp => {
       const totalKg = Object.values(grp.depots).reduce((a, b) => a + b, 0);
-      const article = getArticleForStock(
-        { article: { nomScientifique: grp.name } },
-        articles
-      );
+      // Trouver l'article réel à partir du nom formaté
+      const realArticle = articles.find(art => formatArticle(art) === grp.name) || null;
       groupedData.push({
         name: grp.name,
         depots: grp.depots,
         totalKg,
-        cartons: getCartonQuantityFromKg(totalKg, article),
-        totalValue: grp.totalValue
+        cartons: getCartonQuantityFromKg(totalKg, realArticle),
+        totalValue: grp.totalValue,
+        article: realArticle // Stocker l'article réel pour les calculs de cartons
       });
     });
 
@@ -390,7 +389,7 @@ export default function StockList() {
       // Ajouter les données par dépôt
       uniqueDepots.forEach(depot => {
         const kg = item.depots[depot] || 0;
-        const cartons = getCartonQuantityFromKg(kg, { article: { nomScientifique: item.name } });
+        const cartons = getCartonQuantityFromKg(kg, item.article); // Utiliser l'article réel
         row.push(pdfNumber(kg), pdfNumberDecimal(cartons));
       });
 
@@ -418,7 +417,7 @@ export default function StockList() {
           depotTotals[depot] = { kg: 0, cartons: 0 };
         }
         depotTotals[depot].kg += item.depots[depot] || 0;
-        depotTotals[depot].cartons += getCartonQuantityFromKg(item.depots[depot] || 0, { article: { nomScientifique: item.name } });
+        depotTotals[depot].cartons += getCartonQuantityFromKg(item.depots[depot] || 0, item.article); // Utiliser l'article réel
       });
     });
 
@@ -746,16 +745,15 @@ const exportToExcel = async () => {
   const groupedData = [];
   speciesMap.forEach(grp => {
     const totalKg = Object.values(grp.depots).reduce((a, b) => a + b, 0);
-    const article = getArticleForStock(
-      { article: { nomScientifique: grp.name } },
-      articles
-    );
+    // Trouver l'article réel à partir du nom formaté
+    const realArticle = articles.find(art => formatArticle(art) === grp.name) || null;
     groupedData.push({
       name: grp.name,
       depots: grp.depots,
       totalKg,
-      cartons: getCartonQuantityFromKg(totalKg, article),
-      totalValue: grp.totalValue
+      cartons: getCartonQuantityFromKg(totalKg, realArticle),
+      totalValue: grp.totalValue,
+      article: realArticle // Stocker l'article réel pour les calculs de cartons
     });
   });
 
@@ -822,7 +820,7 @@ const exportToExcel = async () => {
     const row = [sp.name];
     uniqueDepots.forEach(d => {
       const q = sp.depots[d] || 0;
-      const ct = getCartonQuantityFromKg(q, { article:{ nomScientifique: sp.name } });
+      const ct = getCartonQuantityFromKg(q, sp.article); // Utiliser l'article réel
       row.push(q, ct);
     });
     row.push(sp.totalKg, sp.cartons, sp.totalValue);
@@ -853,7 +851,7 @@ const exportToExcel = async () => {
   // Totaux par dépôt
   uniqueDepots.forEach(d => {
     const sumKg    = groupedData.reduce((s, sp) => s + (sp.depots[d]||0), 0);
-    const sumCart  = groupedData.reduce((s, sp) => s + getCartonQuantityFromKg(sp.depots[d]||0, { article:{ nomScientifique: sp.name } }), 0);
+    const sumCart  = groupedData.reduce((s, sp) => s + getCartonQuantityFromKg(sp.depots[d]||0, sp.article), 0); // Utiliser l'article réel
     totals.splice(1 + uniqueDepots.indexOf(d)*2, 0, sumKg, sumCart);
   });
   totals.push(grandKg, grandCartons, grandValueSum);
