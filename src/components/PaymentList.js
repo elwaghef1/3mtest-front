@@ -70,9 +70,28 @@ function PaymentList() {
           axios.get('/commandes?minimal=true'),   // n'obtient que les champs légers des commandes
           axios.get('/clients'),
         ]);
-        setCommandes(cmdRes.data);
+        // TEMPORAIRE: Afficher toutes les commandes pour diagnostic
+        console.log('🔍 DEBUG PaymentList - Commandes reçues:', cmdRes.data);
+        console.log('🔍 DEBUG PaymentList - Nombre total de commandes:', cmdRes.data.length);
+        
+        // Vérifier les statuts disponibles
+        const statuts = [...new Set(cmdRes.data.map(cmd => cmd.statutBonDeCommande))];
+        console.log('🔍 DEBUG PaymentList - Statuts disponibles:', statuts);
+        
+        // TEMPORAIRE: Prendre toutes les commandes au lieu de filtrer
+        const commandesLivrees = cmdRes.data; // Normalement: cmdRes.data.filter(cmd => cmd.statutBonDeCommande === 'LIVREE');
+        
+        console.log('🔍 DEBUG PaymentList - Commandes affichées (TOUTES):', commandesLivrees.length);
+        console.log('🔍 DEBUG PaymentList - Détails des commandes:', commandesLivrees.map(cmd => ({
+          reference: cmd.reference,
+          statut: cmd.statutBonDeCommande,
+          client: cmd.client?.raisonSociale,
+          prix: cmd.prixTotal,
+          devise: cmd.currency
+        })));
+        setCommandes(commandesLivrees);
         setClients(cliRes.data);
-        setFiltered(cmdRes.data);
+        setFiltered(commandesLivrees);
       } catch (err) {
         console.error('Erreur:', err);
         setError('Erreur de chargement des données');
@@ -84,6 +103,7 @@ function PaymentList() {
   }, []);
 
   // Filtrage local des commandes en fonction des sélections (client, référence, devise)
+  // Note: Les commandes sont déjà filtrées pour ne contenir que celles avec statut LIVREE
   useEffect(() => {
     let result = [...commandes];
     if (selectedClient) {
@@ -108,6 +128,8 @@ function PaymentList() {
       const currency = cmd.currency || 'EUR';
       const paye = cmd.montantPaye || 0;
       const reliquat = (cmd.prixTotal || 0) - paye;
+      const estEntierementPaye = reliquat <= 0.01; // Considérer comme payé si reliquat proche de 0
+      
       if (!statsByCurrency[currency]) {
         statsByCurrency[currency] = {
           totalCommandes: 0,
@@ -116,13 +138,20 @@ function PaymentList() {
           reliquat: 0,
           commandesPaye: 0,
           commandesPartiellementPaye: 0,
-          commandesNonPaye: 0
+          commandesNonPaye: 0,
+          commandesEntierementPayees: 0 // Nouvelle statistique
         };
       }
       statsByCurrency[currency].totalCommandes++;
       statsByCurrency[currency].montantTotal += cmd.prixTotal || 0;
       statsByCurrency[currency].montantPaye += paye;
       statsByCurrency[currency].reliquat += reliquat;
+      
+      // Compter les commandes entièrement payées (reliquat = 0)
+      if (estEntierementPaye) {
+        statsByCurrency[currency].commandesEntierementPayees++;
+      }
+      
       switch (cmd.statutDePaiement) {
         case 'PAYE':
           statsByCurrency[currency].commandesPaye++;
@@ -193,7 +222,21 @@ function PaymentList() {
     <div className="p-4 lg:p-6">
       {/* Titre de la page */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold mb-4 md:mb-0">Gestion des Paiements</h1>
+        <div>
+          <h1 className="text-2xl font-bold mb-2">Gestion des Paiements</h1>
+          <p className="text-sm text-gray-600">
+            Mode DEBUG: Affichage de toutes les commandes (normalement: commandes livrées uniquement)
+          </p>
+        </div>
+        <div className="mt-4 md:mt-0">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <h3 className="text-sm font-medium text-yellow-800">Mode Diagnostic</h3>
+            <p className="text-xs text-yellow-700 mt-1">
+              Vérifiez la console pour voir les données reçues. 
+              Cherchez des commandes avec statut "LIVREE".
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Bannières récap par devise */}
@@ -232,6 +275,13 @@ function PaymentList() {
                         stats.reliquat > 0 ? 'text-red-600' : 'text-green-600'
                       }`}>
                         {formatCurrency(stats.reliquat, currency)}
+                      </span>
+                    </div>
+                    {/* Nouvelle ligne pour les commandes entièrement payées */}
+                    <div className="flex justify-between items-center pt-1 border-t border-green-200">
+                      <span className="text-sm font-medium text-green-700">✓ Entièrement Payées</span>
+                      <span className="font-bold text-green-600">
+                        {stats.commandesEntierementPayees} commande{stats.commandesEntierementPayees > 1 ? 's' : ''}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs text-gray-500 pt-1">
@@ -331,6 +381,7 @@ function PaymentList() {
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border">Référence</th>
                 <th className="px-4 py-3 text-left text-sm font-bold text-gray-700 border">Client</th>
+                <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border">Statut Commande</th>
                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border">Prix Total</th>
                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border">Montant Payé</th>
                 <th className="px-4 py-3 text-right text-sm font-bold text-gray-700 border">Reliquat</th>
@@ -348,6 +399,16 @@ function PaymentList() {
                   <td className="px-4 py-3 text-sm text-gray-500 border">
                     {cmd.client?.raisonSociale || '—'}
                   </td>
+                  <td className="px-4 py-3 text-center border">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      cmd.statutBonDeCommande === 'LIVREE' ? 'bg-green-100 text-green-800' :
+                      cmd.statutBonDeCommande === 'EN_COURS' ? 'bg-blue-100 text-blue-800' :
+                      cmd.statutBonDeCommande === 'EN_ATTENTE_STOCK' ? 'bg-orange-100 text-orange-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {cmd.statutBonDeCommande || 'N/A'}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border">
                     {formatCurrency(cmd.prixTotal, cmd.currency)}
                   </td>
@@ -355,7 +416,11 @@ function PaymentList() {
                     {formatCurrency(cmd.montantPaye, cmd.currency)}
                   </td>
                   <td className="px-4 py-3 text-sm text-right text-gray-900 font-medium border">
-                    {formatCurrency(cmd.reliquat, cmd.currency)}
+                    <span className={`font-medium ${
+                      (cmd.reliquat || 0) <= 0.01 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {formatCurrency(cmd.reliquat, cmd.currency)}
+                    </span>
                   </td>
                   <td className="px-4 py-3 text-center text-sm text-gray-700 font-medium border">
                     {cmd.currency || 'EUR'}
