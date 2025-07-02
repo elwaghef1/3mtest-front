@@ -70,7 +70,7 @@ function PaymentList() {
           axios.get('/commandes?minimal=true'),   // n'obtient que les champs légers des commandes
           axios.get('/clients'),
         ]);
-        // TEMPORAIRE: Afficher toutes les commandes pour diagnostic
+        // CORRECTION: Filtrer uniquement les commandes livrées
         console.log('🔍 DEBUG PaymentList - Commandes reçues:', cmdRes.data);
         console.log('🔍 DEBUG PaymentList - Nombre total de commandes:', cmdRes.data.length);
         
@@ -78,11 +78,11 @@ function PaymentList() {
         const statuts = [...new Set(cmdRes.data.map(cmd => cmd.statutBonDeCommande))];
         console.log('🔍 DEBUG PaymentList - Statuts disponibles:', statuts);
         
-        // TEMPORAIRE: Prendre toutes les commandes au lieu de filtrer
-        const commandesLivrees = cmdRes.data; // Normalement: cmdRes.data.filter(cmd => cmd.statutBonDeCommande === 'LIVREE');
+        // FILTRAGE CORRECT: Ne prendre que les commandes livrées
+        const commandesLivrees = cmdRes.data.filter(cmd => cmd.statutBonDeCommande === 'LIVREE');
         
-        console.log('🔍 DEBUG PaymentList - Commandes affichées (TOUTES):', commandesLivrees.length);
-        console.log('🔍 DEBUG PaymentList - Détails des commandes:', commandesLivrees.map(cmd => ({
+        console.log('🔍 DEBUG PaymentList - Commandes livrées:', commandesLivrees.length);
+        console.log('🔍 DEBUG PaymentList - Détails des commandes livrées:', commandesLivrees.map(cmd => ({
           reference: cmd.reference,
           statut: cmd.statutBonDeCommande,
           client: cmd.client?.raisonSociale,
