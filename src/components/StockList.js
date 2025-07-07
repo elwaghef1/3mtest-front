@@ -290,7 +290,7 @@ export default function StockList() {
         });
       }
       const grp = speciesMap.get(name);
-      const qty = stock.quantiteKg || 0;
+      const qty = stock.quantiteCommercialisableKg || 0;
       const depotName = stock.depot?.intitule || '';
       // Somme des quantités par dépôt
       if (depotName && grp.depots.hasOwnProperty(depotName)) {
