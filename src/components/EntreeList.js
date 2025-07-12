@@ -797,7 +797,6 @@ const exportToPDF = () => {
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Quantité Totale (Cartons)</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Différence Tunnel</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Prix Total</th>
-                <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Calcul Prix</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Coût Location</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Détails</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Modifier</th>
@@ -856,18 +855,6 @@ const exportToPDF = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
                       {`${totalPrice(e.items).toFixed(0)} ${e.items[0]?.monnaie || ''}`}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center border border-gray-400">
-                      {e.globalPriceCalculation && e.globalPriceCalculation.calculationData ? (
-                        <div className="flex items-center justify-center">
-                          <span className="text-green-600 text-lg">✓</span>
-                          <span className="ml-1 text-xs text-green-600">
-                            {e.globalPriceCalculation.prixUnitaireFinal?.toFixed(2)} MRU/kg
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-center border border-gray-400">
                       {`${parseFloat(e.locationCost || 0).toFixed(0)} MRU`}
