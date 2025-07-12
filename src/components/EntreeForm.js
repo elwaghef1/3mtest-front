@@ -27,6 +27,8 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       // Le champ Prix Location n'est plus obligatoire
       prixLocation: '',
       quantiteCarton: 0,
+      // Nouvelles données pour la persistance du calcul de prix
+      priceCalculationData: null,
     },
   ]);
   
@@ -52,14 +54,16 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         monnaie: item.monnaie || 'MRU',
         prixLocation: item.prixLocation || '',
         quantiteCarton: convertKgToCarton(item.quantiteKg, item.article, articles),
+        priceCalculationData: item.priceCalculationData || null,
       }));
       setItems(initialItems);
     }
   }, [initialEntree]);
 
-  const handleCalc = (index) => (calculatedPrice) => {
+  const handleCalc = (index) => (calculatedPrice, calculationData) => {
     const newItems = [...items];
     newItems[index].prixUnitaire = calculatedPrice.toFixed(2);
+    newItems[index].priceCalculationData = calculationData;
     setItems(newItems);
   };
 
@@ -125,6 +129,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         monnaie: 'MRU',
         prixLocation: '',
         quantiteCarton: 0,
+        priceCalculationData: null,
       },
     ]);
   };
@@ -176,6 +181,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
             prixUnitaire: parseFloat(item.prixUnitaire),
             monnaie: item.monnaie,
             prixLocation: item.prixLocation ? parseFloat(item.prixLocation) : undefined,
+            priceCalculationData: item.priceCalculationData || null,
           };
         }),
       };
@@ -368,15 +374,22 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                     required
                   />
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsCalcOpen({ open: true, idx: index })}
-                  className="ml-2 mb-1"
-                  title="Calcul automatique"
-                >
-                  ⚙️
-                </Button>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsCalcOpen({ open: true, idx: index })}
+                    className="mb-1"
+                    title="Calcul automatique"
+                  >
+                    ⚙️
+                  </Button>
+                  {item.priceCalculationData && (
+                    <div className="flex items-center text-green-600 text-sm mb-1">
+                      <span className="text-xs">✓ Données calculées</span>
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                 <div className="space-y-1">
@@ -457,6 +470,11 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
             isOpen={true}
             onClose={() => setIsCalcOpen({ open: false, idx: null })}
             onCalculate={handleCalc(isCalcOpen.idx)}
+            initialData={{
+              ...items[isCalcOpen.idx]?.priceCalculationData,
+              quantiteTunnel: items[isCalcOpen.idx]?.quantiteTunnel || ''
+            }}
+            itemIndex={isCalcOpen.idx}
           />
         )}
         </div>
