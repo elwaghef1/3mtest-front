@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Button from './Button';
 
-export default function PriceCalculatorModal({ isOpen, onClose, onCalculate, initialData, itemIndex }) {
+export default function PriceCalculatorModal({ isOpen, onClose, onCalculate, initialData, isGlobalCalculation = false }) {
   const [poidsCamion, setPoidsCamion] = useState('');
   const [prixUnitaireAchat, setPrixUnitaireAchat] = useState('');
   const [valeurCamion, setValeurCamion] = useState(0);
@@ -70,7 +70,6 @@ export default function PriceCalculatorModal({ isOpen, onClose, onCalculate, ini
       prixUnitaireFrais,
       frais,
       prixUnitaireFinal,
-      itemIndex // Pour identifier l'élément concerné
     };
     
     onCalculate(prixUnitaireFinal, calculatedData);
@@ -81,13 +80,23 @@ export default function PriceCalculatorModal({ isOpen, onClose, onCalculate, ini
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold">Calcul du Prix Unitaire</h3>
+          <h3 className="text-xl font-semibold">
+            {isGlobalCalculation ? 'Calcul du Prix Unitaire Global' : 'Calcul du Prix Unitaire'}
+          </h3>
           {initialData && initialData.prixUnitaireFinal && (
             <div className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded">
               ✓ Données existantes
             </div>
           )}
         </div>
+        
+        {isGlobalCalculation && (
+          <div className="bg-blue-50 p-4 rounded-lg mb-6 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>📊 Calcul Global:</strong> Le prix unitaire calculé sera appliqué automatiquement à tous les articles de cette entrée.
+            </p>
+          </div>
+        )}
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Section Camion */}

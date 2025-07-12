@@ -376,8 +376,77 @@ function EntreeList() {
       margin:     { left: m, right: m },
     });
   
+    // --- SECTION CALCUL DE PRIX UNITAIRE ---
+    let currentY = doc.lastAutoTable.finalY + 10;
+    
+    if (entree.globalPriceCalculation && entree.globalPriceCalculation.calculationData) {
+      const calc = entree.globalPriceCalculation.calculationData;
+      
+      // Titre de la section
+      doc.setFont('helvetica','bold').setFontSize(12)
+         .text('Détails du Calcul de Prix Unitaire', m, currentY);
+      
+      doc.setDrawColor(0,102,204).setLineWidth(0.5)
+         .line(m, currentY + 2, w - m, currentY + 2);
+      
+      currentY += 10;
+      
+      // Données Camion
+      doc.setFont('helvetica','bold').setFontSize(10)
+         .text('Données Camion :', m, currentY);
+      
+      currentY += 6;
+      doc.setFont('helvetica','normal').setFontSize(9);
+      doc.text(`• Poids camion : ${formatNumber(calc.poidsCamion || 0)} kg`, m + 5, currentY);
+      currentY += 4;
+      doc.text(`• Prix unitaire d'achat : ${formatNumber(calc.prixUnitaireAchat || 0)} MRU/kg`, m + 5, currentY);
+      currentY += 4;
+      doc.setFont('helvetica','bold');
+      doc.text(`• Valeur camion : ${formatNumber(calc.valeurCamion || 0)} MRU`, m + 5, currentY);
+      
+      currentY += 8;
+      
+      // Données Rejet
+      doc.setFont('helvetica','bold').setFontSize(10)
+         .text('Données Rejet :', m, currentY);
+      
+      currentY += 6;
+      doc.setFont('helvetica','normal').setFontSize(9);
+      doc.text(`• Quantité rejetée : ${formatNumber(calc.quantiteRejetee || 0)} kg`, m + 5, currentY);
+      currentY += 4;
+      doc.text(`• Prix unitaire rejet : ${formatNumber(calc.prixUnitaireRejet || 0)} MRU/kg`, m + 5, currentY);
+      currentY += 4;
+      doc.setFont('helvetica','bold');
+      doc.text(`• Recette rejet : ${formatNumber(calc.recetteRejet || 0)} MRU`, m + 5, currentY);
+      
+      currentY += 8;
+      
+      // Calculs Finaux
+      doc.setFont('helvetica','bold').setFontSize(10)
+         .text('Calculs Finaux :', m, currentY);
+      
+      currentY += 6;
+      doc.setFont('helvetica','normal').setFontSize(9);
+      doc.text(`• Prix total : ${formatNumber(calc.prixTotal || 0)} MRU (Valeur camion - Recette rejet)`, m + 5, currentY);
+      currentY += 4;
+      doc.text(`• Quantité tunnel : ${formatNumber(calc.quantiteTunnel || 0)} kg`, m + 5, currentY);
+      currentY += 4;
+      doc.text(`• Prix unitaire frais : ${formatNumber(calc.prixUnitaireFrais || 0)} MRU/kg (Prix total ÷ Quantité tunnel)`, m + 5, currentY);
+      currentY += 4;
+      doc.text(`• Frais : ${formatNumber(calc.frais || 0)} MRU/kg`, m + 5, currentY);
+      currentY += 4;
+      
+      // Prix final en évidence
+      doc.setFont('helvetica','bold').setFontSize(11)
+         .setTextColor(255, 140, 0); // Orange
+      doc.text(`• Prix unitaire final : ${formatNumber(entree.globalPriceCalculation.prixUnitaireFinal || 0)} MRU/kg`, m + 5, currentY);
+      doc.setTextColor(0, 0, 0); // Retour au noir
+      
+      currentY += 10;
+    }
+  
     // --- SIGNATURE ---
-    const finalY = doc.lastAutoTable.finalY + 15;
+    const finalY = currentY + 5;
     doc.setFont('helvetica','bold').setFontSize(12)
        .text('Signature responsable :', m, finalY)
        .setLineWidth(0.5)
@@ -728,6 +797,7 @@ const exportToPDF = () => {
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Quantité Totale (Cartons)</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Différence Tunnel</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Prix Total</th>
+                <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Calcul Prix</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Coût Location</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Détails</th>
                 <th className="px-4 py-3 text-sm font-bold text-gray-700 border border-gray-400">Modifier</th>
@@ -786,6 +856,18 @@ const exportToPDF = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-700 border border-gray-400">
                       {`${totalPrice(e.items).toFixed(0)} ${e.items[0]?.monnaie || ''}`}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center border border-gray-400">
+                      {e.globalPriceCalculation && e.globalPriceCalculation.calculationData ? (
+                        <div className="flex items-center justify-center">
+                          <span className="text-green-600 text-lg">✓</span>
+                          <span className="ml-1 text-xs text-green-600">
+                            {e.globalPriceCalculation.prixUnitaireFinal?.toFixed(2)} MRU/kg
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-sm text-center border border-gray-400">
                       {`${parseFloat(e.locationCost || 0).toFixed(0)} MRU`}

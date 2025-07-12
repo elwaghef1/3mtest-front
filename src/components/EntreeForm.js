@@ -14,6 +14,12 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
   // Champ "block" supprimé
   const [origine, setOrigine] = useState(''); // Par défaut vide
   
+  // État global pour le calcul de prix de l'entrée
+  const [globalPriceCalculation, setGlobalPriceCalculation] = useState({
+    prixUnitaireFinal: 0,
+    calculationData: null
+  });
+  
   // Tableau d'items (chaque item correspond à un article)
   const [items, setItems] = useState([
     {
@@ -27,8 +33,6 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       // Le champ Prix Location n'est plus obligatoire
       prixLocation: '',
       quantiteCarton: 0,
-      // Nouvelles données pour la persistance du calcul de prix
-      priceCalculationData: null,
     },
   ]);
   
@@ -46,6 +50,12 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
     if (initialEntree) {
       setDepotId(initialEntree.depot?._id || initialEntree.depot);
       setOrigine(initialEntree.origine || '');
+      
+      // Récupération des données de calcul global
+      if (initialEntree.globalPriceCalculation) {
+        setGlobalPriceCalculation(initialEntree.globalPriceCalculation);
+      }
+      
       const initialItems = (initialEntree.items || []).map((item) => ({
         article: item.article?._id || item.article,
         quantiteKg: item.quantiteKg,
@@ -54,16 +64,23 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         monnaie: item.monnaie || 'MRU',
         prixLocation: item.prixLocation || '',
         quantiteCarton: convertKgToCarton(item.quantiteKg, item.article, articles),
-        priceCalculationData: item.priceCalculationData || null,
       }));
       setItems(initialItems);
     }
   }, [initialEntree]);
 
-  const handleCalc = (index) => (calculatedPrice, calculationData) => {
-    const newItems = [...items];
-    newItems[index].prixUnitaire = calculatedPrice.toFixed(2);
-    newItems[index].priceCalculationData = calculationData;
+  // Fonction pour gérer le calcul global de prix
+  const handleGlobalPriceCalculation = (calculatedPrice, calculationData) => {
+    setGlobalPriceCalculation({
+      prixUnitaireFinal: calculatedPrice,
+      calculationData: calculationData
+    });
+    
+    // Appliquer le prix calculé à tous les articles existants
+    const newItems = items.map(item => ({
+      ...item,
+      prixUnitaire: calculatedPrice.toFixed(2)
+    }));
     setItems(newItems);
   };
 
@@ -125,11 +142,10 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         article: '',
         quantiteKg: '',
         quantiteTunnel: '',
-        prixUnitaire: '',
+        prixUnitaire: globalPriceCalculation.prixUnitaireFinal > 0 ? globalPriceCalculation.prixUnitaireFinal.toFixed(2) : '',
         monnaie: 'MRU',
         prixLocation: '',
         quantiteCarton: 0,
-        priceCalculationData: null,
       },
     ]);
   };
@@ -166,6 +182,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       const payload = {
         depot: depotId,
         origine,
+        globalPriceCalculation: globalPriceCalculation.calculationData ? globalPriceCalculation : null,
         items: validItems.map((item) => {
           // S'assurer qu'on a une quantité en kg, soit directement soit par conversion
           let quantiteKg = parseFloat(item.quantiteKg) || 0;
@@ -181,7 +198,6 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
             prixUnitaire: parseFloat(item.prixUnitaire),
             monnaie: item.monnaie,
             prixLocation: item.prixLocation ? parseFloat(item.prixLocation) : undefined,
-            priceCalculationData: item.priceCalculationData || null,
           };
         }),
       };
@@ -263,6 +279,54 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
               />
             </div>
           </div>
+        </div>
+        
+        {/* Section Calcul de Prix Global */}
+        <div className="bg-blue-50 p-6 rounded-lg border-2 border-blue-200">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-semibold text-blue-800">Calcul du Prix Unitaire Global</h3>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setIsCalcOpen(true)}
+              className="flex items-center space-x-2"
+            >
+              <span>⚙️</span>
+              <span>Calculer Prix</span>
+            </Button>
+          </div>
+          
+          {globalPriceCalculation.prixUnitaireFinal > 0 && (
+            <div className="bg-white p-4 rounded-lg border border-blue-300">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-700">Prix Unitaire Final:</span>
+                  <div className="text-lg font-bold text-blue-600">
+                    {globalPriceCalculation.prixUnitaireFinal.toFixed(2)} MRU/kg
+                  </div>
+                </div>
+                {globalPriceCalculation.calculationData && (
+                  <>
+                    <div>
+                      <span className="font-medium text-gray-700">Valeur Camion:</span>
+                      <div className="text-lg font-semibold text-gray-800">
+                        {globalPriceCalculation.calculationData.valeurCamion?.toFixed(2) || 0} MRU
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Prix Total:</span>
+                      <div className="text-lg font-semibold text-gray-800">
+                        {globalPriceCalculation.calculationData.prixTotal?.toFixed(2) || 0} MRU
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="mt-2 text-xs text-gray-600">
+                ✓ Ce prix sera appliqué automatiquement à tous les articles de cette entrée
+              </div>
+            </div>
+          )}
         </div>
   
         {/* Saisie des articles (items) */}
@@ -374,22 +438,6 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                     required
                   />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsCalcOpen({ open: true, idx: index })}
-                    className="mb-1"
-                    title="Calcul automatique"
-                  >
-                    ⚙️
-                  </Button>
-                  {item.priceCalculationData && (
-                    <div className="flex items-center text-green-600 text-sm mb-1">
-                      <span className="text-xs">✓ Données calculées</span>
-                    </div>
-                  )}
-                </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                 <div className="space-y-1">
@@ -465,16 +513,18 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
           >
             {initialEntree ? 'Mettre à jour' : 'Enregistrer'}
           </Button>
-          {isCalcOpen.open && (
+          {isCalcOpen && (
           <PriceCalculatorModal
             isOpen={true}
-            onClose={() => setIsCalcOpen({ open: false, idx: null })}
-            onCalculate={handleCalc(isCalcOpen.idx)}
+            onClose={() => setIsCalcOpen(false)}
+            onCalculate={handleGlobalPriceCalculation}
             initialData={{
-              ...items[isCalcOpen.idx]?.priceCalculationData,
-              quantiteTunnel: items[isCalcOpen.idx]?.quantiteTunnel || ''
+              ...globalPriceCalculation.calculationData,
+              quantiteTunnel: globalPriceCalculation.calculationData?.quantiteTunnel || 
+                             items.find(item => item.quantiteTunnel)?.quantiteTunnel || 
+                             items.reduce((sum, item) => sum + (parseFloat(item.quantiteTunnel) || 0), 0) || ''
             }}
-            itemIndex={isCalcOpen.idx}
+            isGlobalCalculation={true}
           />
         )}
         </div>

@@ -146,6 +146,88 @@ function EntreeDetails({ entree, onClose }) {
         <DetailItem label="Nombre d'Articles" value={entree.items ? entree.items.length : '—'} />
       </div>
 
+      {/* Section Calcul de Prix Global */}
+      {entree.globalPriceCalculation && entree.globalPriceCalculation.calculationData && (
+        <div className="mb-8">
+          <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <span className="mr-2">📊</span>
+            Détails du Calcul de Prix Global
+          </h4>
+          <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Section Données Camion */}
+              <div className="space-y-3">
+                <h5 className="font-medium text-blue-800 border-b border-blue-300 pb-2">
+                  Données Camion
+                </h5>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Poids camion:</span>
+                    <span className="font-semibold">{entree.globalPriceCalculation.calculationData.poidsCamion || 0} kg</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Prix unitaire d'achat:</span>
+                    <span className="font-semibold">{entree.globalPriceCalculation.calculationData.prixUnitaireAchat || 0} MRU/kg</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-blue-700 font-medium">Valeur camion:</span>
+                    <span className="font-bold text-blue-700">{entree.globalPriceCalculation.calculationData.valeurCamion || 0} MRU</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section Données Rejet */}
+              <div className="space-y-3">
+                <h5 className="font-medium text-blue-800 border-b border-blue-300 pb-2">
+                  Données Rejet
+                </h5>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Quantité rejetée:</span>
+                    <span className="font-semibold">{entree.globalPriceCalculation.calculationData.quantiteRejetee || 0} kg</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Prix unitaire rejet:</span>
+                    <span className="font-semibold">{entree.globalPriceCalculation.calculationData.prixUnitaireRejet || 0} MRU/kg</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-green-700 font-medium">Recette rejet:</span>
+                    <span className="font-bold text-green-700">{entree.globalPriceCalculation.calculationData.recetteRejet || 0} MRU</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section Calculs Finaux */}
+            <div className="mt-6 pt-4 border-t border-blue-300">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white p-4 rounded-lg border border-blue-200">
+                  <div className="text-sm text-gray-600 mb-1">Prix Total</div>
+                  <div className="text-xl font-bold text-blue-600">
+                    {entree.globalPriceCalculation.calculationData.prixTotal?.toFixed(2) || 0} MRU
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">Valeur camion - Recette rejet</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-blue-200">
+                  <div className="text-sm text-gray-600 mb-1">Prix Unitaire Frais</div>
+                  <div className="text-xl font-bold text-green-600">
+                    {entree.globalPriceCalculation.calculationData.prixUnitaireFrais?.toFixed(2) || 0} MRU/kg
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">Prix total ÷ Quantité tunnel</div>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-blue-200">
+                  <div className="text-sm text-gray-600 mb-1">Prix Unitaire Final</div>
+                  <div className="text-xl font-bold text-yellow-600">
+                    {entree.globalPriceCalculation.prixUnitaireFinal?.toFixed(2) || 0} MRU/kg
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">Prix frais + Frais ({entree.globalPriceCalculation.calculationData.frais || 0} MRU/kg)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-end">
         <button
           onClick={onClose}
