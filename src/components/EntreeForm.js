@@ -38,11 +38,53 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
   
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  
-  // État pour le modal de confirmation/résumé
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [entreeData, setEntreeData] = useState(null);
-  
+
+  // Calcul du résumé en temps réel
+  const resumeQuantites = useMemo(() => {
+    const validItems = items.filter(item => 
+      item.article && 
+      (
+        (item.quantiteKg && parseFloat(item.quantiteKg) > 0) ||
+        (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0)
+      )
+    );
+
+    let totalKg = 0;
+    let totalCartons = 0;
+    let totalTunnel = 0;
+    let totalValeur = 0;
+    let articlesTraites = 0;
+
+    validItems.forEach(item => {
+      const article = articles.find(a => a._id === item.article);
+      if (article) {
+        const kg = parseFloat(item.quantiteKg) || 0;
+        const cartons = parseFloat(item.quantiteCarton) || 0;
+        const tunnel = parseFloat(item.quantiteTunnel) || 0;
+        const prix = parseFloat(item.prixUnitaire) || 0;
+        
+        // Utiliser la quantité en kg si disponible, sinon convertir depuis cartons
+        const quantiteKgFinal = kg > 0 ? kg : calculateKgFromCartons(cartons, article);
+        const quantiteCartonsFinal = cartons > 0 ? cartons : convertKgToCarton(kg, article);
+        
+        totalKg += quantiteKgFinal;
+        totalCartons += quantiteCartonsFinal;
+        totalTunnel += tunnel;
+        totalValeur += quantiteKgFinal * prix;
+        articlesTraites++;
+      }
+    });
+
+    return {
+      totalKg: totalKg.toFixed(2),
+      totalCartons: totalCartons.toFixed(2),
+      totalTunnel: totalTunnel.toFixed(2),
+      totalValeur: totalValeur.toFixed(2),
+      articlesTraites,
+      totalArticles: items.length
+    };
+  }, [items, articles]);
+
   // Récupération des dépôts et articles, et pré-remplissage en cas d'édition
   useEffect(() => {
     fetchDepots();
@@ -178,7 +220,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         return;
       }
 
-      // Préparation des données pour le résumé
+      // Préparation des données
       const payload = {
         depot: depotId,
         origine,
@@ -202,31 +244,19 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         }),
       };
 
-      // Affichage du résumé avant envoi
-      setEntreeData(payload);
-      setShowConfirmation(true);
-      setLoading(false);
-    } catch (err) {
-      console.error('Erreur lors de la préparation des données:', err);
-      setErrorMessage("Erreur lors de la préparation des données.");
-      setLoading(false);
-    }
-  };
-  
-  // Fonction pour envoyer réellement les données après confirmation
-  const confirmSubmit = async () => {
-    setLoading(true);
-    try {
+      // Soumission directe des données
       if (initialEntree) {
-        await axios.put(`/entrees/${initialEntree._id}`, entreeData);
+        await axios.put(`/entrees/${initialEntree._id}`, payload);
       } else {
-        await axios.post('/entrees', entreeData);
+        await axios.post('/entrees', payload);
       }
+      
+      // Succès - fermer le formulaire
       onEntreeCreated();
+      
     } catch (err) {
       console.error('Erreur lors de la sauvegarde de l\'entrée:', err);
       setErrorMessage("Erreur lors de la création/mise à jour de l'entrée.");
-      setShowConfirmation(false);
     } finally {
       setLoading(false);
     }
@@ -496,6 +526,153 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
           </Button>
         </div>
 
+        {/* Résumé en temps réel - Table des articles */}
+        <div className="bg-gradient-to-r from-blue-50 to-green-50 p-6 rounded-xl border-2 border-blue-200 shadow-lg">
+          <div className="text-center mb-6">
+            <h3 className="text-2xl font-bold text-gray-800 flex items-center justify-center gap-2">
+              <span className="text-blue-600">📊</span>
+              Résumé de l'entrée
+              <span className="text-green-600">📈</span>
+            </h3>
+          </div>
+
+          {/* Statistiques rapides */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+            <div className="bg-white p-3 rounded-lg shadow-md text-center border-l-4 border-blue-500">
+              <p className="text-sm font-medium text-gray-600">Total Kg</p>
+              <p className="text-xl font-bold text-blue-600">{resumeQuantites.totalKg}</p>
+            </div>
+            <div className="bg-white p-3 rounded-lg shadow-md text-center border-l-4 border-green-500">
+              <p className="text-sm font-medium text-gray-600">Total Cartons</p>
+              <p className="text-xl font-bold text-green-600">{resumeQuantites.totalCartons}</p>
+            </div>
+            <div className="bg-white p-3 rounded-lg shadow-md text-center border-l-4 border-purple-500">
+              <p className="text-sm font-medium text-gray-600">Total Tunnel</p>
+              <p className="text-xl font-bold text-purple-600">{resumeQuantites.totalTunnel} kg</p>
+            </div>
+            <div className="bg-white p-3 rounded-lg shadow-md text-center border-l-4 border-orange-500">
+              <p className="text-sm font-medium text-gray-600">Articles</p>
+              <p className="text-xl font-bold text-orange-600">{resumeQuantites.articlesTraites}/{resumeQuantites.totalArticles}</p>
+            </div>
+            <div className="bg-white p-3 rounded-lg shadow-md text-center border-l-4 border-yellow-500">
+              <p className="text-sm font-medium text-gray-600">Valeur</p>
+              <p className="text-xl font-bold text-yellow-600">{resumeQuantites.totalValeur} MRU</p>
+            </div>
+          </div>
+
+          {/* Table des articles */}
+          {resumeQuantites.articlesTraites > 0 ? (
+            <div className="bg-white rounded-lg shadow-md overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Article
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Quantité (Kg)
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Quantité (Cartons)
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Quantité Tunnel (Kg)
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Prix Unit.
+                      </th>
+                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {items.filter(item => 
+                      item.article && 
+                      (
+                        (item.quantiteKg && parseFloat(item.quantiteKg) > 0) ||
+                        (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0)
+                      )
+                    ).map((item, index) => {
+                      const article = articles.find(a => a._id === item.article);
+                      if (!article) return null;
+                      
+                      const kg = parseFloat(item.quantiteKg) || 0;
+                      const cartons = parseFloat(item.quantiteCarton) || 0;
+                      const tunnel = parseFloat(item.quantiteTunnel) || 0;
+                      const prix = parseFloat(item.prixUnitaire) || 0;
+                      
+                      const quantiteKgFinal = kg > 0 ? kg : calculateKgFromCartons(cartons, article);
+                      const quantiteCartonsFinal = cartons > 0 ? cartons : convertKgToCarton(kg, article);
+                      const total = quantiteKgFinal * prix;
+                      
+                      // Création du nom complet de l'article
+                      const articleComplet = [
+                        article.reference || '', 
+                        article.specification || '', 
+                        article.taille || ''
+                      ].filter(Boolean).join(' - ');
+                      
+                      return (
+                        <tr key={index} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                            {articleComplet}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center text-gray-900 font-medium">
+                            {quantiteKgFinal.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center text-gray-900 font-medium">
+                            {quantiteCartonsFinal.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center text-gray-700">
+                            {tunnel > 0 ? tunnel.toFixed(2) : '-'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center text-gray-700">
+                            {prix.toFixed(2)} {item.monnaie}/kg
+                          </td>
+                          <td className="px-4 py-3 text-sm text-center text-gray-900 font-bold">
+                            {total.toFixed(2)} {item.monnaie}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {/* Ligne de total */}
+                    <tr className="bg-blue-50 border-t-2 border-blue-200">
+                      <td className="px-4 py-3 text-sm font-bold text-gray-800">
+                        TOTAL
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center font-bold text-blue-600">
+                        {resumeQuantites.totalKg} kg
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center font-bold text-green-600">
+                        {resumeQuantites.totalCartons} cartons
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center font-bold text-purple-600">
+                        {resumeQuantites.totalTunnel} kg
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center text-gray-700">
+                        -
+                      </td>
+                      <td className="px-4 py-3 text-sm text-center font-bold text-yellow-600">
+                        {resumeQuantites.totalValeur} MRU
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white p-8 rounded-lg shadow-md text-center">
+              <div className="text-6xl mb-4">📋</div>
+              <p className="text-lg text-gray-600 mb-2">Aucun article configuré</p>
+              <p className="text-sm text-gray-500">
+                Commencez par sélectionner un article et saisir des quantités pour voir le résumé
+              </p>
+            </div>
+          )}
+        </div>
+
         <div className="flex justify-end space-x-6 mt-10 pt-6 border-t border-gray-200">
           <Button
             variant="secondary"
@@ -529,133 +706,6 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         )}
         </div>
       </form>
-
-      {/* Modal de confirmation/résumé */}
-      {showConfirmation && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-2xl font-bold mb-6 text-gray-800">
-              Résumé de l'Entrée
-            </h3>
-            <div className="space-y-6">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <strong className="text-gray-700">Dépôt:</strong>
-                    <p className="text-gray-900">{depots.find(d => d._id === depotId)?.intitule}</p>
-                  </div>
-                  <div>
-                    <strong className="text-gray-700">Origine:</strong>
-                    <p className="text-gray-900">{origine || 'Non spécifiée'}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <strong className="text-lg text-gray-700">Articles ({entreeData?.items?.length || 0}):</strong>
-                
-                {/* Tableau style Excel */}
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300 bg-white">
-                    <thead>
-                      <tr className="bg-blue-100">
-                        <th className="border border-gray-300 px-4 py-3 text-left font-semibold text-gray-800">Article</th>
-                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-gray-800">Quantité (Kg)</th>
-                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-gray-800">Quantité (Cartons)</th>
-                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-gray-800">Tunnel (Kg)</th>
-                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-gray-800">Prix Unitaire</th>
-                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-gray-800">Prix Location</th>
-                        <th className="border border-gray-300 px-4 py-3 text-center font-semibold text-gray-800">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {entreeData?.items?.map((item, idx) => {
-                        const article = articles.find(a => a._id === item.article);
-                        const articleName = article ? 
-                          [article.reference, article.specification, article.taille].filter(Boolean).join(' – ') : 
-                          'Article inconnu';
-                        
-                        // Calculer la quantité en cartons pour l'affichage
-                        const quantiteCartons = article ? convertKgToCarton(item.quantiteKg, article) : 0;
-                        const totalPrice = (item.quantiteKg * item.prixUnitaire).toFixed(2);
-                        
-                        return (
-                          <tr key={idx} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                            <td className="border border-gray-300 px-4 py-3 text-gray-900 font-medium">
-                              {articleName}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-3 text-center text-gray-900">
-                              {item.quantiteKg}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-3 text-center text-gray-900">
-                              {quantiteCartons.toFixed(2)}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-3 text-center text-gray-900">
-                              {item.quantiteTunnel || '-'}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-3 text-center text-gray-900">
-                              {item.prixUnitaire} {item.monnaie}/Kg
-                            </td>
-                            <td className="border border-gray-300 px-4 py-3 text-center text-gray-900">
-                              {item.prixLocation ? `${item.prixLocation} MRU/t/sem` : '-'}
-                            </td>
-                            <td className="border border-gray-300 px-4 py-3 text-center text-gray-900 font-semibold">
-                              {totalPrice} {item.monnaie}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {/* Ligne de total */}
-                      <tr className="bg-green-100 font-bold">
-                        <td className="border border-gray-300 px-4 py-3 text-gray-800">
-                          TOTAL
-                        </td>
-                        <td className="border border-gray-300 px-4 py-3 text-center text-gray-800">
-                          {entreeData?.items?.reduce((sum, item) => sum + (item.quantiteKg || 0), 0).toFixed(2)} Kg
-                        </td>
-                        <td className="border border-gray-300 px-4 py-3 text-center text-gray-800">
-                          {entreeData?.items?.reduce((sum, item) => {
-                            const article = articles.find(a => a._id === item.article);
-                            return sum + (article ? convertKgToCarton(item.quantiteKg, article) : 0);
-                          }, 0).toFixed(2)} Cartons
-                        </td>
-                        <td className="border border-gray-300 px-4 py-3 text-center text-gray-800">
-                          {entreeData?.items?.reduce((sum, item) => sum + (item.quantiteTunnel || 0), 0).toFixed(2)} Kg
-                        </td>
-                        <td className="border border-gray-300 px-4 py-3"></td>
-                        <td className="border border-gray-300 px-4 py-3"></td>
-                        <td className="border border-gray-300 px-4 py-3 text-center text-gray-800">
-                          {entreeData?.items?.reduce((sum, item) => sum + (item.quantiteKg * item.prixUnitaire), 0).toFixed(2)} MRU
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end space-x-4 mt-8">
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={() => setShowConfirmation(false)}
-                disabled={loading}
-              >
-                Modifier
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={confirmSubmit}
-                loading={loading}
-                disabled={loading}
-              >
-                Confirmer et Enregistrer
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

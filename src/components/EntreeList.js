@@ -923,7 +923,7 @@ const exportToPDF = () => {
 
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[100vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[100vh] overflow-y-auto">
             <EntreeForm
               onClose={handleCloseForm}
               onEntreeCreated={handleEntreeCreatedOrUpdated}
