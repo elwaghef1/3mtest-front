@@ -301,19 +301,21 @@ export const generateBonDeCommandePDF = (commande) => {
 // Fonction utilitaire pour formater les quantités
 const formatQuantity = (value) => {
   const numValue = parseFloat(value) || 0;
+  // Formater avec virgule puis remplacer par espace
   return numValue.toLocaleString('en-US', { 
     minimumFractionDigits: 0, 
     maximumFractionDigits: 0 
-  });
+  }).replace(/,/g, ' ');
 };
 
 // Fonction utilitaire pour formater les prix
 const formatPrice = (value, currency = 'EUR') => {
   const numValue = parseFloat(value) || 0;
+  // Formater avec virgule puis remplacer par espace
   const formattedNumber = numValue.toLocaleString('en-US', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
-  });
+  }).replace(/,/g, ' ');
   
   if (currency === 'MRU') {
     return `${formattedNumber} MRU`;
