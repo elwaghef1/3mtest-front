@@ -482,7 +482,9 @@ export const generateInvoicePDF = (commande) => {
   let termsY = bankY + 5;
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
-  doc.text("Payment informations", marginLeft, termsY);
+  
+  if (commande.typeCommande !== 'LOCALE') {
+    doc.text("Payment informations", marginLeft, termsY);
   doc.setFont(undefined, 'normal');
   doc.setFontSize(8);
   
@@ -511,7 +513,7 @@ export const generateInvoicePDF = (commande) => {
       doc.text(line, marginLeft, termsY + 6 + index * 4);
     });
   }
-  
+  }
   let signatureY = termsY + 6 + 6 * 4 + 10;
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
