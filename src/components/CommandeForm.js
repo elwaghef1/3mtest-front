@@ -1348,7 +1348,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         {formData.statutBonDeCommande === 'LIVREE' && (
           <>
             {/* Détails de la Commande (LIVREE) */}
-            <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+            {formData.typeCommande !== 'LOCALE' && (
+              <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
               <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
                 Détails de la Commande
               </h3>
@@ -1490,9 +1491,11 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 </div>
               </div>
             </div>
+            )}
 
             {/* Champs Complémentaires (LIVREE) */}
-            <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+            {formData.typeCommande !== 'LOCALE' && (
+              <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
               <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
                 Champs Complémentaires
               </h3>
@@ -1595,6 +1598,8 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 </div>
               </div>
             </div>
+            )}
+            
 
             {/* Section Charges Locales - Masquée pour commande locale */}
             {formData.statutBonDeCommande === 'LIVREE' && formData.typeCommande !== 'LOCALE' && (
@@ -1648,18 +1653,20 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         )}
 
          {/* Section Conditions de Vente */}
-         <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
-          <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
-            Conditions de Vente
-          </h3>
-          <textarea
-            name="conditionsDeVente"
-            placeholder="Saisissez les conditions de vente..."
-            className={`w-full h-32 p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none`}
-            value={formData.conditionsDeVente}
-            onChange={handleChange}
-          />
-        </div>
+         {formData.typeCommande !== 'LOCALE' && (
+            <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4 border-b pb-2">
+                Conditions de Vente
+              </h3>
+              <textarea
+                name="conditionsDeVente"
+                placeholder="Saisissez les conditions de vente..."
+                className={`w-full h-32 p-2 border-2 border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none`}
+                value={formData.conditionsDeVente}
+                onChange={handleChange}
+              />
+            </div>
+         )}
 
         {/* Section Prix Total */}
         <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 text-center shadow-sm">
