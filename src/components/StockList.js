@@ -229,11 +229,11 @@ export default function StockList() {
     }).format(num).replace(/\s/g, '\u00A0');
   };
 
-  // Calcul du CUMP global en devise d'affichage (moyenne pondérée sur la quantité)
+  // Calcul du CUMP global en devise d'affichage (moyenne pondérée sur la quantité commercialisable)
   const totalValueInDisplay = filtered.reduce((acc, s) => {
     const stockCurrency = s.monnaie || 'USD';
     const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
-    return acc + (s.valeur * s.quantiteKg * factor);
+    return acc + (s.valeur * (s.quantiteCommercialisableKg || 0) * factor);
   }, 0);
   const totalQuantity = filtered.reduce((acc, s) => acc + (s.quantiteKg || 0), 0);
   const globalCump = totalQuantity > 0 ? (totalValueInDisplay / totalQuantity) * 1000 : 0;
@@ -369,7 +369,70 @@ export default function StockList() {
        .setTextColor(255, 255, 255) // Texte blanc
        .text("ETAT DE STOCK", w / 2, titleY + 4, { align: 'center' });
 
-    const startY = titleY + 20;
+    // --- RÉSUMÉ DES TOTAUX ---
+    let summaryY = titleY + 25;
+    
+    // Calculer les totaux pour le résumé
+    const totalQuantiteDisponible = filtered.reduce((acc, s) => acc + (s.quantiteKg || 0), 0);
+    const totalQuantiteCommercializable = filtered.reduce((acc, s) => acc + (s.quantiteCommercialisableKg || 0), 0);
+    const totalCartonsDisponible = filtered.reduce((acc, s) => {
+      const article = getArticleForStock(s, articles);
+      return acc + getCartonQuantityFromKg(s.quantiteKg || 0, article);
+    }, 0);
+    const totalCartonsCommercializable = filtered.reduce((acc, s) => {
+      const article = getArticleForStock(s, articles);
+      return acc + getCartonQuantityFromKg(s.quantiteCommercialisableKg || 0, article);
+    }, 0);
+
+    // Fond gris clair pour le résumé
+    const summaryHeight = 25;
+    doc.setFillColor(245, 245, 245)
+       .rect(m, summaryY - 3, w - 2*m, summaryHeight, 'F');
+
+    // Titre du résumé
+    doc.setTextColor(0, 0, 0)
+       .setFont('helvetica', 'bold')
+       .setFontSize(12)
+       .text('RÉSUMÉ GÉNÉRAL', w / 2, summaryY + 2, { align: 'center' });
+
+    // Ligne de séparation
+    doc.setDrawColor(200, 200, 200)
+       .setLineWidth(0.5)
+       .line(m + 10, summaryY + 5, w - m - 10, summaryY + 5);
+
+    // Données du résumé en 4 colonnes
+    const colWidth = (w - 2*m - 30) / 4;
+    const col1X = m + 15;
+    const col2X = col1X + colWidth;
+    const col3X = col2X + colWidth;
+    const col4X = col3X + colWidth;
+    
+    doc.setFont('helvetica', 'normal')
+       .setFontSize(9);
+
+    // Première ligne : Quantités disponibles
+    doc.setFont('helvetica', 'bold')
+       .text('Quantité Disponible:', col1X, summaryY + 10);
+    doc.setFont('helvetica', 'normal')
+       .text(`${pdfNumberDecimal(totalQuantiteDisponible / 1000)} T`, col1X, summaryY + 14);
+
+    doc.setFont('helvetica', 'bold')
+       .text('Cartons Disponibles:', col2X, summaryY + 10);
+    doc.setFont('helvetica', 'normal')
+       .text(`${pdfNumberDecimal(totalCartonsDisponible)}`, col2X, summaryY + 14);
+
+    // Deuxième ligne : Quantités commercialisables
+    doc.setFont('helvetica', 'bold')
+       .text('Quantité Commercialisable:', col3X, summaryY + 10);
+    doc.setFont('helvetica', 'normal')
+       .text(`${pdfNumberDecimal(totalQuantiteCommercializable / 1000)} T`, col3X, summaryY + 14);
+
+    doc.setFont('helvetica', 'bold')
+       .text('Cartons Commercialisables:', col4X, summaryY + 10);
+    doc.setFont('helvetica', 'normal')
+       .text(`${pdfNumberDecimal(totalCartonsCommercializable)}`, col4X, summaryY + 14);
+
+    const startY = summaryY + 35;
 
     // --- CONSTRUCTION DES COLONNES DYNAMIQUES (comme l'Excel) ---
     const headers = ['Article'];
@@ -1222,11 +1285,11 @@ const exportToExcel = async () => {
                   );
                 })}
               </tbody>
-              {/* Ajout du pied de tableau pour afficher la "Valeur du stock" */}
+              {/* Ajout du pied de tableau pour afficher la "Valeur du stock commercialisable" */}
               <tfoot>
                 <tr>
                   <td colSpan={numColumns - 2} className="text-right font-bold bg-white px-4 py-3 border border-gray-400">
-                    Valeur du stock :
+                    Valeur du stock commercialisable :
                   </td>
                   <td colSpan={2} className="bg-red-600 text-white text-center font-bold px-4 py-3 border border-gray-400">
                     <strong>{formatNumber(totalValueInDisplay.toFixed(2))} {getCurrencyLabel()}</strong>
