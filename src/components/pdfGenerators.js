@@ -298,7 +298,32 @@ export const generateBonDeCommandePDF = (commande) => {
   doc.save(`bon_de_sortie_${commande.reference}.pdf`);
 };
 
-// Fonction pour générer la Facture (MODIFIÉE SELON VOS EXIGENCES)
+// Fonction utilitaire pour formater les quantités
+const formatQuantity = (value) => {
+  const numValue = parseFloat(value) || 0;
+  return numValue.toLocaleString('en-US', { 
+    minimumFractionDigits: 0, 
+    maximumFractionDigits: 0 
+  });
+};
+
+// Fonction utilitaire pour formater les prix
+const formatPrice = (value, currency = 'EUR') => {
+  const numValue = parseFloat(value) || 0;
+  const formattedNumber = numValue.toLocaleString('en-US', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  });
+  
+  if (currency === 'MRU') {
+    return `${formattedNumber} MRU`;
+  } else if (currency === 'USD') {
+    return `$ ${formattedNumber}`;
+  } else {
+    return `€ ${formattedNumber}`;
+  }
+};
+
 export const generateInvoicePDF = (commande) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -404,17 +429,17 @@ export const generateInvoicePDF = (commande) => {
       groupedItem.product,
       groupedItem.size,
       "Kg",
-      groupedItem.totalQuantity.toFixed(0),
-      groupedItem.unitPrice.toFixed(2),
-      groupedItem.totalPrice.toFixed(2)
+      formatQuantity(groupedItem.totalQuantity),
+      formatPrice(groupedItem.unitPrice, commande.currency).replace(/[€$]/g, '').trim(),
+      formatPrice(groupedItem.totalPrice, commande.currency).replace(/[€$]/g, '').trim()
     ]);
   });
   
   tableRows.push([
     { content: "TOTAL", colSpan: 3, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: totalQuantityKg.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } },
+    { content: formatQuantity(totalQuantityKg), styles: { halign: 'center', fontStyle: 'bold' } },
     "",
-    { content: totalPrice.toFixed(3), styles: { halign: 'center', fontStyle: 'bold' } }
+    { content: formatPrice(totalPrice, commande.currency).replace(/[€$]/g, '').trim(), styles: { halign: 'center', fontStyle: 'bold' } }
   ]);
   
   doc.autoTable({
@@ -443,22 +468,15 @@ export const generateInvoicePDF = (commande) => {
   const conditionsLines = conditions.split('\n');
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
-  doc.text("CONDITION OF SALES", marginLeft, afterTableY);
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
-  conditionsLines.forEach((line, index) => {
-    doc.text(line, marginLeft, afterTableY + 5 + index * 4);
-  });
-
+  if (commande.typeCommande !== 'LOCALE') {
+    doc.text("CONDITIONS OF SALE", marginLeft, afterTableY);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(8);
+    conditionsLines.forEach((line, index) => {
+      doc.text(line, marginLeft, afterTableY + 5 + index * 4);
+    });
+  }
   let bankY = afterTableY + 5 + conditionsLines.length * 4 + 8;
-  
-  // Section Notes
-  // doc.setFontSize(9);
-  // doc.setFont(undefined, 'bold');
-  // doc.text("Notes", marginLeft, bankY);
-  // doc.setFont(undefined, 'normal');
-  // doc.setFontSize(8);
-  // doc.text("Thanks for your business.", marginLeft, bankY + 6);
   
   // Section Terms & Conditions avec informations bancaires
   let termsY = bankY + 5;
@@ -511,7 +529,6 @@ export const generateInvoicePDF = (commande) => {
   doc.save(`invoice_${commande.reference}.pdf`);
 };
 
-// Fonction pour générer la Facture Proforma (reste inchangée)
 export const generateProformaInvoicePDF = (commande) => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -617,17 +634,17 @@ export const generateProformaInvoicePDF = (commande) => {
       groupedItem.batchNumber,
       groupedItem.size,
       "Kg",
-      groupedItem.totalQuantity.toFixed(0),
-      groupedItem.unitPrice.toFixed(2),
-      groupedItem.totalPrice.toFixed(2)
+      formatQuantity(groupedItem.totalQuantity),
+      formatPrice(groupedItem.unitPrice, commande.currency).replace(/[€$]/g, '').trim(),
+      formatPrice(groupedItem.totalPrice, commande.currency).replace(/[€$]/g, '').trim()
     ]);
   });
   
   tableRows.push([
     { content: "TOTAL", colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: totalQuantityKg.toFixed(0), styles: { halign: 'center', fontStyle: 'bold' } },
+    { content: formatQuantity(totalQuantityKg), styles: { halign: 'center', fontStyle: 'bold' } },
     "",
-    { content: totalPrice.toFixed(3), styles: { halign: 'center', fontStyle: 'bold' } }
+    { content: formatPrice(totalPrice, commande.currency).replace(/[€$]/g, '').trim(), styles: { halign: 'center', fontStyle: 'bold' } }
   ]);
   
   doc.autoTable({
@@ -656,13 +673,14 @@ export const generateProformaInvoicePDF = (commande) => {
   const conditionsLines = conditions.split('\n');
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
-  doc.text("CONDITION OF SALES", marginLeft, afterTableY);
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(8);
-  conditionsLines.forEach((line, index) => {
-    doc.text(line, marginLeft, afterTableY + 5 + index * 4);
-  });
-
+  if (commande.typeCommande !== 'LOCALE') {
+    doc.text("CONDITIONS OF SALE", marginLeft, afterTableY);
+    doc.setFont(undefined, 'normal');
+    doc.setFontSize(8);
+    conditionsLines.forEach((line, index) => {
+      doc.text(line, marginLeft, afterTableY + 5 + index * 4    );
+    });
+  }
   let bankY = afterTableY + 5 + conditionsLines.length * 4 + 8;
   doc.setFontSize(9);
   doc.setFont(undefined, 'bold');
