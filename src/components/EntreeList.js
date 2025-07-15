@@ -357,10 +357,11 @@ function EntreeList() {
     doc.text(`Dépôt : ${entree.depot?.intitule || 'Non spécifié'}`, m, infoY);
     doc.text(`Batch Number : ${entree.batchNumber || 'Non spécifié'}`, m, infoY + 6);
     doc.text(`Type : ${entree.origine === 'TRANSFERT' ? 'TRANSFERT' : 'NORMAL'}`, m, infoY + 12);
+    doc.text(`Origine : ${entree.origine || 'Non spécifié'}`, m, infoY + 18);
   
     // --- TABLEAU D’ENTRÉE ---
     doc.autoTable({
-      startY: infoY + 20,
+      startY: infoY + 24,
       head: [['Article','Quantité (Kg)','Quantité (Cartons)','Prix Unitaire','Total']],
       body: rows,
       foot: [[
