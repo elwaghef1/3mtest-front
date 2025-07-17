@@ -133,7 +133,13 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
       return sum + (article.quantiteCarton * kgPerCarton);
     }, 0);
     
-    const grossWeight = totalBoxes * container.containerInfo.poidsCarton;
+    // Calculer le poids brut : (nombre de cartons × Kg/Carton) + (nombre de cartons × 0.8)
+    const grossWeight = selectedArticles.reduce((sum, article) => {
+      const articleData = commande?.items?.find(item => item.article?._id === article.id);
+      const kgPerCarton = articleData?.article?.kgParCarton || 20;
+      const cartonWeight = (article.quantiteCarton * kgPerCarton) + (article.quantiteCarton * 0.8);
+      return sum + cartonWeight;
+    }, 0);
 
     return {
       numOfBox: totalBoxes,
@@ -650,7 +656,12 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
                                 backgroundColor: '#f1f5f9'
                               }}>
                                 <span style={{ fontSize: '11px', fontWeight: 'bold' }}>
-                                  {(article.quantiteCarton * container.containerInfo.poidsCarton).toFixed(1)} KG
+                                  {(() => {
+                                    const articleData = commande?.items?.find(item => item.article?._id === article.id);
+                                    const kgPerCarton = articleData?.article?.kgParCarton || 20;
+                                    const grossWeight = (article.quantiteCarton * kgPerCarton) + (article.quantiteCarton * 0.8);
+                                    return grossWeight.toFixed(1);
+                                  })()} KG
                                 </span>
                               </td>
                             </tr>
