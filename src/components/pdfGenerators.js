@@ -1742,7 +1742,7 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
           const kgPerCarton = getKgPerCarton(originalArticle?.article);
           
           const netWeight = qty * kgPerCarton;
-          const grossWeight = qty * (containerInfo.poidsCarton || 22);
+          const grossWeight = (qty * kgPerCarton) + (qty * 0.8); // Formule corrigée: (nombre cartons × Kg/Carton) + (nombre cartons × 0.8)
           const isFirstArticle = index === 0;
           const rowSpanCount = selectedArticles.length;
           
