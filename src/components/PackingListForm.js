@@ -93,7 +93,7 @@ const PackingListForm = ({ commande, isOpen, onClose, onSave }) => {
   // Fonction pour mettre à jour le nombre de cartons d'un article
   const updateArticleCartons = (containerIndex, articleIndex, newCartons) => {
     const newData = [...containerData];
-    newData[containerIndex].articles[articleIndex].quantiteCarton = parseInt(newCartons) || 0;
+    newData[containerIndex].articles[articleIndex].quantiteCarton = parseFloat(newCartons) || 0;
     setContainerData(newData);
   };
 
