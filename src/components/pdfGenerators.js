@@ -29,7 +29,12 @@ const getKgPerCarton = (article) => {
 
 // Fonction pour générer le Packing List
 export const generatePackingListPDF = (commande) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 10;
   const marginRight = 10;
@@ -197,7 +202,12 @@ export const generatePackingListPDF = (commande) => {
 
 // Fonction pour générer le Bon de Sortie
 export const generateBonDeCommandePDF = (commande) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 10;
   const marginRight = 10;
@@ -327,7 +337,12 @@ const formatPrice = (value, currency = 'EUR') => {
 };
 
 export const generateInvoicePDF = (commande) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 10;
   const marginRight = 10;
@@ -534,7 +549,12 @@ export const generateInvoicePDF = (commande) => {
 };
 
 export const generateProformaInvoicePDF = (commande) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 10;
   const marginRight = 10;
@@ -741,7 +761,12 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     throw new Error('Données du certificat manquantes');
   }
 
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginLeft = 15;
@@ -1059,7 +1084,12 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
 };
 
 export const generateBonDeSortiePDF = (commande, historiqueData) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 10;
   const marginRight = 10;
@@ -1348,7 +1378,12 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
 
 // Fonction pour générer les Détails de la Commande (PDF)
 export const generateCommandeDetailsPDF = (commande) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 10;
   const marginRight = 10;
@@ -1491,7 +1526,12 @@ export const generateCommandeDetailsPDF = (commande) => {
 
 
 export const generateVGMPDF = (vgmData, commande) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 20;
   const marginRight = 20;
@@ -1661,7 +1701,12 @@ export const generateVGMPDF = (vgmData, commande) => {
  * @param {Array} containerData – la structure complète des containers issue du formulaire
  */
 export const generatePackingListFromFormPDF = (commande, containerData) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = { left: 10, right: 10 };
 
@@ -1931,7 +1976,12 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
 
 // Fonction pour générer l'autorisation de sortie PDF
 export const generateAutorisationSortiePDF = (autorisationData) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginLeft = 10;
@@ -2077,7 +2127,12 @@ export const generateAutorisationSortiePDF = (autorisationData) => {
 
 // Fonction pour générer la Demande de Certification (Certificat d'Origine)
 export const generateCertificationRequestPDF = (commande) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 15;
   const marginRight = 15;
@@ -2290,7 +2345,12 @@ export const generateCertificationRequestPDF = (commande) => {
 
 // Fonction pour générer le Bon de Transfert PDF (simple ou multiple)
 export const generateBonDeTransfertPDF = (transfer) => {
-  const doc = new jsPDF('p', 'mm', 'a4');
+  const doc = new jsPDF({
+  orientation: 'portrait',
+  unit: 'mm',
+  format: 'a4',
+  compress: true    // active la compression Flate des objets
+});
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginLeft = 15;
   const marginRight = 15;
