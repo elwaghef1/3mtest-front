@@ -2686,7 +2686,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   // 7. Fill in static labels and dynamic data with proper style:
   // Reference (Ref) and PO - use actual data from the order (commande)
   setCellStyle('C4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = 'Ref:';
-  const refText = commande.reference || 'N/A';
+  const refText = '';
   setCellStyle('D4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = refText;
   const poText = commande.numeroOP || commande.numeroBooking || 'N/A';
   setCellStyle('E4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = `PO : ${poText}`;
