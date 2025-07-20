@@ -44,8 +44,9 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
     const validItems = items.filter(item => 
       item.article && 
       (
-        (item.quantiteKg && parseFloat(item.quantiteKg) > 0) ||
-        (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0)
+        (item.quantiteKg !== '' && parseFloat(item.quantiteKg) >= 0) ||
+        (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0) ||
+        (item.quantiteTunnel && parseFloat(item.quantiteTunnel) > 0)
       )
     );
 
@@ -63,8 +64,8 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         const tunnel = parseFloat(item.quantiteTunnel) || 0;
         const prix = parseFloat(item.prixUnitaire) || 0;
         
-        // Utiliser la quantité en kg si disponible, sinon convertir depuis cartons
-        const quantiteKgFinal = kg > 0 ? kg : calculateKgFromCartons(cartons, article);
+        // Utiliser la quantité en kg si disponible (même si 0), sinon convertir depuis cartons
+        const quantiteKgFinal = item.quantiteKg !== '' ? kg : calculateKgFromCartons(cartons, article);
         const quantiteCartonsFinal = cartons > 0 ? cartons : convertKgToCarton(kg, article);
         
         totalKg += quantiteKgFinal;
@@ -85,11 +86,15 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
     };
   }, [items, articles]);
 
-  // Récupération des dépôts et articles, et pré-remplissage en cas d'édition
+  // Récupération des dépôts et articles
   useEffect(() => {
     fetchDepots();
     fetchArticles();
-    if (initialEntree) {
+  }, []);
+
+  // Pré-remplissage en cas d'édition (une fois que les articles sont chargés)
+  useEffect(() => {
+    if (initialEntree && articles.length > 0) {
       setDepotId(initialEntree.depot?._id || initialEntree.depot);
       setOrigine(initialEntree.origine || '');
       
@@ -98,18 +103,21 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         setGlobalPriceCalculation(initialEntree.globalPriceCalculation);
       }
       
-      const initialItems = (initialEntree.items || []).map((item) => ({
-        article: item.article?._id || item.article,
-        quantiteKg: item.quantiteKg,
-        quantiteTunnel: item.quantiteTunnel || '',
-        prixUnitaire: item.prixUnitaire || '',
-        monnaie: item.monnaie || 'MRU',
-        prixLocation: item.prixLocation || '',
-        quantiteCarton: convertKgToCarton(item.quantiteKg, item.article, articles),
-      }));
+      const initialItems = (initialEntree.items || []).map((item) => {
+        const articleData = articles.find(a => a._id === (item.article?._id || item.article));
+        return {
+          article: item.article?._id || item.article,
+          quantiteKg: item.quantiteKg || '',
+          quantiteTunnel: item.quantiteTunnel || '',
+          prixUnitaire: item.prixUnitaire || '',
+          monnaie: item.monnaie || 'MRU',
+          prixLocation: item.prixLocation || '',
+          quantiteCarton: articleData ? convertKgToCarton(item.quantiteKg, articleData) : 0,
+        };
+      });
       setItems(initialItems);
     }
-  }, [initialEntree]);
+  }, [initialEntree, articles]);
 
   // Fonction pour gérer le calcul global de prix
   const handleGlobalPriceCalculation = (calculatedPrice, calculationData) => {
@@ -169,7 +177,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
     } else if (field === 'article' && selectedArticle) {
       // Recalculer les cartons quand l'article change (en gardant les kg)
       const kg = parseFloat(newItems[index]['quantiteKg']) || 0;
-      if (kg > 0) {
+      if (newItems[index]['quantiteKg'] !== '') {
         newItems[index]['quantiteCarton'] = convertKgToCarton(kg, selectedArticle);
       }
     }
@@ -207,15 +215,16 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       const validItems = items.filter(item => 
         item.article && 
         (
-          (item.quantiteKg && parseFloat(item.quantiteKg) > 0) ||
-          (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0)
+          (item.quantiteKg !== '' && parseFloat(item.quantiteKg) >= 0) ||
+          (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0) ||
+          (item.quantiteTunnel && parseFloat(item.quantiteTunnel) > 0)
         ) &&
         item.prixUnitaire &&
         parseFloat(item.prixUnitaire) > 0
       );
 
       if (validItems.length === 0) {
-        setErrorMessage("Veuillez remplir au moins un article avec une quantité (kg ou cartons) et un prix valides.");
+        setErrorMessage("Veuillez remplir au moins un article avec une quantité (kg, cartons ou tunnel) et un prix valides.");
         setLoading(false);
         return;
       }
@@ -227,8 +236,8 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
         globalPriceCalculation: globalPriceCalculation.calculationData ? globalPriceCalculation : null,
         items: validItems.map((item) => {
           // S'assurer qu'on a une quantité en kg, soit directement soit par conversion
-          let quantiteKg = parseFloat(item.quantiteKg) || 0;
-          if (quantiteKg === 0 && item.quantiteCarton) {
+          let quantiteKg = item.quantiteKg !== '' ? parseFloat(item.quantiteKg) : 0;
+          if (quantiteKg === 0 && item.quantiteCarton && parseFloat(item.quantiteCarton) > 0) {
             const selectedArticle = articles.find(a => a._id === item.article);
             quantiteKg = calculateKgFromCartons(parseFloat(item.quantiteCarton), selectedArticle);
           }
@@ -591,8 +600,9 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                     {items.filter(item => 
                       item.article && 
                       (
-                        (item.quantiteKg && parseFloat(item.quantiteKg) > 0) ||
-                        (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0)
+                        (item.quantiteKg !== '' && parseFloat(item.quantiteKg) >= 0) ||
+                        (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0) ||
+                        (item.quantiteTunnel && parseFloat(item.quantiteTunnel) > 0)
                       )
                     ).map((item, index) => {
                       const article = articles.find(a => a._id === item.article);
@@ -603,7 +613,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                       const tunnel = parseFloat(item.quantiteTunnel) || 0;
                       const prix = parseFloat(item.prixUnitaire) || 0;
                       
-                      const quantiteKgFinal = kg > 0 ? kg : calculateKgFromCartons(cartons, article);
+                      const quantiteKgFinal = item.quantiteKg !== '' ? kg : calculateKgFromCartons(cartons, article);
                       const quantiteCartonsFinal = cartons > 0 ? cartons : convertKgToCarton(kg, article);
                       const total = quantiteKgFinal * prix;
                       
@@ -626,7 +636,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                             {quantiteCartonsFinal.toFixed(2)}
                           </td>
                           <td className="px-4 py-3 text-sm text-center text-gray-700">
-                            {tunnel > 0 ? tunnel.toFixed(2) : '-'}
+                            {tunnel.toFixed(2)}
                           </td>
                           <td className="px-4 py-3 text-sm text-center text-gray-700">
                             {prix.toFixed(2)} {item.monnaie}/kg

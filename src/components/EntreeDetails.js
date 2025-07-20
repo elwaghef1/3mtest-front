@@ -18,7 +18,7 @@ const isMissing = (value) => {
 
 // Fonction pour formater la différence tunnel avec code couleur
 const formatTunnelDifference = (quantite, quantiteTunnel) => {
-  if (!quantite || !quantiteTunnel) return '—';
+  if (quantite === undefined || quantite === null || quantiteTunnel === undefined || quantiteTunnel === null) return '—';
   const difference = quantite - quantiteTunnel;
   const sign = difference > 0 ? '+' : '';
   const color = difference >= 0 ? 'text-green-600' : 'text-red-600';
@@ -111,10 +111,10 @@ function EntreeDetails({ entree, onClose }) {
                     {item.article ? formatArticle(item.article) : '—'}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-center text-gray-700 whitespace-nowrap">
-                    {item.quantiteKg || '—'}
+                    {item.quantiteKg !== undefined && item.quantiteKg !== null ? item.quantiteKg : '—'}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-center text-gray-700 whitespace-nowrap">
-                    {item.quantiteTunnel || '—'}
+                    {item.quantiteTunnel !== undefined && item.quantiteTunnel !== null ? item.quantiteTunnel : '—'}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-center whitespace-nowrap">
                     {formatTunnelDifference(item.quantiteKg, item.quantiteTunnel)}
@@ -123,7 +123,7 @@ function EntreeDetails({ entree, onClose }) {
                     {item.prixUnitaire || '—'}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-right text-gray-700 whitespace-nowrap">
-                    {item.quantiteKg && item.prixUnitaire ? (item.quantiteKg * item.prixUnitaire).toFixed(2) : '—'}
+                    {item.quantiteKg !== undefined && item.quantiteKg !== null && item.prixUnitaire ? (item.quantiteKg * item.prixUnitaire).toFixed(2) : '—'}
                   </td>
                 </tr>
               ))
