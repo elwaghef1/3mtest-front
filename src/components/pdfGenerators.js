@@ -835,16 +835,19 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   const articleGroups = {};
   if (articles && articles.length > 0) {
     articles.forEach(article => {
-      const groupKey = `${article.reference}_${article.specification}`;
-      if (!articleGroups[groupKey]) {
-        articleGroups[groupKey] = {
-          reference: article.reference,
-          specification: article.specification,
-          nomScientifique: article.nomScientifique,
-          articles: []
-        };
+      // Vérifications de sécurité pour éviter les erreurs sur le serveur
+      if (article && article.reference && article.specification) {
+        const groupKey = `${article.reference}_${article.specification}`;
+        if (!articleGroups[groupKey]) {
+          articleGroups[groupKey] = {
+            reference: article.reference || 'Non défini',
+            specification: article.specification || 'Non définie',
+            nomScientifique: article.nomScientifique || 'Non défini',
+            articles: []
+          };
+        }
+        articleGroups[groupKey].articles.push(article);
       }
-      articleGroups[groupKey].articles.push(article);
     });
   }
   
@@ -998,19 +1001,19 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           doc.setFont(undefined, 'normal');
           doc.text('Nom de l\'EIS ou du navire : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(agreementName.split(' – ')[0] || 'MSM SEAFOOD', cell.x + 50, y);
+          doc.text((agreementName || 'MSM SEAFOOD – 02.133').split(' – ')[0] || 'MSM SEAFOOD', cell.x + 50, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('Agrément ou immatriculation : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(agreementName.split(' – ')[1] || '02-133', cell.x + 55, y);
+          doc.text((agreementName || 'MSM SEAFOOD – 02.133').split(' – ')[1] || '02-133', cell.x + 55, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('Lieu d\'Embarquement : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(lieuEmbarquement.split(' – ')[0] || 'MS FRIGO', cell.x + 42, y);
+          doc.text((lieuEmbarquement || 'MS FRIGO – 02.133').split(' – ')[0] || 'MS FRIGO', cell.x + 42, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
@@ -1025,19 +1028,19 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           let y = cell.y + 6;
           
           doc.setFont(undefined, 'bold');
-          doc.text('Moyen de transport : ' + cargoData.nom, cell.x + 3, y);
+          doc.text('Moyen de transport : ' + (cargoData.nom || 'Non défini'), cell.x + 3, y);
           
           y += 8;
           doc.setFont(undefined, 'normal');
           doc.text('N° Conteneur : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(cargoData.noDeConteneur, cell.x + 28, y);
+          doc.text(cargoData.noDeConteneur || 'Non défini', cell.x + 28, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('PL : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(cargoData.areDeConteneur, cell.x + 13, y);
+          doc.text(cargoData.areDeConteneur || 'Non défini', cell.x + 13, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
@@ -1066,15 +1069,19 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   // =============================
   currentY = doc.lastAutoTable.finalY;
   
-  // Description du produit dynamique
+  // Description du produit dynamique avec vérifications de sécurité
   let productDescription = 'SARDINELLA AURITA';
   let nomScientifique = 'SARDINELLA AURITA';
   
-  if (uniqueArticleGroups.length === 1) {
+  if (uniqueArticleGroups && uniqueArticleGroups.length === 1) {
     // Un seul groupe d'articles (même référence + spécification)
     const group = uniqueArticleGroups[0];
-    productDescription = `${group.reference} ${group.specification}`;
-    nomScientifique = group.nomScientifique;
+    if (group && group.reference && group.specification) {
+      productDescription = `${group.reference} ${group.specification}`;
+    }
+    if (group && group.nomScientifique) {
+      nomScientifique = group.nomScientifique;
+    }
   } else if (hasMultipleArticles) {
     // Plusieurs groupes d'articles différents
     productDescription = "VOIR ANNEXE";
@@ -1118,25 +1125,25 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           const labelWidth = 28;
           doc.text('Poisson :', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(productDescription, cell.x + 5 + labelWidth, y);
+          doc.text(productDescription || 'NON SPÉCIFIÉ', cell.x + 5 + labelWidth, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('Nom scientifique :', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(nomScientifique, cell.x + 5 + labelWidth, y);
+          doc.text(nomScientifique || 'NON SPÉCIFIÉ', cell.x + 5 + labelWidth, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('Date de production :', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(formattedProductionDate, cell.x + 5 + labelWidth, y);
+          doc.text(formattedProductionDate || 'NON SPÉCIFIÉE', cell.x + 5 + labelWidth, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('Date expiration :', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(formattedExpirationDate, cell.x + 5 + labelWidth, y);
+          doc.text(formattedExpirationDate || 'NON SPÉCIFIÉE', cell.x + 5 + labelWidth, y);
         }
         
         // Colonne quantité
@@ -1156,19 +1163,19 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           doc.setFont(undefined, 'normal');
           doc.text('Nombre de colis TOTAL : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(`${totals.totalColis} Colis`, cell.x + 44, y);
+          doc.text(`${totals.totalColis || 0} Colis`, cell.x + 44, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('Poids Net : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(`${totals.poidsNet} KG`, cell.x + 23, y);
+          doc.text(`${totals.poidsNet || 0} KG`, cell.x + 23, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('Poids Brut : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(`${totals.poidsBrut} KG`, cell.x + 24, y);
+          doc.text(`${totals.poidsBrut || 0} KG`, cell.x + 24, y);
         }
       }
     }
@@ -1238,15 +1245,15 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     
     // Créer le tableau avec les groupes d'articles (référence + spécification identiques regroupés)
     const tableData = uniqueArticleGroups.map(group => {
-      // Calculer les totaux pour ce groupe
-      const totalQuantite = group.articles.reduce((sum, art) => sum + (art.quantite || 0), 0);
-      const totalPoidsNet = group.articles.reduce((sum, art) => sum + (art.poidsNet || 0), 0);
+      // Vérifications de sécurité et calculs des totaux pour ce groupe
+      const totalQuantite = (group.articles || []).reduce((sum, art) => sum + (art.quantite || 0), 0);
+      const totalPoidsNet = (group.articles || []).reduce((sum, art) => sum + (art.poidsNet || 0), 0);
       
       return [
-        `${group.reference} - ${group.specification}`,
+        `${group.reference || 'Non défini'} - ${group.specification || 'Non définie'}`,
         'Produit de la pêche',
         'Entier congelé',
-        agreementName,
+        agreementName || 'Non défini',
         totalQuantite.toString(),
         totalPoidsNet.toString()
       ];
@@ -1258,8 +1265,8 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
       '',
       '',
       '',
-      totals.totalColis.toString(),
-      totals.poidsNet.toString()
+      (totals.totalColis || 0).toString(),
+      (totals.poidsNet || 0).toString()
     ]);
     
     doc.autoTable({
