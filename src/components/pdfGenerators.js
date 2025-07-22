@@ -537,6 +537,18 @@ export const generateInvoicePDF = (commande) => {
   doc.text("FINANCE DEPARTMENT", pageWidth - marginRight, signatureY, { align: 'right' });
   doc.text("STAMP & SIGNATURE", pageWidth - marginRight, signatureY + 5, { align: 'right' });
   doc.line(pageWidth - 60, signatureY + 8, pageWidth - marginRight, signatureY + 8);
+
+  // Ajout de l'image de signature/tampon
+  try {
+    const stampWidth = 35;
+    const stampHeight = 20;
+    const stampX = pageWidth - marginRight - stampWidth - 10;
+    const stampY = signatureY + 10;
+    
+    doc.addImage(stampBase64, 'PNG', stampX, stampY, stampWidth, stampHeight);
+  } catch (error) {
+    console.warn('Erreur lors de l\'ajout du tampon:', error);
+  }
   const footerY = 280;
   doc.setLineWidth(0.2);
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
@@ -743,6 +755,18 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.text("FINANCE DEPARTMENT", pageWidth - marginRight, signatureY, { align: 'right' });
   doc.text("STAMP & SIGNATURE", pageWidth - marginRight, signatureY + 5, { align: 'right' });
   doc.line(pageWidth - 60, signatureY + 8, pageWidth - marginRight, signatureY + 8);
+
+  // Ajout de l'image de signature/tampon
+  try {
+    const stampWidth = 35;
+    const stampHeight = 20;
+    const stampX = pageWidth - marginRight - stampWidth - 10;
+    const stampY = signatureY + 10;
+    
+    doc.addImage(stampBase64, 'PNG', stampX, stampY, stampWidth, stampHeight);
+  } catch (error) {
+    console.warn('Erreur lors de l\'ajout du tampon:', error);
+  }
   const footerY = 280;
   doc.setLineWidth(0.2);
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
@@ -1910,10 +1934,6 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("PACKING LIST", pageWidth / 2, 55, { align: 'center' });
-
-  doc.setFontSize(9);
-  doc.text(`Réf: ${commande.reference || 'N/A'}`, margin.left, 70);
-  doc.text(`Booking: ${commande.numeroBooking || 'N/A'}`, pageWidth - margin.right - 40, 70);
 
   // 4. Tableau détaillé (un article par ligne)
   const headers = [

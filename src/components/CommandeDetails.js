@@ -494,7 +494,7 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
             variant="info"
             size="md"
           >
-            Détails de la Commande
+            Détails
           </Button>
 
           {/* Boutons de téléchargement des factures */}
@@ -513,7 +513,7 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
             variant="success"
             size="md"
           >
-            📋 Télécharger Facture
+            📋 Facture
           </Button>
           
           {/* Bouton Bon de Sortie - affiché pour toutes les commandes livrées */}
