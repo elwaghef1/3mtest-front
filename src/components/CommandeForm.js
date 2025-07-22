@@ -1083,7 +1083,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 <input
                   name="consigne"
                   type="text"
-                  placeholder="Nom du consigné (ex: MARAL FOOD S.L)"
+                  placeholder="Nom du consigné"
                   className={getInputClass(formData.consigne)}
                   value={formData.consigne}
                   onChange={handleChange}

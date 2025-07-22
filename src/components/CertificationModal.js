@@ -137,7 +137,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
       cargo: selectedContainer.cargo, // Structure correcte avec cargo en tant qu'objet séparé
       commande: {
         ...commande,
-        consigne: commande.consigne || 'MARAL FOOD S.L',
+        consigne: commande.consigne || '',
         adresseConsigne: commande.adresseConsigne || 'Port de Pêche-Treichville ZONE portuaire Vridi\n04 B.P. 1293 Abidjan 04'
       },
       articles: selectedOnly,
