@@ -11,6 +11,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
   const [poidsNet, setPoidsNet] = useState(28000);
   const [poidsBrut, setPoidsBrut] = useState(29120);
   const [agreementName, setAgreementName] = useState('MS FRIGO – 02.133');
+  const [lieuEmbarquement, setLieuEmbarquement] = useState('MS FRIGO – 02.133');
   const [productionDate, setProductionDate] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
 
@@ -140,6 +141,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
       },
       articles: selectedOnly,
       agreementName: agreementName, // Ajout du nom d'agrément éditable
+      lieuEmbarquement: lieuEmbarquement, // Ajout du lieu d'embarquement éditable
       productionDate: productionDate, // Date de production éditable
       expirationDate: expirationDate, // Date d'expiration calculée
       totals: {
@@ -248,6 +250,23 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
               />
               <p className="text-sm text-gray-600 mt-1">
                 Cette information sera utilisée dans le certificat PDF et peut être modifiée selon vos besoins.
+              </p>
+            </div>
+
+            {/* Champ lieu d'embarquement éditable */}
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <label className="block font-medium text-gray-700 mb-2">
+                Lieu d'embarquement :
+              </label>
+              <input
+                type="text"
+                value={lieuEmbarquement}
+                onChange={(e) => setLieuEmbarquement(e.target.value)}
+                className="w-full p-3 border border-green-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Ex: MS FRIGO – 02.133"
+              />
+              <p className="text-sm text-gray-600 mt-1">
+                Lieu d'embarquement qui apparaîtra dans la section "Origine du produit" du certificat.
               </p>
             </div>
 

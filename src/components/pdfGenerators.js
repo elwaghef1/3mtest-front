@@ -802,6 +802,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     cargo = {}, 
     articles = [], 
     agreementName = 'MSM SEAFOOD – 02.133',
+    lieuEmbarquement = 'MS FRIGO – 02.133', // Lieu d'embarquement éditable
     productionDate = '',
     expirationDate = '',
     totals = { totalColis: 1400, poidsNet: 28000, poidsBrut: 29120 } 
@@ -990,7 +991,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           doc.setFont(undefined, 'normal');
           doc.text('Lieu d\'Embarquement : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text(agreementName.split(' – ')[0] || 'MSM SEAFOOD', cell.x + 42, y);
+          doc.text(lieuEmbarquement.split(' – ')[0] || 'MS FRIGO', cell.x + 42, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
