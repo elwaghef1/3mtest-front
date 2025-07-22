@@ -831,7 +831,26 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     poidsCarton: cargo.poidsCarton || 29120
   };
   
-  const hasMultipleArticles = articles && articles.length > 1;
+  // Grouper les articles par référence + spécification pour déterminer s'il faut créer une annexe
+  const articleGroups = {};
+  if (articles && articles.length > 0) {
+    articles.forEach(article => {
+      const groupKey = `${article.reference}_${article.specification}`;
+      if (!articleGroups[groupKey]) {
+        articleGroups[groupKey] = {
+          reference: article.reference,
+          specification: article.specification,
+          nomScientifique: article.nomScientifique,
+          articles: []
+        };
+      }
+      articleGroups[groupKey].articles.push(article);
+    });
+  }
+  
+  // Une annexe est nécessaire seulement s'il y a plus d'un groupe d'articles différents
+  const uniqueArticleGroups = Object.values(articleGroups);
+  const hasMultipleArticles = uniqueArticleGroups.length > 1;
 
   // =============================
   // 1. En-tête du document avec positionnement comme l'image
@@ -931,7 +950,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           doc.setFont(undefined, 'normal');
           doc.text(`Adresse : ${commande.adresseConsigne || '---'}`, cell.x + 5, y);
           
-          y += 5;
+          y += 12;
           doc.text(`Pays : ${commande.destination || '---'}`, cell.x + 5, y);
         }
       }
@@ -1050,11 +1069,14 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   // Description du produit dynamique
   let productDescription = 'SARDINELLA AURITA';
   let nomScientifique = 'SARDINELLA AURITA';
-  if (articles && articles.length === 1) {
-    const article = articles[0];
-    productDescription = `${article.reference} ${article.specification}`;
-    nomScientifique = `${article.nomScientifique}`;
+  
+  if (uniqueArticleGroups.length === 1) {
+    // Un seul groupe d'articles (même référence + spécification)
+    const group = uniqueArticleGroups[0];
+    productDescription = `${group.reference} ${group.specification}`;
+    nomScientifique = group.nomScientifique;
   } else if (hasMultipleArticles) {
+    // Plusieurs groupes d'articles différents
     productDescription = "VOIR ANNEXE";
     nomScientifique = "VOIR ANNEXE";
   }
@@ -1202,7 +1224,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   doc.text('...........................................................................................................', marginLeft + 38, onispaY);
 
   // =============================
-  // 7. Annexe (si plusieurs articles)
+  // 7. Annexe (si plusieurs groupes d'articles différents)
   // =============================
   if (hasMultipleArticles) {
     doc.addPage();
@@ -1214,15 +1236,23 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     
     annexeY += 25;
     
-    const tableData = articles.map(article => [
-      `${article.reference} - ${article.specification} - ${article.taille}`,
-      'Produit de la pêche',
-      'Entier congelé',
-      agreementName,
-      article.quantite.toString(),
-      article.poidsNet.toString()
-    ]);
+    // Créer le tableau avec les groupes d'articles (référence + spécification identiques regroupés)
+    const tableData = uniqueArticleGroups.map(group => {
+      // Calculer les totaux pour ce groupe
+      const totalQuantite = group.articles.reduce((sum, art) => sum + (art.quantite || 0), 0);
+      const totalPoidsNet = group.articles.reduce((sum, art) => sum + (art.poidsNet || 0), 0);
+      
+      return [
+        `${group.reference} - ${group.specification}`,
+        'Produit de la pêche',
+        'Entier congelé',
+        agreementName,
+        totalQuantite.toString(),
+        totalPoidsNet.toString()
+      ];
+    });
     
+    // Ligne TOTAL pour l'ensemble
     tableData.push([
       'TOTAL',
       '',
