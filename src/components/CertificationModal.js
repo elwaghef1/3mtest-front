@@ -10,6 +10,24 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
   const [totalColis, setTotalColis] = useState(1400);
   const [poidsNet, setPoidsNet] = useState(28000);
   const [poidsBrut, setPoidsBrut] = useState(29120);
+  const [agreementName, setAgreementName] = useState('MS FRIGO – 02.133');
+  const [productionDate, setProductionDate] = useState('');
+  const [expirationDate, setExpirationDate] = useState('');
+
+  // Fonction pour calculer la date d'expiration (2 ans après la production)
+  const calculateExpirationDate = (prodDate) => {
+    if (!prodDate) return '';
+    const date = new Date(prodDate);
+    date.setFullYear(date.getFullYear() + 2);
+    return date.toISOString().split('T')[0]; // Format YYYY-MM-DD
+  };
+
+  // Mettre à jour la date d'expiration quand la date de production change
+  useEffect(() => {
+    if (productionDate) {
+      setExpirationDate(calculateExpirationDate(productionDate));
+    }
+  }, [productionDate]);
 
   // Fonction utilitaire pour récupérer le poids par carton
   const getKgPerCarton = (article) => {
@@ -50,7 +68,8 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
         taille: item.article.taille,
         selected: true,
         quantite: Math.floor(item.quantiteKg / kgPerCarton), // Utiliser le poids par carton de l'article
-        poidsNet: item.quantiteKg
+        poidsNet: item.quantiteKg,
+        nomScientifique: item.article.nomScientifique,
       };
     });
     
@@ -120,6 +139,9 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
         adresseConsigne: commande.adresseConsigne || 'Port de Pêche-Treichville ZONE portuaire Vridi\n04 B.P. 1293 Abidjan 04'
       },
       articles: selectedOnly,
+      agreementName: agreementName, // Ajout du nom d'agrément éditable
+      productionDate: productionDate, // Date de production éditable
+      expirationDate: expirationDate, // Date d'expiration calculée
       totals: {
         totalColis,
         poidsNet,
@@ -212,6 +234,55 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
               </p>
             </div>
 
+            {/* Champ d'agrément éditable */}
+            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+              <label className="block font-medium text-gray-700 mb-2">
+                Nom et numéro d'agrément des établissements :
+              </label>
+              <input
+                type="text"
+                value={agreementName}
+                onChange={(e) => setAgreementName(e.target.value)}
+                className="w-full p-3 border border-yellow-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                placeholder="Ex: MS FRIGO – 02.133"
+              />
+              <p className="text-sm text-gray-600 mt-1">
+                Cette information sera utilisée dans le certificat PDF et peut être modifiée selon vos besoins.
+              </p>
+            </div>
+
+            {/* Champs de dates */}
+            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-medium text-gray-700 mb-2">
+                    Date de production :
+                  </label>
+                  <input
+                    type="date"
+                    value={productionDate}
+                    onChange={(e) => setProductionDate(e.target.value)}
+                    className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block font-medium text-gray-700 mb-2">
+                    Date d'expiration :
+                  </label>
+                  <input
+                    type="date"
+                    value={expirationDate}
+                    onChange={(e) => setExpirationDate(e.target.value)}
+                    className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
+                    readOnly
+                  />
+                  <p className="text-sm text-gray-600 mt-1">
+                    Calculée automatiquement : 2 ans après la date de production
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Tableau des articles */}
             <div className="overflow-x-auto">
               <table className="w-full border-collapse border border-gray-300">
@@ -243,7 +314,15 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
                       </td>
                       <td className="border border-gray-300 p-3">Produit de la pêche</td>
                       <td className="border border-gray-300 p-3">Entier congelé</td>
-                      <td className="border border-gray-300 p-3">MS FRIGO – 02.133</td>
+                      <td className="border border-gray-300 p-3">
+                        <input
+                          type="text"
+                          value={agreementName}
+                          onChange={(e) => setAgreementName(e.target.value)}
+                          className="w-full p-1 border rounded bg-yellow-50"
+                          placeholder="Nom et numéro d'agrément..."
+                        />
+                      </td>
                       <td className="border border-gray-300 p-3">
                         <input
                           type="number"

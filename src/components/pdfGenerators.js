@@ -762,11 +762,11 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   }
 
   const doc = new jsPDF({
-  orientation: 'portrait',
-  unit: 'mm',
-  format: 'a4',
-  compress: true    // active la compression Flate des objets
-});
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    compress: true
+  });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginLeft = 15;
@@ -777,8 +777,23 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   const { 
     cargo = {}, 
     articles = [], 
+    agreementName = 'MSM SEAFOOD – 02.133',
+    productionDate = '',
+    expirationDate = '',
     totals = { totalColis: 1400, poidsNet: 28000, poidsBrut: 29120 } 
   } = certificateData;
+  
+  // Fonctions de formatage des dates
+  const formatDateForPDF = (dateString) => {
+    if (!dateString) return 'NON SPÉCIFIÉE';
+    const date = new Date(dateString);
+    const months = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 
+                   'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+    return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  const formattedProductionDate = formatDateForPDF(productionDate);
+  const formattedExpirationDate = formatDateForPDF(expirationDate);
   
   // Valeurs par défaut pour le cargo
   const cargoData = {
@@ -793,43 +808,40 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   
   const hasMultipleArticles = articles && articles.length > 1;
 
-  console.log('Génération PDF avec cargo:', cargoData); // Debug
-
   // =============================
-  // 1. En-tête du document
+  // 1. En-tête du document avec positionnement comme l'image
   // =============================
+  const today = new Date().toLocaleDateString('fr-FR');
+  
+  // REF à gauche
+  
+  // TITRE CENTRÉ
   doc.setFontSize(14);
   doc.setFont(undefined, 'bold');
-  doc.text('DEMANDE DE CERTIFICATION', pageWidth / 2, marginTop + 10, { align: 'center' });
-
-  // Références en haut
-  let currentY = marginTop + 25;
+  doc.text('DEMANDE DE CERTIFICATION', pageWidth / 2, marginTop + 5, { align: 'center' });
+  
+  // Date et REF/NEMB à droite
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'bold');
+  doc.text(`Date : ${today}`, pageWidth - marginRight, marginTop + 5, { align: 'right' });
+  doc.text(`REF/NEMB : ${cargoData.refNemb}`, pageWidth - marginRight, marginTop + 10, { align: 'right' });
+  
+  // N° centré
+  let currentY = marginTop + 20;
   doc.setFontSize(10);
   doc.setFont(undefined, 'bold');
-  doc.text('REF : ' + commande.reference, marginLeft, currentY);
-  
-  // Date et REF/NEMB en haut à droite
-  const today = new Date().toLocaleDateString('fr-FR');
-  doc.text(`Date : ${today}`, pageWidth - marginRight, currentY, { align: 'right' });
-  currentY += 5;
-  doc.text(`REF/NEMB : ${cargoData.refNemb}`, pageWidth - marginRight, currentY, { align: 'right' });
-  
-  currentY += 10;
+  doc.text('N°', pageWidth / 2, currentY, { align: 'center' });
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  doc.text('N°', marginLeft + 90, currentY);
-  doc.text('(Pour le poisson congelé)', marginLeft + 90, currentY + 5);
+  doc.text('(Pour le poisson congelé)', pageWidth / 2, currentY + 5, { align: 'center' });
 
   // =============================
   // 2. Tableau Expéditeur/Destinataire
   // =============================
-  currentY += 20;
+  currentY += 15;
   
   const expediteurDestinataire = [
-    [
-      'Nom & Adresse de l\'expéditeur :\n\nNom : SMCP P/CT MSM SEAFOOD.\nAdresse : Zone industrielle\nNouadhibou – Mauritanie.\n',
-      'Nom & Adresse du destinataire :\n\nNom : ' + (commande.consigne || '---- ') + '\nAdresse : ' + (commande.adresseConsigne || '--- \nPays : ' + commande.destination)
-    ]
+    ['', ''] // Cellules vides car on va dessiner manuellement
   ];
 
   doc.autoTable({
@@ -838,27 +850,76 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     theme: 'grid',
     styles: {
       fontSize: 9,
-      cellPadding: 8,
+      cellPadding: 6,
       valign: 'top',
-      lineWidth: 0.3
+      lineWidth: 0.2,
+      minCellHeight: 35
     },
     columnStyles: {
       0: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 },
       1: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 }
     },
-    margin: { left: marginLeft, right: marginRight }
+    margin: { left: marginLeft, right: marginRight },
+    didDrawCell: function(data) {
+      if (data.section === 'body') {
+        const cell = data.cell;
+        doc.setFontSize(9);
+        
+        // Colonne expéditeur
+        if (data.column.index === 0) {
+          let y = cell.y + 6;
+          
+          doc.setFont(undefined, 'bold');
+          doc.text('Nom & Adresse de l\'expéditeur :', cell.x + 3, y, { style: 'underline' });
+          
+          y += 8;
+          doc.setFont(undefined, 'normal');
+          doc.text('Nom : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text('SMCP P/CT MSM SEAFOOD.', cell.x + 18, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Adresse : Zone industrielle', cell.x + 5, y);
+          
+          y += 5;
+          doc.text('     Nouadhibou – Mauritanie.', cell.x + 5, y);
+          
+          y += 5;
+          doc.text('BP : 1079', cell.x + 5, y);
+        }
+        
+        // Colonne destinataire
+        if (data.column.index === 1) {
+          let y = cell.y + 6;
+          
+          doc.setFont(undefined, 'bold');
+          doc.text('Nom & Adresse du destinataire :', cell.x + 3, y, { style: 'underline' });
+          
+          y += 8;
+          doc.setFont(undefined, 'normal');
+          doc.text('Nom : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(commande.consigne || '---- ', cell.x + 18, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text(`Adresse : ${commande.adresseConsigne || '---'}`, cell.x + 5, y);
+          
+          y += 5;
+          doc.text(`Pays : ${commande.destination || '---'}`, cell.x + 5, y);
+        }
+      }
+    }
   });
 
   // =============================
   // 3. Tableau Origine/Transport
   // =============================
-  currentY = doc.lastAutoTable.finalY + 5;
+  currentY = doc.lastAutoTable.finalY;
   
   const origineTransport = [
-    [
-      'Origine du produit :\n\nNom de l\'EIS ou du navire : MSM SEAFOOD\nAgrément ou immatriculation : 02-133\nLieu d\'Embarquement : MSM SEAFOOD\n(Entrepôt/EIS/quai)\nNom de l\'entrepôt : ---------------',
-      'Moyen de transport : ' + cargoData.nom + '\n\nN° Conteneur : ' + cargoData.noDeConteneur + '\nPL : ' + cargoData.areDeConteneur + '\nPIF : ' + (commande.pif || '-----') + '\nDate de certification : ' + (cargoData.dateCertification ? new Date(cargoData.dateCertification).toLocaleDateString('fr-FR') : today) + '\nRéférence documentaire : B/L : ---'
-    ]
+    ['', ''] // Cellules vides car on va dessiner manuellement
   ];
 
   doc.autoTable({
@@ -867,55 +928,90 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     theme: 'grid',
     styles: {
       fontSize: 9,
-      cellPadding: 8,
+      cellPadding: 6,
       valign: 'top',
-      lineWidth: 0.3
-    },
-    columnStyles: {
-      0: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 },
-      1: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 }
-    },
-    margin: { left: marginLeft, right: marginRight }
-  });
-
-  doc.autoTable({
-    startY: currentY,
-    body: origineTransport,
-    theme: 'grid',
-    styles: {
-      fontSize: 9,
-      cellPadding: 8,
-      valign: 'top',
-      lineWidth: 0.3
+      lineWidth: 0.2,
+      minCellHeight: 40
     },
     columnStyles: {
       0: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 },
       1: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 }
     },
     margin: { left: marginLeft, right: marginRight },
-    didParseCell: function (data) {
-      // Remplacer les marqueurs **text** par du texte en gras
-      let text = data.cell.text[0];
-      if (text && text.includes('**')) {
-        const parts = text.split('**');
-        data.cell.text = [];
+    didDrawCell: function(data) {
+      if (data.section === 'body') {
+        const cell = data.cell;
+        doc.setFontSize(9);
         
-        for (let i = 0; i < parts.length; i++) {
-          if (i % 2 === 1) {
-            // Partie en gras
-            data.cell.text.push({
-              content: parts[i],
-              styles: { fontStyle: 'bold' }
-            });
-          } else {
-            // Partie normale
-            if (parts[i]) {
-              data.cell.text.push({
-                content: parts[i],
-                styles: { fontStyle: 'normal' }
-              });
-            }
-          }
+        // Colonne origine
+        if (data.column.index === 0) {
+          let y = cell.y + 6;
+          
+          doc.setFont(undefined, 'bold');
+          doc.text('Origine du produit :', cell.x + 3, y, { style: 'underline' });
+          
+          y += 8;
+          doc.setFont(undefined, 'normal');
+          doc.text('Nom de l\'EIS ou du navire : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(agreementName.split(' – ')[0] || 'MSM SEAFOOD', cell.x + 50, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Agrément ou immatriculation : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(agreementName.split(' – ')[1] || '02-133', cell.x + 55, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Lieu d\'Embarquement : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(agreementName.split(' – ')[0] || 'MSM SEAFOOD', cell.x + 42, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('(Entrepôt/EIS/quai)', cell.x + 5, y);
+          
+          y += 5;
+          doc.text('Nom de l\'entrepôt : ---------------', cell.x + 5, y);
+        }
+        
+        // Colonne transport
+        if (data.column.index === 1) {
+          let y = cell.y + 6;
+          
+          doc.setFont(undefined, 'bold');
+          doc.text('Moyen de transport : ' + cargoData.nom, cell.x + 3, y);
+          
+          y += 8;
+          doc.setFont(undefined, 'normal');
+          doc.text('N° Conteneur : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(cargoData.noDeConteneur, cell.x + 28, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('PL : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(cargoData.areDeConteneur, cell.x + 13, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('PIF : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(commande.pif || '-----', cell.x + 14, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Date de certification : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(cargoData.dateCertification ? new Date(cargoData.dateCertification).toLocaleDateString('fr-FR') : today, cell.x + 40, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Référence documentaire : B/L : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text('GMU0114274', cell.x + 53, y);
         }
       }
     }
@@ -924,22 +1020,22 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   // =============================
   // 4. Tableau Description/Quantité
   // =============================
-  currentY = doc.lastAutoTable.finalY + 5;
+  currentY = doc.lastAutoTable.finalY;
   
   // Description du produit dynamique
   let productDescription = 'SARDINELLA AURITA';
+  let nomScientifique = 'SARDINELLA AURITA';
   if (articles && articles.length === 1) {
     const article = articles[0];
     productDescription = `${article.reference} ${article.specification}`;
+    nomScientifique = `${article.nomScientifique}`;
   } else if (hasMultipleArticles) {
     productDescription = "VOIR ANNEXE";
+    nomScientifique = "VOIR ANNEXE";
   }
   
   const descriptionQuantite = [
-    [
-      'Description du produit :\n\nPoisson :\t\t\t\t' + productDescription + '\nNom scientifique :\t\t' + productDescription + '\nDate de production :\t\tFEBRUARY 2023\nDate expiration :\t\t\tAUGUST 2024',
-      'Quantité exportée :\n\nType de conditionnement : Carton MASTER\nNombre de colis TOTAL : ' + totals.totalColis + ' Colis\nPoids Net : ' + totals.poidsNet + ' KG\nPoids Brut : ' + totals.poidsBrut + ' KG'
-    ]
+    ['', ''] // Cellules vides car on va dessiner manuellement
   ];
 
   doc.autoTable({
@@ -948,22 +1044,142 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     theme: 'grid',
     styles: {
       fontSize: 9,
-      cellPadding: 8,
+      cellPadding: 6,
       valign: 'top',
-      lineWidth: 0.3
+      lineWidth: 0.2,
+      minCellHeight: 35
     },
     columnStyles: {
       0: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 },
       1: { cellWidth: (pageWidth - marginLeft - marginRight) / 2 }
     },
-    margin: { left: marginLeft, right: marginRight }
+    margin: { left: marginLeft, right: marginRight },
+    didDrawCell: function(data) {
+      if (data.section === 'body') {
+        const cell = data.cell;
+        doc.setFontSize(9);
+        
+        // Colonne description
+        if (data.column.index === 0) {
+          let y = cell.y + 6;
+          
+          doc.setFont(undefined, 'bold');
+          doc.text('Description du produit :', cell.x + 3, y, { style: 'underline' });
+          
+          y += 8;
+          doc.setFont(undefined, 'normal');
+          const labelWidth = 28;
+          doc.text('Poisson :', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(productDescription, cell.x + 5 + labelWidth, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Nom scientifique :', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(nomScientifique, cell.x + 5 + labelWidth, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Date de production :', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(formattedProductionDate, cell.x + 5 + labelWidth, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Date expiration :', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(formattedExpirationDate, cell.x + 5 + labelWidth, y);
+        }
+        
+        // Colonne quantité
+        if (data.column.index === 1) {
+          let y = cell.y + 6;
+          
+          doc.setFont(undefined, 'bold');
+          doc.text('Quantité exportée :', cell.x + 3, y, { style: 'underline' });
+          
+          y += 8;
+          doc.setFont(undefined, 'normal');
+          doc.text('Type de conditionnement : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text('Carton MASTER', cell.x + 48, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Nombre de colis TOTAL : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(`${totals.totalColis} Colis`, cell.x + 44, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Poids Net : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(`${totals.poidsNet} KG`, cell.x + 23, y);
+          
+          y += 5;
+          doc.setFont(undefined, 'normal');
+          doc.text('Poids Brut : ', cell.x + 5, y);
+          doc.setFont(undefined, 'bold');
+          doc.text(`${totals.poidsBrut} KG`, cell.x + 24, y);
+        }
+      }
+    }
   });
 
   // =============================
-  // 5. Annexe (si plusieurs articles)
+  // 5. Note importante
+  // =============================
+  currentY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'bold');
+  doc.text('NB : ', marginLeft, currentY);
+  doc.setFont(undefined, 'normal');
+  const noteText = 'En cas de plusieurs origines ou de plusieurs espèces veuillez établir une annexe en indiquant l\'espèce, l\'agrément, le nombre de colis et le poids';
+  doc.text(noteText, marginLeft + 10, currentY);
+  doc.text('correspondant.', marginLeft, currentY + 4);
+
+  // =============================
+  // 6. Section ONISPA
+  // =============================
+  currentY += 15;
+  
+  // Titre de la section
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.text('Partie réservée à l\'ONISPA', marginLeft, currentY);
+  
+  // REF/EMB à droite
+  doc.setFontSize(10);
+  doc.setFont(undefined, 'bold');
+  doc.text(`REF/EMB : ${cargoData.refEmb}`, pageWidth - marginRight, currentY, { align: 'right' });
+  
+  // Cadre ONISPA
+  currentY += 5;
+  const onispaBoxHeight = 35;
+  doc.setLineWidth(0.2);
+  doc.rect(marginLeft, currentY, pageWidth - marginLeft - marginRight, onispaBoxHeight);
+  
+  // Contenu du cadre ONISPA
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  
+  let onispaY = currentY + 8;
+  doc.text('L\'agent de saisie ', marginLeft + 5, onispaY);
+  doc.text('...........................................................................................................', marginLeft + 30, onispaY);
+  
+  onispaY += 8;
+  doc.text('Date de saisie ', marginLeft + 5, onispaY);
+  doc.text('...........................................................................................................', marginLeft + 27, onispaY);
+  
+  onispaY += 8;
+  doc.text('Numéro du certificat ', marginLeft + 5, onispaY);
+  doc.text('...........................................................................................................', marginLeft + 38, onispaY);
+
+  // =============================
+  // 7. Annexe (si plusieurs articles)
   // =============================
   if (hasMultipleArticles) {
-    // Créer une nouvelle page pour l'annexe
     doc.addPage();
     let annexeY = marginTop;
     
@@ -973,18 +1189,15 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     
     annexeY += 25;
     
-    // Tableau de l'annexe
-   
     const tableData = articles.map(article => [
       `${article.reference} - ${article.specification} - ${article.taille}`,
       'Produit de la pêche',
       'Entier congelé',
-      'MSM SEAFOOD – 02.133',
+      agreementName,
       article.quantite.toString(),
       article.poidsNet.toString()
     ]);
     
-    // Ajouter la ligne TOTAL
     tableData.push([
       'TOTAL',
       '',
@@ -1002,79 +1215,41 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
       styles: {
         fontSize: 8,
         cellPadding: 3,
-        lineWidth: 0.3
+        lineWidth: 0.2
       },
       headStyles: {
-        fillColor: [200, 200, 200],
+        fillColor: [240, 240, 240],
         textColor: [0, 0, 0],
-        fontStyle: 'bold'
+        fontStyle: 'bold',
+        halign: 'center'
       },
       alternateRowStyles: {
-        fillColor: [245, 245, 245]
+        fillColor: [250, 250, 250]
       },
       columnStyles: {
         0: { cellWidth: 40 },
         1: { cellWidth: 25 },
         2: { cellWidth: 25 },
         3: { cellWidth: 35 },
-        4: { cellWidth: 20 },
-        5: { cellWidth: 25 }
+        4: { cellWidth: 20, halign: 'center' },
+        5: { cellWidth: 25, halign: 'center' }
       },
-      margin: { left: marginLeft, right: marginRight }
+      margin: { left: marginLeft, right: marginRight },
+      didParseCell: function(data) {
+        if (data.row.index === tableData.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [220, 220, 220];
+        }
+      }
     });
     
-    // Ajouter le poids brut après le tableau
     const finalY = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
     doc.text(`Poids brut : ${totals.poidsBrut} kg`, pageWidth - marginRight, finalY, { align: 'right' });
     
-    // Retourner à la première page pour continuer
     doc.setPage(1);
   }
-
-  // =============================
-  // 6. Section ONISPA (en bas de page)
-  // =============================
-  // Calculer la position pour placer ONISPA en bas de page
-  const onispaY = pageHeight - 70; // Position à 70mm du bas de la page
-  
-  // Note importante au-dessus de la section ONISPA
-  doc.setFontSize(8); // Police plus petite
-  doc.setFont(undefined, 'bold');
-  doc.text('NB :', marginLeft, onispaY - 15);
-  doc.setFont(undefined, 'normal');
-  const noteText = 'En cas de plusieurs origines ou de plusieurs espèces veuillez établir une annexe en indiquant l\'espèce, l\'agrément, le nombre de colis et le poids correspondant.';
-  doc.text(noteText, marginLeft + 8, onispaY - 15, { maxWidth: pageWidth - marginLeft - marginRight - 10 });
-  
-  // Titre de la section ONISPA
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'bold');
-  doc.text('Partie réservée à l\'ONISPA', marginLeft, onispaY);
-  
-  // Référence finale en haut à droite de la section ONISPA
-  doc.setFontSize(12);
-  doc.text(`REF/EMB : ${cargoData.refEmb}`, pageWidth - marginRight, onispaY, { align: 'right' });
-  
-  // Dessiner le cadre de la section ONISPA
-  const onispaBoxHeight = 40;
-  doc.rect(marginLeft, onispaY + 3, pageWidth - marginLeft - marginRight, onispaBoxHeight);
-  
-  // Écrire les champs ONISPA en ligne (comme dans l'image)
-  doc.setFontSize(9);
-  doc.setFont(undefined, 'normal');
-  
-  const fieldY = onispaY + 12;
-  doc.text('L\'agent de saisie', marginLeft + 5, fieldY);
-  doc.text('...................................................................', marginLeft + 40, fieldY);
-  
-  const dateY = onispaY + 22;
-  doc.text('Date de saisie', marginLeft + 5, dateY);
-  doc.text('...................................................................', marginLeft + 35, dateY);
-  
-  const numY = onispaY + 32;
-  doc.text('Numéro du certificat', marginLeft + 5, numY);
-  doc.text('................................................................', marginLeft + 50, numY);
 
   // =============================
   // 8. Sauvegarde

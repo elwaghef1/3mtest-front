@@ -6,7 +6,7 @@ import PackingListForm from './PackingListForm';
 import CertificationModal from './CertificationModal';
 import VGMModal from './VGMModal';
 import { downloadCargoPackingList, downloadAllCargoPackingLists } from '../services/cargoPackingListGenerator';
-import { generateCommandeDetailsPDF, generateCertificationRequestPDF, generateBonDeSortiePDF, generateCertificatOrigineExcel } from './pdfGenerators';
+import { generateCommandeDetailsPDF, generateCertificationRequestPDF, generateBonDeSortiePDF, generateCertificatOrigineExcel, generateInvoicePDF, generateProformaInvoicePDF } from './pdfGenerators';
 import axios from '../api/axios';
 
 // Fonction utilitaire pour formater un article (détail)
@@ -252,6 +252,17 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
     }
   };
 
+  // Fonctions pour générer les PDF de facturation
+  const handleDownloadProforma = () => {
+    if (!commande) return;
+    generateProformaInvoicePDF(commande);
+  };
+
+  const handleDownloadFacture = () => {
+    if (!commande) return;
+    generateInvoicePDF(commande);
+  };
+
   // Carte affichant le total de la commande
   const totalCard = (
     <div className="bg-gray-200 p-6 rounded-lg text-center mb-8">
@@ -484,6 +495,25 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
             size="md"
           >
             Détails de la Commande
+          </Button>
+
+          {/* Boutons de téléchargement des factures */}
+          {commande.statutBonDeCommande !== 'LIVREE' && (
+            <Button
+              onClick={handleDownloadProforma}
+              variant="warning"
+              size="md"
+            >
+              📄 Facture Proforma
+            </Button>
+          )}
+          
+          <Button
+            onClick={handleDownloadFacture}
+            variant="success"
+            size="md"
+          >
+            📋 Télécharger Facture
           </Button>
           
           {/* Bouton Bon de Sortie - affiché pour toutes les commandes livrées */}
