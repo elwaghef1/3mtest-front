@@ -60,9 +60,10 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
     setShowArticleForm(true);
     
     // Initialiser avec tous les articles de la commande
-    const initialArticles = commande.items.map(item => {
+    const initialArticles = commande.items.map((item, itemIndex) => {
       const kgPerCarton = getKgPerCarton(item.article);
       return {
+        uniqueId: `${item.article._id}-${itemIndex}`, // Identifiant unique pour chaque ligne
         articleId: item.article._id,
         reference: item.article.reference,
         specification: item.article.specification,
@@ -84,25 +85,25 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
     setPoidsNet(totalPoids);
   };
 
-  const handleArticleToggle = (articleId) => {
+  const handleArticleToggle = (uniqueId) => {
     setSelectedArticles(prev => prev.map(art => 
-      art.articleId === articleId 
+      art.uniqueId === uniqueId 
         ? { ...art, selected: !art.selected }
         : art
     ));
   };
 
-  const handleQuantiteChange = (articleId, value) => {
+  const handleQuantiteChange = (uniqueId, value) => {
     setSelectedArticles(prev => prev.map(art => 
-      art.articleId === articleId 
+      art.uniqueId === uniqueId 
         ? { ...art, quantite: parseInt(value) || 0 }
         : art
     ));
   };
 
-  const handlePoidsChange = (articleId, value) => {
+  const handlePoidsChange = (uniqueId, value) => {
     setSelectedArticles(prev => prev.map(art => 
-      art.articleId === articleId 
+      art.uniqueId === uniqueId 
         ? { ...art, poidsNet: parseFloat(value) || 0 }
         : art
     ));
@@ -318,12 +319,12 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
                 </thead>
                 <tbody>
                   {selectedArticles.map((article, index) => (
-                    <tr key={article.articleId} className={article.selected ? 'bg-white' : 'bg-gray-50'}>
+                    <tr key={article.uniqueId} className={article.selected ? 'bg-white' : 'bg-gray-50'}>
                       <td className="border border-gray-300 p-3">
                         <input
                           type="checkbox"
                           checked={article.selected}
-                          onChange={() => handleArticleToggle(article.articleId)}
+                          onChange={() => handleArticleToggle(article.uniqueId)}
                           className="w-4 h-4"
                         />
                       </td>
@@ -346,7 +347,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
                         <input
                           type="number"
                           value={article.quantite}
-                          onChange={(e) => handleQuantiteChange(article.articleId, e.target.value)}
+                          onChange={(e) => handleQuantiteChange(article.uniqueId, e.target.value)}
                           disabled={!article.selected}
                           className="w-20 p-1 border rounded"
                           min="0"
@@ -357,7 +358,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
                           type="number"
                           step="0.01"
                           value={article.poidsNet}
-                          onChange={(e) => handlePoidsChange(article.articleId, e.target.value)}
+                          onChange={(e) => handlePoidsChange(article.uniqueId, e.target.value)}
                           disabled={!article.selected}
                           className="w-24 p-1 border rounded"
                           min="0"
