@@ -805,6 +805,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
     lieuEmbarquement = 'MS FRIGO – 02.133', // Lieu d'embarquement éditable
     productionDate = '',
     expirationDate = '',
+    showDates = true, // Switch unique pour afficher les dates
     totals = { totalColis: 1400, poidsNet: 28000, poidsBrut: 29120 } 
   } = certificateData;
   
@@ -1133,17 +1134,20 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           doc.setFont(undefined, 'bold');
           doc.text(nomScientifique || 'NON SPÉCIFIÉ', cell.x + 5 + labelWidth, y);
           
-          y += 5;
-          doc.setFont(undefined, 'normal');
-          doc.text('Date de production :', cell.x + 5, y);
-          doc.setFont(undefined, 'bold');
-          doc.text(formattedProductionDate || 'NON SPÉCIFIÉE', cell.x + 5 + labelWidth, y);
-          
-          y += 5;
-          doc.setFont(undefined, 'normal');
-          doc.text('Date expiration :', cell.x + 5, y);
-          doc.setFont(undefined, 'bold');
-          doc.text(formattedExpirationDate || 'NON SPÉCIFIÉE', cell.x + 5 + labelWidth, y);
+          // Afficher les dates seulement si le switch est activé
+          if (showDates) {
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text('Date de production :', cell.x + 5, y);
+            doc.setFont(undefined, 'bold');
+            doc.text(formattedProductionDate || 'NON SPÉCIFIÉE', cell.x + 5 + labelWidth, y);
+            
+            y += 5;
+            doc.setFont(undefined, 'normal');
+            doc.text('Date expiration :', cell.x + 5, y);
+            doc.setFont(undefined, 'bold');
+            doc.text(formattedExpirationDate || 'NON SPÉCIFIÉE', cell.x + 5 + labelWidth, y);
+          }
         }
         
         // Colonne quantité

@@ -14,6 +14,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
   const [lieuEmbarquement, setLieuEmbarquement] = useState('MS FRIGO – 02.133');
   const [productionDate, setProductionDate] = useState('');
   const [expirationDate, setExpirationDate] = useState('');
+  const [showDates, setShowDates] = useState(true);
 
   // Fonction pour calculer la date d'expiration (2 ans après la production)
   const calculateExpirationDate = (prodDate) => {
@@ -145,6 +146,7 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
       lieuEmbarquement: lieuEmbarquement, // Ajout du lieu d'embarquement éditable
       productionDate: productionDate, // Date de production éditable
       expirationDate: expirationDate, // Date d'expiration calculée
+      showDates: showDates, // Switch pour afficher les dates
       totals: {
         totalColis,
         poidsNet,
@@ -273,32 +275,51 @@ const CertificationModal = ({ commande, isOpen, onClose }) => {
 
             {/* Champs de dates */}
             <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block font-medium text-gray-700 mb-2">
-                    Date de production :
+              <div className="space-y-4">
+                {/* Switch global pour l'affichage des dates */}
+                <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200">
+                  <span className="font-medium text-gray-700">Afficher les dates sur le PDF</span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showDates}
+                      onChange={(e) => setShowDates(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 ${showDates ? 'bg-blue-600' : 'bg-gray-200'} relative transition-colors duration-200`}>
+                      <div className={`absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-transform duration-200 ${showDates ? 'translate-x-5' : 'translate-x-0'}`}></div>
+                    </div>
                   </label>
-                  <input
-                    type="date"
-                    value={productionDate}
-                    onChange={(e) => setProductionDate(e.target.value)}
-                    className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
                 </div>
-                <div>
-                  <label className="block font-medium text-gray-700 mb-2">
-                    Date d'expiration :
-                  </label>
-                  <input
-                    type="date"
-                    value={expirationDate}
-                    onChange={(e) => setExpirationDate(e.target.value)}
-                    className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
-                    readOnly
-                  />
-                  <p className="text-sm text-gray-600 mt-1">
-                    Calculée automatiquement : 2 ans après la date de production
-                  </p>
+
+                {/* Champs de dates */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-2">
+                      Date de production :
+                    </label>
+                    <input
+                      type="date"
+                      value={productionDate}
+                      onChange={(e) => setProductionDate(e.target.value)}
+                      className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-2">
+                      Date d'expiration :
+                    </label>
+                    <input
+                      type="date"
+                      value={expirationDate}
+                      onChange={(e) => setExpirationDate(e.target.value)}
+                      className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-50"
+                      readOnly
+                    />
+                    <p className="text-sm text-gray-600 mt-1">
+                      Calculée automatiquement : 2 ans après la date de production
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
