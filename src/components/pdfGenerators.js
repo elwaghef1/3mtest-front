@@ -1764,86 +1764,113 @@ export const generateCommandeDetailsPDF = (commande) => {
 
 export const generateVGMPDF = (vgmData, commande) => {
   const doc = new jsPDF({
-  orientation: 'portrait',
-  unit: 'mm',
-  format: 'a4',
-  compress: true    // active la compression Flate des objets
-});
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    compress: true
+  });
+  
   const pageWidth = doc.internal.pageSize.getWidth();
-  const marginLeft = 20;
-  const marginRight = 20;
-  
-  let currentY = 20;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginLeft = 15;
+  const marginRight = 15;
+  const tableWidth = pageWidth - marginLeft - marginRight - 10; // Largeur commune pour les deux tableaux
   
   // =============================
-  // 1. En-tête avec informations alignées
+  // 1. En-tête MSM Seafood
   // =============================
+  doc.setLineHeightFactor(1.0);
+  doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
+  doc.setFontSize(9);
+  doc.setFont(undefined, 'normal');
+  let currentY = 15;
+  const infoX = marginLeft + 25;
+  doc.text("MSM Seafood", infoX, currentY);
+  currentY += 5;
+  doc.text("Zone industrielle,", infoX, currentY);
+  currentY += 5;
+  doc.text("Dakhlet Nouâdhibou", infoX, currentY);
+  currentY += 5;
+  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  
+  // =============================
+  // 2. Titre et informations client
+  // =============================
+  currentY = 45;
   
   // Date et lieu (à gauche)
   doc.setFontSize(11);
   doc.setFont(undefined, 'normal');
-  doc.text('Nouadhibou, 13/5/2025', marginLeft, currentY);
+  const currentDate = new Date().toLocaleDateString('fr-FR');
+  doc.text(`Nouadhibou, ${currentDate}`, marginLeft, currentY);
   
-  // MARAL FOOD S.L (à droite, souligné)
+  // Nom du client (à droite, souligné)
   doc.setFont(undefined, 'bold');
-  const maralText = 'MARAL FOOD S.L';
-  const maralWidth = doc.getTextWidth(maralText);
-  const maralX = pageWidth - marginRight - maralWidth;
-  doc.text(maralText, maralX, currentY);
-  doc.line(maralX, currentY + 1, maralX + maralWidth, currentY + 1);
+  const clientName = commande?.client?.raisonSociale || 'MARAL FOOD S.L';
+  const clientNameWidth = doc.getTextWidth(clientName);
+  const clientNameX = pageWidth - marginRight - clientNameWidth;
+  doc.text(clientName, clientNameX, currentY);
+  doc.line(clientNameX, currentY + 1, clientNameX + clientNameWidth, currentY + 1);
   
   currentY += 8;
   
-  // Adresse (à droite)
+  // Adresse du client (à droite)
   doc.setFont(undefined, 'normal');
   doc.setFontSize(10);
-  doc.text('Avda. El Mayorazgo 13', pageWidth - marginRight - doc.getTextWidth('Avda. El Mayorazgo 13'), currentY);
-  currentY += 5;
-  doc.text('29016 Malaga, España', pageWidth - marginRight - doc.getTextWidth('29016 Malaga, España'), currentY);
+  if (commande?.client?.adresse) {
+    const addressLines = commande.client.adresse.split(',').map(line => line.trim());
+    addressLines.forEach(line => {
+      if (line) {
+        doc.text(line, pageWidth - marginRight - doc.getTextWidth(line), currentY);
+        currentY += 5;
+      }
+    });
+  }
   
-  currentY = 55;
+  currentY += 15;
   
   // =============================
-  // 2. Titre principal dans un cadre
+  // 3. Titre principal dans un cadre
   // =============================
   const title = "VERIFIED GROSS MASTER CERTIFICATE";
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   
   // Cadre pour le titre
-  const boxHeight = 12;
-  doc.rect(marginLeft, currentY - 8, pageWidth - marginLeft - marginRight, boxHeight);
+  const boxHeight = 10;
+  doc.setLineWidth(1);
+  doc.rect(marginLeft, currentY - 7, tableWidth + 10, boxHeight);
   
   // Centrer le titre
   const titleWidth = doc.getTextWidth(title);
   const titleX = (pageWidth - titleWidth) / 2;
   doc.text(title, titleX, currentY);
   
-  currentY += 20;
+  currentY += 15;
+  doc.setLineWidth(0.5);
   
   // =============================
-  // 3. Tableau d'en-tête complexe
+  // 4. Tableau d'en-tête avec largeur fixe
   // =============================
   
-  // Configuration du tableau avec structure complexe
   const headerTableData = [
-    // Première ligne
     [
-      { content: 'REFERENCE NUMBER /', rowSpan: 1 },
-      { content: 'PO : 5450525', rowSpan: 1 },
-      { content: 'BL N°', rowSpan: 1 },
-      { content: '253861304', rowSpan: 1 },
-      { content: 'MAERSK', rowSpan: 1 }
+      { content: 'REFERENCE NUMBER /', rowSpan: 2, styles: { valign: 'middle', fontStyle: 'bold' } },
+      { content: vgmData?.referenceNumber || `PO : ${commande?.reference || ''}`, styles: { fontStyle: 'bold' } },
+      { content: 'BL N°', styles: { fontStyle: 'bold' } },
+      { content: vgmData?.blNumber || '', colSpan: 2, styles: { fontStyle: 'bold' } }
     ],
-    // Deuxième ligne
     [
-      { content: 'Company Name: TOP FISH TRADE SARL', colSpan: 3 },
-      { content: 'Adresse : BP 545 Zone portuaire-Nouadhibou', colSpan: 2 }
+      { content: 'SHIPPER INFORMATION', styles: { fontStyle: 'bold' } },
+      { content: `Adresse : ${vgmData?.shipperInfo || 'BP 545 Zone portuaire-Nouadhibou'}`, colSpan: 3 }
     ],
-    // Troisième ligne
+    [
+      { content: `Company Name: ${vgmData?.companyName || 'TOP FISH TRADE SARL'}`, colSpan: 3 },
+      { content: vgmData?.containers?.[0]?.nom || 'MAERSK', colSpan: 2, styles: { halign: 'center' } }
+    ],
     [
       { content: 'WEIGHTING METHOD', colSpan: 3 },
-      { content: 'METHOD 1', colSpan: 2 }
+      { content: vgmData?.weighingMethod || 'METHOD 1', colSpan: 2, styles: { halign: 'center' } }
     ]
   ];
   
@@ -1851,81 +1878,137 @@ export const generateVGMPDF = (vgmData, commande) => {
     startY: currentY,
     body: headerTableData,
     styles: {
-      fontSize: 10,
-      cellPadding: 4,
-      lineWidth: 0.5,
-      lineColor: [0, 0, 0],
-      textColor: [0, 0, 0],
-      valign: 'middle'
-    },
-    columnStyles: {
-      0: { cellWidth: 45, halign: 'center' },
-      1: { cellWidth: 35, halign: 'center' },
-      2: { cellWidth: 20, halign: 'center' },
-      3: { cellWidth: 35, halign: 'center' },
-      4: { cellWidth: 35, halign: 'center' }
-    },
-    theme: 'grid',
-    margin: { left: marginLeft, right: marginRight }
-  });
-  
-  currentY = doc.lastAutoTable.finalY + 5;
-  
-  // =============================
-  // 4. Tableau des conteneurs
-  // =============================
-  
-  // Données des conteneurs
-  const containerData = [
-    ['CONTAINER NUMBER', 'MNBU001917/0'],
-    ['GROSS WEIGHT', '29 120'],
-    ['CONTAINER TARE', '4 640'],
-    ['VERIFIED GROSS WEIGHT MASS (VGM)', '33 760'],
-    ['DATE OF VERIFICATION', '13/5/2025'],
-    ['CONTAINER NUMBER', 'SUDU800471/6'],
-    ['GROSS WEIGHT', '29 120'],
-    ['CONTAINER TARE', '4 620'],
-    ['VERIFIED GROSS WEIGHT MASS (VGM)', '33 740'],
-    ['DATE OF VERIFICATION', '13/5/2025']
-  ];
-  
-  // Créer le tableau avec les numéros sur le côté
-  let tableStartY = currentY;
-  
-  doc.autoTable({
-    startY: tableStartY,
-    body: containerData,
-    styles: {
-      fontSize: 10,
-      cellPadding: 3,
+      fontSize: 9,
+      cellPadding: 2,
       lineWidth: 0.5,
       lineColor: [0, 0, 0],
       textColor: [0, 0, 0]
     },
     columnStyles: {
-      0: { cellWidth: 100, halign: 'left' },
-      1: { cellWidth: 70, halign: 'center', fontStyle: 'bold' }
+      0: { cellWidth: tableWidth * 0.28 },
+      1: { cellWidth: tableWidth * 0.22 },
+      2: { cellWidth: tableWidth * 0.15 },
+      3: { cellWidth: tableWidth * 0.20 },
+      4: { cellWidth: tableWidth * 0.15 }
     },
     theme: 'grid',
-    margin: { left: marginLeft, right: marginRight },
-    didDrawRow: function(data) {
-      // Ajouter les numéros 1 et 2 sur le côté
-      if (data.row.index === 0) {
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text('1', marginLeft - 8, data.row.y + 15);
-      } else if (data.row.index === 5) {
-        doc.setFontSize(12);
-        doc.setFont(undefined, 'bold');
-        doc.text('2', marginLeft - 8, data.row.y + 15);
+    margin: { left: marginLeft + 10, right: marginRight },
+    tableWidth: tableWidth
+  });
+  
+  currentY = doc.lastAutoTable.finalY + 5;
+  
+  // =============================
+  // 5. Tableau des conteneurs avec sections visuelles
+  // =============================
+  
+  // Préparer les données du tableau avec séparateurs visuels
+  const containerData = [];
+  
+  if (vgmData?.containers && Array.isArray(vgmData.containers)) {
+    vgmData.containers.forEach((container, index) => {
+      // Ajouter une ligne vide comme séparateur visuel entre conteneurs (sauf pour le premier)
+      if (index > 0) {
+        containerData.push([{ content: '', colSpan: 2, styles: { fillColor: [240, 240, 240], cellPadding: 1 } }]);
       }
+      
+      containerData.push(
+        ['CONTAINER NUMBER', container.containerNumber || ''],
+        ['GROSS WEIGHT', container.grossWeight?.toString() || ''],
+        ['CONTAINER TARE', container.containerTare?.toString() || ''],
+        ['VERIFIED GROSS WEIGHT MASS (VGM)', container.verifiedWeight?.toString() || ''],
+        ['DATE OF VERIFICATION', container.dateOfVerification || currentDate]
+      );
+    });
+  }
+  
+  let tableStartY = currentY;
+  let containerStartRows = [];
+  
+  // Calculer les positions de début de chaque conteneur (en tenant compte des séparateurs)
+  for (let i = 0; i < vgmData.containers.length; i++) {
+    if (i === 0) {
+      containerStartRows.push(0);
+    } else {
+      // Chaque conteneur après le premier a 5 lignes + 1 ligne de séparation
+      containerStartRows.push(i * 6);
+    }
+  }
+  
+  doc.autoTable({
+    startY: tableStartY,
+    body: containerData,
+    styles: {
+      fontSize: 8,
+      cellPadding: 2,
+      lineWidth: 0.5,
+      lineColor: [0, 0, 0],
+      textColor: [0, 0, 0]
+    },
+    columnStyles: {
+      0: { cellWidth: tableWidth * 0.6, halign: 'left', fontStyle: 'bold' },
+      1: { cellWidth: tableWidth * 0.4, halign: 'center', fontStyle: 'bold' }
+    },
+    theme: 'grid',
+    margin: { left: marginLeft + 10, right: marginRight },
+    tableWidth: tableWidth,
+    didDrawRow: function(data) {
+      // Dessiner les numéros de conteneurs et les bordures de section
+      vgmData.containers.forEach((container, index) => {
+        const startRow = containerStartRows[index];
+        
+        if (data.row.index === startRow) {
+          // Dessiner le numéro du conteneur
+          doc.setFontSize(14);
+          doc.setFont(undefined, 'bold');
+          doc.text((index + 1).toString(), marginLeft + 2, data.row.y + 12);
+          
+          // Dessiner une bordure épaisse sur le côté gauche de la section
+          doc.setLineWidth(2);
+          doc.setDrawColor(0, 0, 0);
+          const sectionHeight = index === vgmData.containers.length - 1 
+            ? (5 * 5.5) // Dernière section : 5 lignes * hauteur approximative
+            : (6 * 5.5); // Autres sections : 6 lignes (incluant le séparateur)
+          doc.line(marginLeft + 8, data.row.y, marginLeft + 8, data.row.y + sectionHeight);
+          doc.setLineWidth(0.5); // Restaurer l'épaisseur normale
+        }
+      });
     }
   });
   
+  currentY = doc.lastAutoTable.finalY + 20;
+  
   // =============================
-  // 5. Sauvegarde
+  // 6. Section Remarques
   // =============================
-  const fileName = `VGM_Certificate_${vgmData.containerNumber || commande.reference || 'REF'}_${Date.now()}.pdf`;
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'normal');
+  doc.text('Remarks :', marginLeft, currentY);
+  
+  if (vgmData?.remarks) {
+    doc.setFontSize(10);
+    const remarksLines = doc.splitTextToSize(vgmData.remarks, tableWidth);
+    doc.text(remarksLines, marginLeft, currentY + 10);
+  }
+  
+  currentY += 40;
+  
+  // =============================
+  // 7. Footer
+  // =============================
+  const footerY = 280;
+  doc.setLineWidth(0.2);
+  doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
+  doc.setFontSize(8);
+  doc.setFont(undefined, 'normal');
+  doc.text("MSM Seafood", marginLeft, footerY);
+  doc.text("Zone industrielle, Dakhlet Nouâdhibou", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("Tel +222 36 20 03 08", pageWidth - marginRight, footerY, { align: 'right' });
+  
+  // =============================
+  // 8. Sauvegarde
+  // =============================
+  const fileName = `VGM_Certificate_${commande?.reference || 'REF'}_${Date.now()}.pdf`;
   doc.save(fileName);
 };
 
