@@ -2923,6 +2923,23 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('C.O');
 
+  // Configuration de la mise en page pour l'impression sur une seule page
+  sheet.pageSetup = {
+    paperSize: 9, // A4
+    orientation: 'portrait',
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 1,
+    margins: {
+      left: 0.2, // environ 0,508 cm
+      right: 0.2, // environ 0,508 cm
+      top: 0.2,
+      bottom: 0.2,
+      header: 0,
+      footer: 0
+    }
+  };
+
   // 2. Define column widths (A through L)
   const columnWidths = {
     A: 3.86,  B: 2.86,  C: 8.57,  D: 14.0,  E: 2.43, 
@@ -3218,6 +3235,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
       });
     }
   }
+  console.log(articles);
   // Méthode 3 : extraire depuis commande.items si pas de cargo
   if (articles.length === 0 && Array.isArray(commande.items) && commande.items.length > 0) {
     const articleGroups = new Map();
@@ -3330,16 +3348,21 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     // Numéro de ligne (colonne C)
     setCellStyle(`C${row}`, {fontSize: 9, bold: true, hAlign: 'center'}).value = lineNumber;
     // Description (colonne D à G fusionnées)
-    const description = article.reference || 'POISSON CONGELE';
+    let description = article.reference || 'POISSON CONGELE';
+    // Ajouter la spécification si elle existe
+    if (article.article && article.article.specification) {
+      description += '  ' + article.article.specification;
+    }
     setCellStyle(`D${row}`, {fontSize: 9, bold: true, hAlign: 'left', vAlign: 'center', wrap: true}).value = description;
     // Quantités
+    console.log(article)
     const qtyBoxes = Math.round(article.totalColis || 0);
     const netWeight = Math.round(article.poidsNet || 0);
-    const grossWeight = Math.round(article.poidsBrut || 0);
+    const grossWeight = article.poidsNet + article.totalColis*0.8 || 0;
     setCellStyle(`H${row}`, {fontSize: 10, bold: true, hAlign: 'center'}).value = qtyBoxes;
     setCellStyle(`I${row}`, {fontSize: 10, bold: true, hAlign: 'center'}).value = netWeight;
     if (index === 0 && qtyBoxes > 0) {
-      const grossPerBox = grossWeight / qtyBoxes;
+      const grossPerBox = 20.8;
       setCellStyle(`J${row}`, {fontSize: 9, bold: true, hAlign: 'center'}).value = grossPerBox.toFixed(1);
     } else {
       sheet.getCell(`J${row}`).value = '';
@@ -3349,7 +3372,6 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     sheet.mergeCells(`D${row}:G${row}`);
     // Hauteur de ligne personnalisée pour bien afficher le texte wrap (si description longue)
     sheet.getRow(row).height = 30;
-    console.log(`   ✅ Ligne article ${lineNumber}: ${description} – ${qtyBoxes} cartons, ${netWeight} kg net, ${grossWeight} kg brut`);
   });
 
   // Si plus de 3 articles, ajouter une note signalant les articles non affichés
@@ -3399,24 +3421,24 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
 
   // BL (Bill of Lading) line (row 45)
   const blLabelCell = setCellStyle('F45', {fontSize: 10, bold: true, underline: true, hAlign: 'left'});
-  blLabelCell.value = 'BL:';  // "BL:" with underline
+  // blLabelCell.value = 'BL:';  // "BL:" with underline
   // Determine BL number from various possible fields
-  let blNumber = '';
-  if (certificateData.blNumber) {
-    blNumber = certificateData.blNumber;
-  } else if (commande.blNumber || commande.numeroBL) {
-    blNumber = commande.blNumber || commande.numeroBL;
-  } else if (commande.numeroBooking) {
-    blNumber = commande.numeroBooking;
-  } else if (Array.isArray(commande.cargo)) {
-    const cargoWithBL = commande.cargo.find(c => c.blNumber || c.numeroBL || c.numeroBooking);
-    if (cargoWithBL) {
-      blNumber = cargoWithBL.blNumber || cargoWithBL.numeroBL || cargoWithBL.numeroBooking;
-    }
-  } else if (commande.reference) {
-    blNumber = commande.reference;
-  }
-  setCellStyle('H45', {fontSize: 10, bold: true, hAlign: 'left'}).value = blNumber;
+  // let blNumber = '';
+  // if (certificateData.blNumber) {
+  //   blNumber = certificateData.blNumber;
+  // } else if (commande.blNumber || commande.numeroBL) {
+  //   blNumber = commande.blNumber || commande.numeroBL;
+  // } else if (commande.numeroBooking) {
+  //   blNumber = commande.numeroBooking;
+  // } else if (Array.isArray(commande.cargo)) {
+  //   const cargoWithBL = commande.cargo.find(c => c.blNumber || c.numeroBL || c.numeroBooking);
+  //   if (cargoWithBL) {
+  //     blNumber = cargoWithBL.blNumber || cargoWithBL.numeroBL || cargoWithBL.numeroBooking;
+  //   }
+  // } else if (commande.reference) {
+  //   blNumber = commande.reference;
+  // }
+  // setCellStyle('H45', {fontSize: 10, bold: true, hAlign: 'left'}).value = blNumber;
 
   // Second copy origin and destination countries
   setCellStyle('J54', {fontSize: 10, bold: true, hAlign: 'center'}).value = 'MAURITANIE';

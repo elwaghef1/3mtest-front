@@ -709,6 +709,12 @@ export default function StockList() {
         dataKey: 'commercialisableCartons',
         width: 35,
         ...styles.numericCell,
+      },
+      {
+        header: `CUMP (${getCurrencyLabel()})`,
+        dataKey: 'cump',
+        width: 30,
+        ...styles.numericCell,
       }
     ];
 
