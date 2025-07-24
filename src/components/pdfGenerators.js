@@ -1421,14 +1421,11 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
         "Article",
         "Batch Number",
         "Quantité (Kg)",
-        "Dépôt",
-        "Prix Unitaire",
-        "Total"
+        "Dépôt"
       ];
 
       const rows = [];
       let totalQuantiteLivraison = 0;
-      let totalPrixLivraison = 0;
 
       if (livraison.items && livraison.items.length > 0) {
         // FILTRER seulement les articles avec quantité livrée > 0
@@ -1442,11 +1439,8 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
         itemsAvecQuantite.forEach(item => {
           const article = item.article || {};
           const quantiteKg = parseFloat(item.quantiteKg) || 0;
-          const prixUnitaire = parseFloat(item.prixUnitaire) || 0;
-          const totalItem = quantiteKg * prixUnitaire;
 
           totalQuantiteLivraison += quantiteKg;
-          totalPrixLivraison += totalItem;
 
           // Détails des batches pour cet article
           if (item.detailsBatches && item.detailsBatches.length > 0) {
@@ -1464,16 +1458,13 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
               batchesValides.forEach((batch, batchIndex) => {
                 // Utiliser 'quantite' (comme dans LivraisonPartielleModal) ou 'quantiteEnlevee' en fallback
                 const quantiteBatch = parseFloat(batch.quantite || batch.quantiteEnlevee) || 0;
-                const prixBatch = quantiteBatch * prixUnitaire;
 
                 console.log(`🔍 Debug Batch ${batchIndex}:`, {
                   article: article.reference + ' - ' + article.specification + ' - ' + article.taille,
                   batchNumber: batch.batchNumber,
                   quantiteBatch: quantiteBatch,
                   rawBatch: batch, // Pour voir toute la structure
-                  depot: item.depot?.intitule,
-                  prixUnitaire: prixUnitaire,
-                  prixBatch: prixBatch
+                  depot: item.depot?.intitule
                 });
 
                 if (batchIndex === 0) {
@@ -1485,13 +1476,7 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
                     },
                     batch.batchNumber || 'N/A',
                     quantiteBatch.toFixed(2),
-                    item.depot?.intitule || 'N/A',
-                    { 
-                      content: formatCurrencyForPDF(prixUnitaire, commande.currency), 
-                      rowSpan: nombreBatches,
-                      styles: { valign: 'middle', halign: 'center' }
-                    },
-                    formatCurrencyForPDF(prixBatch, commande.currency)
+                    item.depot?.intitule || 'N/A'
                   ];
                   console.log('📋 Première ligne ajoutée:', row);
                   rows.push(row);
@@ -1500,8 +1485,7 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
                   const row = [
                     batch.batchNumber || 'N/A',
                     quantiteBatch.toFixed(2),
-                    item.depot?.intitule || 'N/A',
-                    formatCurrencyForPDF(prixBatch, commande.currency)
+                    item.depot?.intitule || 'N/A'
                   ];
                   console.log('📋 Ligne suivante ajoutée:', row);
                   rows.push(row);
@@ -1529,12 +1513,7 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
               },
               batchNumber,
               quantiteKg.toFixed(2),
-              item.depot?.intitule || 'N/A',
-              { 
-                content: formatCurrencyForPDF(prixUnitaire, commande.currency),
-                styles: { valign: 'middle', halign: 'center' }
-              },
-              formatCurrencyForPDF(totalItem, commande.currency)
+              item.depot?.intitule || 'N/A'
             ]);
           }
         });
@@ -1543,9 +1522,7 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
         rows.push([
           { content: `SOUS-TOTAL ${titleLivraison}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'right', fillColor: [240, 240, 240] } },
           { content: totalQuantiteLivraison.toFixed(2), styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
-          { content: '', styles: { fillColor: [240, 240, 240] } },
-          { content: '', styles: { fillColor: [240, 240, 240] } },
-          { content: formatCurrencyForPDF(totalPrixLivraison, commande.currency), styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
+          { content: '', styles: { fillColor: [240, 240, 240] } }
         ]);
       }
 
@@ -1565,12 +1542,10 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
           cellPadding: 2
         },
         columnStyles: {
-          0: { cellWidth: 45 },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 25 },
-          3: { cellWidth: 30 },
-          4: { cellWidth: 25 },
-          5: { cellWidth: 25 }
+          0: { cellWidth: 60 },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 40 }
         }
       });
 
