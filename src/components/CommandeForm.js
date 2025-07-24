@@ -48,7 +48,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     statutDePaiement: 'NON_PAYE',    // Calculé automatiquement
     montantPaye: '',
     currency: 'EUR', // Sera mis à jour automatiquement selon le type
-    numeroOP: '',
+    numerosOP: [''], // Changé pour accepter plusieurs numéros OP
     destination: '',
     consigne: '', // Nouveau champ
     adresseConsigne: '', // Nouveau champ
@@ -165,7 +165,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         statutDePaiement: initialCommande.statutDePaiement || 'NON_PAYE',
         montantPaye: initialCommande.montantPaye || '',
         currency: initialCommande.currency || (initialCommande.typeCommande === 'LOCALE' ? 'MRU' : 'EUR'),
-        numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
+        numerosOP: initialCommande.typeCommande === 'LOCALE' ? [''] : (initialCommande.numerosOP || (initialCommande.numeroOP ? [initialCommande.numeroOP] : [''])),
         destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
         consigne: initialCommande.consigne || '',
         adresseConsigne: initialCommande.adresseConsigne || '',
@@ -437,7 +437,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
       if (value === 'LOCALE') {
         updatedData.numeroBooking = '';
         updatedData.destination = '';
-        updatedData.numeroOP = '';
+        updatedData.numerosOP = [''];
         updatedData.noBonDeCommande = '';
         updatedData.responsableDeStockInforme = 'NON';
         updatedData.inspecteurInforme = 'NON';
@@ -578,7 +578,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
       if (payload.typeCommande === 'LOCALE') {
         payload.numeroBooking = null;
         payload.destination = null;
-        payload.numeroOP = null;
+        payload.numerosOP = [];
         payload.factureManutention = null;
         payload.factureCargo = null;
         payload.taxeZoneFranche = null;
@@ -736,6 +736,27 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     } catch (error) {
       console.error('Erreur lors de la génération du certificat:', error);
       alert('Erreur lors de la génération du certificat. Veuillez réessayer.');
+    }
+  };
+
+  // Fonctions pour gérer les numéros OP multiples
+  const handleNumerosOPChange = (index, value) => {
+    const newNumerosOP = [...formData.numerosOP];
+    newNumerosOP[index] = value;
+    setFormData({ ...formData, numerosOP: newNumerosOP });
+  };
+
+  const addNumeroOP = () => {
+    setFormData({ 
+      ...formData, 
+      numerosOP: [...formData.numerosOP, ''] 
+    });
+  };
+
+  const removeNumeroOP = (index) => {
+    if (formData.numerosOP.length > 1) {
+      const newNumerosOP = formData.numerosOP.filter((_, i) => i !== index);
+      setFormData({ ...formData, numerosOP: newNumerosOP });
     }
   };
 
@@ -917,18 +938,37 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               </select>
             </div>
 
-            {/* Numéro OP - Masqué pour commande locale */}
+            {/* Numéros OP - Masqué pour commande locale */}
             {formData.typeCommande !== 'LOCALE' && (
               <div className="flex flex-col">
-                <label className="mb-1 text-sm font-medium text-gray-700">Numéro OP</label>
-                <input
-                  name="numeroOP"
-                  type="text"
-                  placeholder="Saisissez le numéro OP"
-                  className={getInputClass(formData.numeroOP)}
-                  value={formData.numeroOP}
-                  onChange={handleChange}
-                />
+                <label className="mb-1 text-sm font-medium text-gray-700">Numéros OP</label>
+                {formData.numerosOP.map((numeroOP, index) => (
+                  <div key={index} className="flex items-center mb-2">
+                    <input
+                      type="text"
+                      placeholder="Saisissez le numéro OP"
+                      className={`flex-1 p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                      value={numeroOP}
+                      onChange={(e) => handleNumerosOPChange(index, e.target.value)}
+                    />
+                    {formData.numerosOP.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeNumeroOP(index)}
+                        className="ml-2 px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addNumeroOP}
+                  className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  + Ajouter un numéro OP
+                </button>
               </div>
             )}
 

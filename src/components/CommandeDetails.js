@@ -285,7 +285,7 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
     ...(commande.typeCommande !== 'LOCALE' ? [
       { label: 'No Bon de Commande', value: commande.noBonDeCommande },
       { label: 'Numéro Booking', value: commande.numeroBooking },
-      { label: 'Numéro OP', value: commande.numeroOP },
+      { label: 'Numéros OP', value: commande.numerosOP && commande.numerosOP.length > 0 ? commande.numerosOP.join(', ') : 'N/A' },
     ] : []),
     { label: 'Client', value: commande.client?.raisonSociale },
     { label: 'Statut BC', value: commande.statutBonDeCommande, badge: getStatusColor(commande.statutBonDeCommande) },

@@ -22,8 +22,8 @@ function ApresLivraisonForm({ onClose, onPlanCreated, initialCommande }) {
     booking: '',
     cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }],
     destination: '',
-    // Utilisation du champ "numeroOP" au lieu de "OP"
-    numeroOP: '',
+    // Utilisation du champ "numerosOP" au lieu de "numeroOP"
+    numerosOP: [''],
     datePrevueDeChargement: '',
     quantiteKg: 0,
     quantiteCarton: 0,
@@ -71,7 +71,7 @@ function ApresLivraisonForm({ onClose, onPlanCreated, initialCommande }) {
               ? [{ nom: initialCommande.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }] 
               : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', numeroFacture: `XXXX/EXP/${new Date().getFullYear()}` }]),
         destination: initialCommande.destination || '',
-        numeroOP: initialCommande.numeroOP || '',
+        numerosOP: initialCommande.numerosOP || (initialCommande.numeroOP ? [initialCommande.numeroOP] : ['']),
         datePrevueDeChargement: initialCommande.datePrevueDeChargement
           ? initialCommande.datePrevueDeChargement.split('T')[0]
           : '',

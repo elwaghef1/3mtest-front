@@ -20,7 +20,7 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
     booking: '',
     cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }],
     destination: '',
-    numeroOP: '',
+    numerosOP: [''],
     datePrevueDeChargement: '',
     quantiteKg: 0,
     quantiteCarton: 0,
@@ -65,7 +65,7 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
               ? [{ nom: initialCommande.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }] 
               : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]),
         destination: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.destination || ''),
-        numeroOP: initialCommande.typeCommande === 'LOCALE' ? '' : (initialCommande.numeroOP || ''),
+        numerosOP: initialCommande.typeCommande === 'LOCALE' ? [''] : (initialCommande.numerosOP || (initialCommande.numeroOP ? [initialCommande.numeroOP] : [''])),
         datePrevueDeChargement: initialCommande.datePrevueDeChargement
           ? initialCommande.datePrevueDeChargement.split('T')[0]
           : '',
@@ -121,7 +121,7 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
                 ? [{ nom: cmd.cargo, noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }] 
                 : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '' }]),
           destination: cmd.destination || '',
-          numeroOP: cmd.numeroOP || '',
+          numerosOP: cmd.numerosOP || (cmd.numeroOP ? [cmd.numeroOP] : ['']),
           datePrevueDeChargement: cmd.datePrevueDeChargement
             ? new Date(cmd.datePrevueDeChargement).toISOString().split('T')[0]
             : '',
@@ -192,6 +192,27 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
     }));
   };
 
+  // Fonctions pour gérer les numéros OP multiples
+  const handleNumerosOPChange = (index, value) => {
+    const newNumerosOP = [...formData.numerosOP];
+    newNumerosOP[index] = value;
+    setFormData({ ...formData, numerosOP: newNumerosOP });
+  };
+
+  const addNumeroOP = () => {
+    setFormData({ 
+      ...formData, 
+      numerosOP: [...formData.numerosOP, ''] 
+    });
+  };
+
+  const removeNumeroOP = (index) => {
+    if (formData.numerosOP.length > 1) {
+      const newNumerosOP = formData.numerosOP.filter((_, i) => i !== index);
+      setFormData({ ...formData, numerosOP: newNumerosOP });
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -219,10 +240,10 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
         {initialCommande ? 'Modifier le Plan de Chargement' : 'Nouveau Plan de Chargement'}
       </h2>
 
-      {/* Bannière d'avertissement si Référence ou Numero OP ne sont pas renseignés */}
-      {(!formData.reference || !formData.numeroOP) && (
+      {/* Bannière d'avertissement si Référence ou Numéros OP ne sont pas renseignés */}
+      {(!formData.reference || !formData.numerosOP || formData.numerosOP.length === 0 || formData.numerosOP.every(op => !op.trim())) && (
         <div className="bg-red-700 text-white p-4 rounded-lg mb-6">
-          Attention : Les champs <strong>Référence</strong> et <strong>Numero OP</strong> sont obligatoires.
+          Attention : Les champs <strong>Référence</strong> et <strong>Numéros OP</strong> sont obligatoires.
         </div>
       )}
 
@@ -263,14 +284,34 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
                 />
               </div>
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Numero OP</label>
-                <input
-                  name="numeroOP"
-                  type="text"
-                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
-                  value={formData.numeroOP}
-                  onChange={handleChange}
-                />
+                <label className="block text-sm font-medium text-gray-700">Numéros OP</label>
+                {formData.numerosOP.map((numeroOP, index) => (
+                  <div key={index} className="flex items-center mb-2">
+                    <input
+                      type="text"
+                      placeholder="Saisissez le numéro OP"
+                      className="flex-1 border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
+                      value={numeroOP}
+                      onChange={(e) => handleNumerosOPChange(index, e.target.value)}
+                    />
+                    {formData.numerosOP.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeNumeroOP(index)}
+                        className="ml-2 px-3 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addNumeroOP}
+                  className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  + Ajouter un numéro OP
+                </button>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -458,14 +499,12 @@ function PlanDeChargementForm({ onClose, onPlanCreated, initialCommande }) {
             />
           </div>
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Numero OP</label>
-            <input
-              name="numeroOP"
-              type="text"
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-blue-500"
-              value={formData.numeroOP}
-              onChange={handleChange}
-            />
+            <label className="block text-sm font-medium text-gray-700">Numéros OP</label>
+            <div className="text-sm text-gray-600">
+              {formData.numerosOP && formData.numerosOP.length > 0 
+                ? formData.numerosOP.join(', ') 
+                : 'Aucun numéro OP défini'}
+            </div>
           </div>
         </div>
 

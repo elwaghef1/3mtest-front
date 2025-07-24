@@ -3000,7 +3000,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   setCellStyle('C4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = 'Ref:';
   const refText = '';
   setCellStyle('D4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = refText;
-  const poText = commande.numeroOP || commande.numeroBooking || 'N/A';
+  const poText = (commande.numerosOP && commande.numerosOP.length > 0 ? commande.numerosOP.join(', ') : '') || commande.numeroBooking || 'N/A';
   setCellStyle('E4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = `PO : ${poText}`;
 
   // Exporter (Expéditeur) info (merged C5:H6)
@@ -3382,13 +3382,38 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   });
 
   // OP number line (row 41)
-  setCellStyle('F41', {fontSize: 10, bold: true, underline: true, hAlign: 'right'}).value = 'OP :';
-  const opNumber = commande.numeroOP || certificateData.opNumber || '';
-  // Add small space after "OP :" in merged cell to simulate underline
-  sheet.getCell('F41').value = sheet.getCell('F41').value + ' ';
-  setCellStyle('H41', {fontSize: 10, bold: true, hAlign: 'right'}).value = opNumber;
-  const year = new Date().getFullYear();
-  setCellStyle('I41', {fontSize: 10, bold: true, hAlign: 'left'}).value = opNumber ? `/${year}` : `/${year}`;
+  setCellStyle('F41', {fontSize: 10, bold: true, underline: true, hAlign: 'left'}).value = 'OP :';
+  const numerosOP = commande.numerosOP || [];
+  
+  if (numerosOP.length > 0) {
+    // Afficher chaque numéro OP sur une ligne séparée
+    numerosOP.forEach((opNumber, index) => {
+      const rowIndex = 41 + index; // 41, 42, 43, etc.
+      
+      // Pour le premier OP, le label "OP :" est déjà en F41
+      if (index > 0) {
+        // Pour les OP suivants, pas de label, juste le numéro
+        setCellStyle(`F${rowIndex}`, {fontSize: 10, bold: true, underline: false, hAlign: 'right'}).value = '';
+      }
+      
+      // Fusionner H et I pour avoir plus d'espace pour le numéro OP
+      sheet.mergeCells(`H${rowIndex}:I${rowIndex}`);
+      
+      // Numéro OP avec l'année
+      setCellStyle(`H${rowIndex}`, {
+        fontSize: 10, 
+        bold: true, 
+        hAlign: 'left',
+        wrap: true
+      }).value = `${opNumber}`;
+      
+      console.log(`📝 OP ${index + 1} affiché ligne ${rowIndex}: ${opNumber}`);
+    });
+  } else {
+    // Si pas de numéros OP, fusionner H et I et laisser vide
+    sheet.mergeCells('H41:I41');
+    setCellStyle('H41', {fontSize: 10, bold: true, hAlign: 'left'}).value = '';
+  }
 
   // Customs office lines
   setCellStyle('D43', {fontSize: 9, bold: true, hAlign: 'center'}).value = 'BUREAU DOUANE PECHE NOUADHIBOU';
