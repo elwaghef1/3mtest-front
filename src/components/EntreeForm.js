@@ -14,6 +14,9 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
   // Champ "block" supprimé
   const [origine, setOrigine] = useState(''); // Par défaut vide
   
+  // Nouvelle option : nombre de jours de grâce avant que la location commence (par défaut 21)
+  const [joursGracePeriod, setJoursGracePeriod] = useState(21);
+  
   // État global pour le calcul de prix de l'entrée
   const [globalPriceCalculation, setGlobalPriceCalculation] = useState({
     prixUnitaireFinal: 0,
@@ -97,6 +100,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
     if (initialEntree && articles.length > 0) {
       setDepotId(initialEntree.depot?._id || initialEntree.depot);
       setOrigine(initialEntree.origine || '');
+      setJoursGracePeriod(initialEntree.joursGracePeriod || 21);
       
       // Récupération des données de calcul global
       if (initialEntree.globalPriceCalculation) {
@@ -233,6 +237,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       const payload = {
         depot: depotId,
         origine,
+        joursGracePeriod,
         globalPriceCalculation: globalPriceCalculation.calculationData ? globalPriceCalculation : null,
         items: validItems.map((item) => {
           // S'assurer qu'on a une quantité en kg, soit directement soit par conversion
@@ -286,7 +291,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       <form onSubmit={handleSubmit} className="space-y-10">
         {/* Sélection du dépôt et origine */}
         <div className="bg-blue-50 p-6 rounded-xl border border-blue-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-2">
               <label className="block text-lg font-semibold text-gray-800">
                 Dépôt *
@@ -316,6 +321,23 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                 onChange={(e) => setOrigine(e.target.value)}
                 placeholder="Ex: Bateau XYZ, Port ABC..."
               />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-lg font-semibold text-gray-800">
+                Période de grâce (jours)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="365"
+                className="w-full border-2 border-gray-300 rounded-lg shadow-sm p-4 text-lg focus:ring-3 focus:ring-blue-500 focus:border-blue-500"
+                value={joursGracePeriod}
+                onChange={(e) => setJoursGracePeriod(parseInt(e.target.value) || 21)}
+                placeholder="21"
+              />
+              <p className="text-sm text-gray-600">
+                Nombre de jours avant que la location commence (défaut: 21 jours)
+              </p>
             </div>
           </div>
         </div>

@@ -49,12 +49,17 @@ function LotList() {
   };
 
   // Fonction utilitaire pour calculer le coût de location pour un item donné en se basant sur la date d'entrée
-  const computeLocationCost = (entryDate, item) => {
+  const computeLocationCost = (entryDate, item, entry) => {
     const now = new Date();
-    const weekMs = 60 * 1000; // Pour les tests : 1 minute = 1 semaine
+    // Utilise la période de grâce personnalisée de l'entrée ou 21 jours par défaut
+    const gracePeriodDays = entry.joursGracePeriod || 21;
+    const gracePeriodMs = gracePeriodDays * 24 * 60 * 60 * 1000; // Convertir en millisecondes
     const elapsedMs = now - new Date(entryDate);
-    if (elapsedMs <= weekMs) return 0;
-    const weeks = Math.ceil((elapsedMs - weekMs) / weekMs);
+    if (elapsedMs <= gracePeriodMs) return 0;
+    
+    // Calculer le nombre de semaines depuis la fin de la période de grâce
+    const weekMs = 7 * 24 * 60 * 60 * 1000; // 1 semaine en millisecondes
+    const weeks = Math.ceil((elapsedMs - gracePeriodMs) / weekMs);
     const quantityTonnes = (item.quantiteRestante || item.quantiteKg) / 1000;
     return weeks * (item.prixLocation || 0) * quantityTonnes;
   };
@@ -94,7 +99,7 @@ function LotList() {
   }, 0);
   const totalLocationCost = lots.reduce((acc, entry) => {
     const item = entry.items.find(isMatchingItem);
-    const cost = item ? computeLocationCost(entry.dateEntree, item) : 0;
+    const cost = item ? computeLocationCost(entry.dateEntree, item, entry) : 0;
     return acc + cost;
   }, 0);
 
@@ -129,7 +134,7 @@ function LotList() {
     // Préparation des lignes en récupérant pour chaque entrée le item correspondant
     const rows = lots.map((entry) => {
       const item = entry.items.find(isMatchingItem);
-      const cost = item ? computeLocationCost(entry.dateEntree, item) : 0;
+      const cost = item ? computeLocationCost(entry.dateEntree, item, entry) : 0;
       return {
         batchNumber: entry.batchNumber,
         article: formatArticle(item ? item.article : null),
@@ -169,7 +174,7 @@ function LotList() {
     const worksheet = XLSX.utils.json_to_sheet(
       lots.map((entry) => {
         const item = entry.items.find(isMatchingItem);
-        const cost = item ? computeLocationCost(entry.dateEntree, item) : 0;
+        const cost = item ? computeLocationCost(entry.dateEntree, item, entry) : 0;
         return {
           "Batch Number": entry.batchNumber,
           "Article": formatArticle(item ? item.article : null),
@@ -345,7 +350,7 @@ function LotList() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentItems.map((entry) => {
                   const item = entry.items.find(isMatchingItem);
-                  const cost = item ? computeLocationCost(entry.dateEntree, item) : 0;
+                  const cost = item ? computeLocationCost(entry.dateEntree, item, entry) : 0;
                   return (
                     <tr key={entry._id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-2 text-sm text-gray-700 border border-gray-400">

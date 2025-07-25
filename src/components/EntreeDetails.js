@@ -76,6 +76,9 @@ function EntreeDetails({ entree, onClose }) {
         <p className="text-lg text-gray-700">
           Dépôt : {entree.depot?.intitule || '—'}
         </p>
+        <p className="text-lg text-gray-700">
+          Période de grâce : {entree.joursGracePeriod || 21} jours
+        </p>
       </div>
 
       {/* Tableau des articles */}
