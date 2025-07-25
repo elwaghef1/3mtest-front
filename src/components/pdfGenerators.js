@@ -2951,43 +2951,56 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     }
   }
 
-  // 5. Merge cells for header and specific sections (according to template)
-  sheet.mergeCells('C5:H6');   // Exporter info block (2 rows)
-  sheet.mergeCells('C7:I7');   // Intermediate party line
-  sheet.mergeCells('C9:I9');   // Consignee name
-  sheet.mergeCells('C10:F13'); // Consignee address block (multi-row)
+  // 5. Fonction helper pour fusionner des cellules en toute sécurité
+  const safeMergeCells = (range) => {
+    try {
+      sheet.mergeCells(range);
+    } catch (error) {
+      if (error.message && error.message.includes('already merged')) {
+        console.warn(`⚠️ Cellules déjà fusionnées ignorées: ${range}`);
+      } else {
+        console.error(`Erreur lors de la fusion de ${range}:`, error);
+      }
+    }
+  };
+
+  // 6. Merge cells for header and specific sections (according to template)
+  safeMergeCells('C5:H6');   // Exporter info block (2 rows)
+  safeMergeCells('C7:I7');   // Intermediate party line
+  safeMergeCells('C9:I9');   // Consignee name
+  safeMergeCells('C10:F13'); // Consignee address block (multi-row)
   // Transport/port lines: no horizontal merges needed (separate columns for city/country and hyphen)
   // Container lines: merge seal number cells for layout
-  sheet.mergeCells('G18:H18');
-  sheet.mergeCells('G19:H19');
-  sheet.mergeCells('G20:H20');
+  safeMergeCells('G18:H18');
+  safeMergeCells('G19:H19');
+  safeMergeCells('G20:H20');
   // Products header and table layout:
-  sheet.mergeCells('F26:I26'); // "POISSON CONGELE" main heading
-  sheet.mergeCells('D27:G27'); // "ESPECES" header (covering species name columns D à G)
+  safeMergeCells('F26:I26'); // "POISSON CONGELE" main heading
+  safeMergeCells('D27:G27'); // "ESPECES" header (covering species name columns D à G)
   // (H27, I27, K27 are single columns for their headers; J27 is left blank as not used in header)
   // *Aucune fusion verticale* pour les lignes produits: chaque article occupe une seule ligne.
   // Totals row:
-  sheet.mergeCells('F38:G38'); // "TOTAL" label spanning species columns (F-G)
+  safeMergeCells('F38:G38'); // "TOTAL" label spanning species columns (F-G)
   // OP line:
-  sheet.mergeCells('F41:G41'); // "OP :" label and underline spaces
+  safeMergeCells('F41:G41'); // "OP :" label and underline spaces
   // (H41 and I41 not merged to allow number and year separately)
   // Customs office lines:
-  sheet.mergeCells('D43:K43'); // First "BUREAU DOUANE PECHE..." centered
-  sheet.mergeCells('C56:K56'); // Second "BUREAU DOUANE..." centered
+  safeMergeCells('C45:K45'); // First "BUREAU DOUANE PECHE..." centered
+  safeMergeCells('C56:K56'); // Second "BUREAU DOUANE..." centered
   // BL (Bill of Lading) line:
-  sheet.mergeCells('F45:G45'); // "BL:" label and underline spaces
-  sheet.mergeCells('H45:I45'); // BL number cell
+  safeMergeCells('F45:G45'); // "BL:" label and underline spaces
+  safeMergeCells('H45:I45'); // BL number cell
   // Second copy origin country:
-  sheet.mergeCells('J54:K54'); // "MAURITANIE" on second copy
+  safeMergeCells('J54:K54'); // "MAURITANIE" on second copy
   // Second copy destination country (stamp area, 2 rows):
-  sheet.mergeCells('I58:L59'); // "COTE D'IVOIRE" on second copy
+  safeMergeCells('I58:L59'); // "COTE D'IVOIRE" on second copy
   // Bottom place/date lines:
-  sheet.mergeCells('C60:E60'); // "NOUADHIBOU," for first copy
-  sheet.mergeCells('F60:H60'); // date for first copy (merged across F-H)
-  sheet.mergeCells('I60:J60'); // "NOUADHIBOU," for second copy
+  safeMergeCells('C60:E60'); // "NOUADHIBOU," for first copy
+  safeMergeCells('F60:H60'); // date for first copy (merged across F-H)
+  safeMergeCells('I60:J60'); // "NOUADHIBOU," for second copy
   // (K60 and L60 not merged; date for second copy will be in K60, L60 left blank)
 
-  // 6. Define a helper for styling a cell easily
+  // 7. Define a helper for styling a cell easily
   const setCellStyle = (cellRef, {fontSize=10, bold=true, italic=false, underline=false, hAlign='left', vAlign='center', wrap=false} = {}) => {
     const cell = sheet.getCell(cellRef);
     cell.font = { name: 'Tahoma', size: fontSize, bold: bold, italic: italic, underline: underline ? 'single' : false };
@@ -2995,7 +3008,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     return cell;
   };
 
-  // 7. Fill in static labels and dynamic data with proper style:
+  // 8. Fill in static labels and dynamic data with proper style:
   // Reference (Ref) and PO - use actual data from the order (commande)
   setCellStyle('C4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = 'Ref:';
   const refText = '';
@@ -3343,8 +3356,8 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
       sheet.getCell(`J${row}`).value = '';
     }
     setCellStyle(`K${row}`, {fontSize: 10, bold: true, hAlign: 'center'}).value = grossWeight;
-    // Fusionner les cellules D à G pour la description sur cette ligne
-    sheet.mergeCells(`D${row}:G${row}`);
+    // Fusionner les cellules D à G pour la description sur cette ligne (avec protection)
+    safeMergeCells(`D${row}:G${row}`);
     // Hauteur de ligne personnalisée pour bien afficher le texte wrap (si description longue)
     sheet.getRow(row).height = 30;
   });
@@ -3396,8 +3409,8 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
         setCellStyle(`F${rowIndex}`, {fontSize: 10, bold: true, underline: false, hAlign: 'right'}).value = '';
       }
       
-      // Fusionner H et I pour avoir plus d'espace pour le numéro OP
-      sheet.mergeCells(`H${rowIndex}:I${rowIndex}`);
+      // Fusionner H et I pour avoir plus d'espace pour le numéro OP (avec protection)
+      safeMergeCells(`H${rowIndex}:I${rowIndex}`);
       
       // Numéro OP avec l'année
       setCellStyle(`H${rowIndex}`, {
@@ -3411,12 +3424,12 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     });
   } else {
     // Si pas de numéros OP, fusionner H et I et laisser vide
-    sheet.mergeCells('H41:I41');
+    safeMergeCells('H41:I41');
     setCellStyle('H41', {fontSize: 10, bold: true, hAlign: 'left'}).value = '';
   }
 
   // Customs office lines
-  setCellStyle('D43', {fontSize: 9, bold: true, hAlign: 'center'}).value = 'BUREAU DOUANE PECHE NOUADHIBOU';
+  // setCellStyle('C45', {fontSize: 1, bold: true, hAlign: 'center'}).value = 'BUREAU DOUANE PECHE NOUADHIBOU';
   setCellStyle('C56', {fontSize: 10, bold: true, hAlign: 'center'}).value = 'BUREAU DOUANE PECHE NOUADHIBOU';
 
   // BL (Bill of Lading) line (row 45)

@@ -8,6 +8,9 @@ import {
   PencilIcon,
   InformationCircleIcon,
   DocumentTextIcon,
+  MapPinIcon,
+  BuildingOffice2Icon,
+  CurrencyDollarIcon,
 } from '@heroicons/react/24/solid';
 import Pagination from './Pagination';
 
@@ -66,26 +69,78 @@ function DepotList() {
   };
 
   return (
-    <div className="p-4 lg:p-6">
-      {/* Titre + boutons */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold mb-4 md:mb-0">Liste des Dépôts</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setShowAutorisationModal(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center"
-          >
-            <DocumentTextIcon className="h-5 w-5 mr-2" />
-            Éditer une Autorisation de Sortie
-          </button>
-          <button
-            onClick={handleOpenFormToCreate}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center"
-          >
-            <PlusIcon className="h-5 w-5 mr-2" />
-            Nouveau Dépôt
-          </button>
+    <div className="p-4 lg:p-6 bg-gray-50 min-h-screen">
+      {/* En-tête avec titre et statistiques */}
+      <div className="mb-8">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Gestion des Dépôts</h1>
+            <p className="text-gray-600">Gérez vos entrepôts et suivez les coûts de location</p>
+          </div>
+          <div className="flex gap-3 mt-4 md:mt-0">
+            <button
+              onClick={() => setShowAutorisationModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <DocumentTextIcon className="h-5 w-5 mr-2" />
+              Autorisation de Sortie
+            </button>
+            <button
+              onClick={handleOpenFormToCreate}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Nouveau Dépôt
+            </button>
+          </div>
         </div>
+
+        {/* Statistiques globales */}
+        {!loading && depots.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <BuildingOffice2Icon className="h-8 w-8 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Dépôts</p>
+                  <p className="text-2xl font-bold text-gray-900">{depots.length}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <CurrencyDollarIcon className="h-8 w-8 text-red-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Location Dû</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {new Intl.NumberFormat('fr-FR').format(
+                      depots.reduce((sum, depot) => sum + (depot.locationTotal || 0), 0)
+                    )} MRU
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <MapPinIcon className="h-8 w-8 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Dépôts Actifs</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {depots.filter(depot => (depot.locationTotal || 0) > 0).length}
+                  </p>
+                </div>
+              </div>
+            </div> */}
+          </div>
+        )}
       </div>
 
       {/* Erreur éventuelle */}
@@ -125,9 +180,9 @@ function DepotList() {
                 <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
                   Code
                 </th>
-                {/* <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
-                  Total Location
-                </th> */}
+                <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
+                  Montant Location Dû
+                </th>
                 <th className="px-4 py-3 text-center text-sm font-bold text-gray-700 border border-gray-400">
                   Actions
                 </th>
@@ -145,9 +200,27 @@ function DepotList() {
                   <td className="px-4 py-3 text-center text-sm text-gray-700 border border-gray-400">
                     {depot.code || '—'}
                   </td>
-                  {/* <td className="px-4 py-3 text-center font-bold text-white border border-gray-400 bg-red-800">
-                    {new Intl.NumberFormat('fr-FR').format(depot.locationTotal || 0)} MRU
-                  </td> */}
+                  <td className="px-4 py-3 text-center border border-gray-400">
+                    <div className="flex flex-col items-center">
+                      <span className={`text-lg font-bold ${
+                        (depot.locationTotal || 0) > 0 
+                          ? 'text-red-600' 
+                          : 'text-green-600'
+                      }`}>
+                        {new Intl.NumberFormat('fr-FR').format(depot.locationTotal || 0)} MRU
+                      </span>
+                      {/* {(depot.locationTotal || 0) > 0 && (
+                        <span className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded-full mt-1">
+                          En attente
+                        </span>
+                      )}
+                      {(depot.locationTotal || 0) === 0 && (
+                        <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full mt-1">
+                          À jour
+                        </span>
+                      )} */}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-center text-sm text-gray-700 border border-gray-400">
                     <button
                       onClick={() => handleOpenFormToEdit(depot)}
