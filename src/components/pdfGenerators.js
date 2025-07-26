@@ -3351,7 +3351,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     setCellStyle(`I${row}`, {fontSize: 10, bold: true, hAlign: 'center'}).value = netWeight;
     if (index === 0 && qtyBoxes > 0) {
       const grossPerBox = 20.8;
-      setCellStyle(`J${row}`, {fontSize: 9, bold: true, hAlign: 'center'}).value = grossPerBox.toFixed(1);
+      setCellStyle(`J${row}`, {fontSize: 9, bold: true, hAlign: 'center'}).value = 'P';
     } else {
       sheet.getCell(`J${row}`).value = '';
     }
