@@ -3387,7 +3387,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   setCellStyle('H38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalColis;
   setCellStyle('I38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalNet.toFixed(0);
   setCellStyle('J38', {fontSize: 11, bold: true, hAlign: 'left'}).value = `P'':`;
-  setCellStyle('K38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalBrut.toFixed(0);
+  setCellStyle('K38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalBrut.toFixed(1);
   // Draw a top border above totals row (D38 to K38)
   ['D38','E38','F38','G38','H38','I38','J38','K38'].forEach(cellRef => {
     const cell = sheet.getCell(cellRef);
