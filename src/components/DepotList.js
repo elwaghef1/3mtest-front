@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import DepotForm from './DepotForm';
 import AutorisationSortieModal from './AutorisationSortieModal';
+import DepotLocationDetails from './DepotLocationDetails';
 import {
   PlusIcon,
   PencilIcon,
@@ -11,6 +12,7 @@ import {
   MapPinIcon,
   BuildingOffice2Icon,
   CurrencyDollarIcon,
+  EyeIcon,
 } from '@heroicons/react/24/solid';
 import Pagination from './Pagination';
 
@@ -20,6 +22,8 @@ function DepotList() {
   const [showForm, setShowForm] = useState(false);
   const [editingDepot, setEditingDepot] = useState(null);
   const [showAutorisationModal, setShowAutorisationModal] = useState(false);
+  const [showLocationDetails, setShowLocationDetails] = useState(false);
+  const [selectedDepotForDetails, setSelectedDepotForDetails] = useState(null);
 
   const [filtered, setFiltered] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,6 +70,16 @@ function DepotList() {
   const handleDepotCreatedOrUpdated = () => {
     setShowForm(false);
     fetchDepots();
+  };
+
+  const handleShowLocationDetails = (depot) => {
+    setSelectedDepotForDetails(depot);
+    setShowLocationDetails(true);
+  };
+
+  const handleCloseLocationDetails = () => {
+    setShowLocationDetails(false);
+    setSelectedDepotForDetails(null);
   };
 
   return (
@@ -209,16 +223,16 @@ function DepotList() {
                       }`}>
                         {new Intl.NumberFormat('fr-FR').format(depot.locationTotal || 0)} MRU
                       </span>
-                      {/* {(depot.locationTotal || 0) > 0 && (
-                        <span className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded-full mt-1">
-                          En attente
-                        </span>
+                      {(depot.locationTotal || 0) > 0 && (
+                        <button
+                          onClick={() => handleShowLocationDetails(depot)}
+                          className="mt-2 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded-full flex items-center transition-colors"
+                          title="Voir les détails des lots"
+                        >
+                          <EyeIcon className="h-3 w-3 mr-1" />
+                          Voir détails
+                        </button>
                       )}
-                      {(depot.locationTotal || 0) === 0 && (
-                        <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full mt-1">
-                          À jour
-                        </span>
-                      )} */}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center text-sm text-gray-700 border border-gray-400">
@@ -264,6 +278,14 @@ function DepotList() {
       {showAutorisationModal && (
         <AutorisationSortieModal
           onClose={() => setShowAutorisationModal(false)}
+        />
+      )}
+
+      {/* Modal Détails Location */}
+      {showLocationDetails && selectedDepotForDetails && (
+        <DepotLocationDetails
+          depot={selectedDepotForDetails}
+          onClose={handleCloseLocationDetails}
         />
       )}
     </div>
