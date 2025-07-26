@@ -276,13 +276,13 @@ export default function StockList() {
     });
     const uniqueDepots = Array.from(depotsSet).sort();
 
-    // 2. Groupement & agrégation (même logique que l'Excel)
+    // 2. Groupement & agrégation (modifié pour séparer commercialisable et disponible)
     const speciesMap = new Map();
     for (const stock of filtered) {
       const name = formatArticle(stock.article);
       if (!speciesMap.has(name)) {
         const depotsObj = {};
-        uniqueDepots.forEach(d => (depotsObj[d] = 0));
+        uniqueDepots.forEach(d => (depotsObj[d] = { commercialisable: 0, disponible: 0 }));
         speciesMap.set(name, {
           name,
           depots: depotsObj,
@@ -290,31 +290,36 @@ export default function StockList() {
         });
       }
       const grp = speciesMap.get(name);
-      const qty = stock.quantiteCommercialisableKg || 0;
+      const qtyCommercialisable = stock.quantiteCommercialisableKg || 0;
+      const qtyDisponible = stock.quantiteKg || 0;
       const depotName = stock.depot?.intitule || '';
-      // Somme des quantités par dépôt
+      // Somme des quantités par dépôt (commercialisable et disponible)
       if (depotName && grp.depots.hasOwnProperty(depotName)) {
-        grp.depots[depotName] += qty;
+        grp.depots[depotName].commercialisable += qtyCommercialisable;
+        grp.depots[depotName].disponible += qtyDisponible;
       }
-      // Calcul de la valeur totale
+      // Calcul de la valeur totale (basé sur la quantité commercialisable)
       if (stock.valeur != null) {
         const factor = conversionRates[displayCurrency] 
                      / conversionRates[stock.monnaie || 'USD'];
-        grp.totalValue += stock.valeur * qty * factor;
+        grp.totalValue += stock.valeur * qtyCommercialisable * factor;
       }
     }
 
-    // 3. Préparer le tableau final (même que l'Excel)
+    // 3. Préparer le tableau final (modifié pour les nouvelles structures)
     const groupedData = [];
     speciesMap.forEach(grp => {
-      const totalKg = Object.values(grp.depots).reduce((a, b) => a + b, 0);
+      const totalKgCommercialisable = Object.values(grp.depots).reduce((a, b) => a + b.commercialisable, 0);
+      const totalKgDisponible = Object.values(grp.depots).reduce((a, b) => a + b.disponible, 0);
       // Trouver l'article réel à partir du nom formaté
       const realArticle = articles.find(art => formatArticle(art) === grp.name) || null;
       groupedData.push({
         name: grp.name,
         depots: grp.depots,
-        totalKg,
-        cartons: getCartonQuantityFromKg(totalKg, realArticle),
+        totalKgCommercialisable,
+        totalKgDisponible,
+        cartonsCommercialisable: getCartonQuantityFromKg(totalKgCommercialisable, realArticle),
+        cartonsDisponible: getCartonQuantityFromKg(totalKgDisponible, realArticle),
         totalValue: grp.totalValue,
         article: realArticle // Stocker l'article réel pour les calculs de cartons
       });
@@ -434,67 +439,76 @@ export default function StockList() {
 
     const startY = summaryY + 35;
 
-    // --- CONSTRUCTION DES COLONNES DYNAMIQUES (comme l'Excel) ---
+    // --- CONSTRUCTION DES COLONNES DYNAMIQUES (modifiée pour séparer commercialisable/disponible) ---
     const headers = ['Article'];
     uniqueDepots.forEach(d => {
-      headers.push(`${d} (Kg)`, `${d} (Cartons)`);
+      headers.push(`${d} Com. (Kg)`, `${d} Disp. (Kg)`);
     });
     headers.push(
-      'Total (Kg)',
-      'Total (Cartons)',
+      'Total Com. (Kg)',
+      'Total Disp. (Kg)', 
+      'Total Com. (Cartons)',
+      'Total Disp. (Cartons)',
       `Valeur Totale (${displayCurrency})`
     );
 
-    // --- PRÉPARATION DES DONNÉES (comme l'Excel) ---
+    // --- PRÉPARATION DES DONNÉES (modifiée pour les nouvelles colonnes) ---
     const tableData = groupedData.map((item) => {
       const row = [item.name];
       
-      // Ajouter les données par dépôt
+      // Ajouter les données par dépôt (commercialisable et disponible)
       uniqueDepots.forEach(depot => {
-        const kg = item.depots[depot] || 0;
-        const cartons = getCartonQuantityFromKg(kg, item.article); // Utiliser l'article réel
-        row.push(pdfNumber(kg), pdfNumberDecimal(cartons));
+        const kgCommercialisable = item.depots[depot]?.commercialisable || 0;
+        const kgDisponible = item.depots[depot]?.disponible || 0;
+        row.push(pdfNumber(kgCommercialisable), pdfNumber(kgDisponible));
       });
 
       // Ajouter les totaux
       row.push(
-        pdfNumber(item.totalKg),
-        pdfNumberDecimal(item.cartons),
+        pdfNumber(item.totalKgCommercialisable),
+        pdfNumber(item.totalKgDisponible),
+        pdfNumberDecimal(item.cartonsCommercialisable),
+        pdfNumberDecimal(item.cartonsDisponible),
         pdfNumber(item.totalValue)
       );
 
       return row;
     });
 
-    // Calcul des totaux globaux pour la ligne de bas
-    let grandTotalKg = 0, grandTotalCartons = 0, grandTotalValue = 0;
+    // Calcul des totaux globaux pour la ligne de bas (modifié pour les nouvelles structures)
+    let grandTotalKgCommercialisable = 0, grandTotalKgDisponible = 0;
+    let grandTotalCartonsCommercialisable = 0, grandTotalCartonsDisponible = 0, grandTotalValue = 0;
     const depotTotals = {};
     
     groupedData.forEach(item => {
-      grandTotalKg += item.totalKg;
-      grandTotalCartons += item.cartons;
+      grandTotalKgCommercialisable += item.totalKgCommercialisable;
+      grandTotalKgDisponible += item.totalKgDisponible;
+      grandTotalCartonsCommercialisable += item.cartonsCommercialisable;
+      grandTotalCartonsDisponible += item.cartonsDisponible;
       grandTotalValue += item.totalValue;
       
       uniqueDepots.forEach(depot => {
         if (!depotTotals[depot]) {
-          depotTotals[depot] = { kg: 0, cartons: 0 };
+          depotTotals[depot] = { commercialisable: 0, disponible: 0 };
         }
-        depotTotals[depot].kg += item.depots[depot] || 0;
-        depotTotals[depot].cartons += getCartonQuantityFromKg(item.depots[depot] || 0, item.article); // Utiliser l'article réel
+        depotTotals[depot].commercialisable += item.depots[depot]?.commercialisable || 0;
+        depotTotals[depot].disponible += item.depots[depot]?.disponible || 0;
       });
     });
 
-    // Préparation de la ligne de totaux
+    // Préparation de la ligne de totaux (modifiée)
     const totalRow = ['TOTAUX'];
     uniqueDepots.forEach(depot => {
       totalRow.push(
-        pdfNumber(depotTotals[depot].kg),
-        pdfNumberDecimal(depotTotals[depot].cartons)
+        pdfNumber(depotTotals[depot].commercialisable),
+        pdfNumber(depotTotals[depot].disponible)
       );
     });
     totalRow.push(
-      pdfNumber(grandTotalKg),
-      pdfNumberDecimal(grandTotalCartons),
+      pdfNumber(grandTotalKgCommercialisable),
+      pdfNumber(grandTotalKgDisponible),
+      pdfNumberDecimal(grandTotalCartonsCommercialisable),
+      pdfNumberDecimal(grandTotalCartonsDisponible),
       pdfNumber(grandTotalValue)
     );
 
@@ -559,13 +573,13 @@ export default function StockList() {
       didParseCell: (data) => {
         const colIndex = parseInt(data.column.dataKey.replace('col', ''));
         
-        // Gestion des couleurs d'en-têtes selon le type de colonne (comme l'Excel)
+        // Gestion des couleurs d'en-têtes selon le type de colonne (ajustée pour nouvelles colonnes)
         if (data.section === 'head') {
           if (colIndex === 0) {
             // Colonne Article - Bleu foncé
             data.cell.styles.fillColor = [31, 73, 125];
             data.cell.styles.textColor = [255, 255, 255];
-          } else if (colIndex < headers.length - 3) {
+          } else if (colIndex < headers.length - 5) {
             // Colonnes des dépôts - Jaune
             data.cell.styles.fillColor = [255, 255, 0];
             data.cell.styles.textColor = [0, 0, 0];
