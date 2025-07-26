@@ -61,7 +61,12 @@ function LotList() {
     const weekMs = 7 * 24 * 60 * 60 * 1000; // 1 semaine en millisecondes
     const weeks = Math.ceil((elapsedMs - gracePeriodMs) / weekMs);
     const quantityTonnes = (item.quantiteRestante || item.quantiteKg) / 1000;
-    return weeks * (item.prixLocation || 0) * quantityTonnes;
+    
+    // Utiliser le prix location du dépôt si disponible, sinon le prix de l'item (compatibilité)
+    const depotPrixLocation = entry.depot && entry.depot.prixLocation ? entry.depot.prixLocation : 0;
+    const prixLocation = depotPrixLocation || item.prixLocation || 0;
+    
+    return weeks * prixLocation * quantityTonnes;
   };
 
   useEffect(() => {

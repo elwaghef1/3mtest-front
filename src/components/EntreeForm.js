@@ -33,8 +33,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       prixUnitaire: '',
       // Par défaut, la monnaie est MRU
       monnaie: 'MRU',
-      // Le champ Prix Location n'est plus obligatoire
-      prixLocation: '',
+      // Suppression du champ Prix Location - il sera pris du dépôt
       quantiteCarton: 0,
     },
   ]);
@@ -115,7 +114,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
           quantiteTunnel: item.quantiteTunnel || '',
           prixUnitaire: item.prixUnitaire || '',
           monnaie: item.monnaie || 'MRU',
-          prixLocation: item.prixLocation || '',
+          // Suppression du champ prixLocation
           quantiteCarton: articleData ? convertKgToCarton(item.quantiteKg, articleData) : 0,
         };
       });
@@ -245,16 +244,14 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
           if (quantiteKg === 0 && item.quantiteCarton && parseFloat(item.quantiteCarton) > 0) {
             const selectedArticle = articles.find(a => a._id === item.article);
             quantiteKg = calculateKgFromCartons(parseFloat(item.quantiteCarton), selectedArticle);
-          }
-          
-          return {
-            article: item.article,
-            quantiteKg: quantiteKg,
-            quantiteTunnel: item.quantiteTunnel ? parseFloat(item.quantiteTunnel) : undefined,
-            prixUnitaire: parseFloat(item.prixUnitaire),
-            monnaie: item.monnaie,
-            prixLocation: item.prixLocation ? parseFloat(item.prixLocation) : undefined,
-          };
+          }            return {
+              article: item.article,
+              quantiteKg: quantiteKg,
+              quantiteTunnel: item.quantiteTunnel ? parseFloat(item.quantiteTunnel) : undefined,
+              prixUnitaire: parseFloat(item.prixUnitaire),
+              monnaie: item.monnaie,
+              // Suppression du champ prixLocation - il sera pris du dépôt
+            };
         }),
       };
 
@@ -517,21 +514,6 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                     <option value="EUR">EUR</option>
                     <option value="USD">USD</option>
                   </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Prix Location (MRU/tonne/semaine)
-                  </label>
-                  <input
-                    className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
-                    type="number"
-                    step="0.01"
-                    value={item.prixLocation}
-                    onChange={(e) =>
-                      handleItemChange(index, 'prixLocation', e.target.value)
-                    }
-                    // Ce champ n'est plus obligatoire
-                  />
                 </div>
               </div>
               {items.length > 1 && (

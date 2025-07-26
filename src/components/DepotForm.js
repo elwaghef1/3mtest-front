@@ -7,6 +7,7 @@ function DepotForm({ onClose, onDepotCreated, initialDepot }) {
   const [intitule, setIntitule] = useState('');
   const [location, setLocation] = useState('');
   const [code, setCode] = useState('');
+  const [prixLocation, setPrixLocation] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -16,6 +17,7 @@ function DepotForm({ onClose, onDepotCreated, initialDepot }) {
       setIntitule(initialDepot.intitule || '');
       setLocation(initialDepot.location || '');
       setCode(initialDepot.code || '');
+      setPrixLocation(initialDepot.prixLocation || '');
     }
   }, [initialDepot]);
 
@@ -24,7 +26,7 @@ function DepotForm({ onClose, onDepotCreated, initialDepot }) {
     setLoading(true);
     setErrorMessage('');
     try {
-      const depotData = { intitule, location, code };
+      const depotData = { intitule, location, code, prixLocation: parseFloat(prixLocation) || 0 };
       if (initialDepot) {
         await axios.put(`/depots/${initialDepot._id}`, depotData);
       } else {
@@ -93,8 +95,31 @@ function DepotForm({ onClose, onDepotCreated, initialDepot }) {
                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               type="text"
               required
+              value={code}
               onChange={(e) => setCode(e.target.value)}
             />
+          </div>
+        </div>
+
+        {/* Ligne 2 : Prix Location */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Prix Location */}
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-gray-700">
+              Prix Location (MRU/T/semaine)
+            </label>
+            <input
+              className="w-full border border-gray-300 rounded-md shadow-sm p-2 
+                         focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              type="number"
+              step="0.01"
+              value={prixLocation}
+              onChange={(e) => setPrixLocation(e.target.value)}
+              placeholder="0.00"
+            />
+            <p className="text-xs text-gray-500">
+              Prix de location par défaut pour ce dépôt (en MRU par tonne par semaine)
+            </p>
           </div>
         </div>
 
