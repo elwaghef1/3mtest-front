@@ -229,11 +229,11 @@ export default function StockList() {
     }).format(num).replace(/\s/g, '\u00A0');
   };
 
-  // Calcul du CUMP global en devise d'affichage (moyenne pondérée sur la quantité commercialisable)
+  // Calcul du CUMP global en devise d'affichage (moyenne pondérée sur la quantité disponible)
   const totalValueInDisplay = filtered.reduce((acc, s) => {
     const stockCurrency = s.monnaie || 'USD';
     const factor = conversionRates[displayCurrency] / conversionRates[stockCurrency];
-    return acc + (s.valeur * (s.quantiteCommercialisableKg || 0) * factor);
+    return acc + (s.valeur * (s.quantiteKg || 0) * factor);
   }, 0);
   const totalQuantity = filtered.reduce((acc, s) => acc + (s.quantiteKg || 0), 0);
   const globalCump = totalQuantity > 0 ? (totalValueInDisplay / totalQuantity) * 1000 : 0;
@@ -304,7 +304,7 @@ export default function StockList() {
       
       if (stock.valeur != null) {
         const factor = conversionRates[displayCurrency] / conversionRates[stock.monnaie || 'USD'];
-        grp.totalValue += stock.valeur * qtyCommercialisable * factor;
+        grp.totalValue += stock.valeur * qtyDisponible * factor;
         grp.totalValueForCump += stock.valeur * qtyDisponible * factor;
         grp.totalQuantityForCump += qtyDisponible;
       }
@@ -428,7 +428,7 @@ export default function StockList() {
         { text: 'Total\nComm.', width: totalCommWidth },
         { text: 'Total\nDisp.', width: totalDispWidth },
         { text: 'Cartons\nComm.', width: cartonsWidth },
-        { text: `Valeur\n(${displayCurrency})`, width: valueWidth }
+        { text: `Valeur stock\ndisponible\n(${displayCurrency})`, width: valueWidth }
       ];
       
       totalHeaders.forEach(header => {
@@ -436,11 +436,16 @@ export default function StockList() {
         doc.rect(currentX, startY, header.width, headerHeight + subHeaderHeight, 'F');
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7); // Réduit de 8 à 7 pour s'adapter aux colonnes plus étroites
+        doc.setFontSize(7);
         
-        // Diviser le texte sur deux lignes
+        // Diviser le texte sur plusieurs lignes
         const lines = header.text.split('\n');
-        if (lines.length === 2) {
+        if (lines.length === 3) {
+          // Pour "Valeur stock disponible" sur 3 lignes
+          doc.text(lines[0], currentX + header.width/2, startY + (headerHeight + subHeaderHeight)/2 - 4, { align: 'center' });
+          doc.text(lines[1], currentX + header.width/2, startY + (headerHeight + subHeaderHeight)/2, { align: 'center' });
+          doc.text(lines[2], currentX + header.width/2, startY + (headerHeight + subHeaderHeight)/2 + 4, { align: 'center' });
+        } else if (lines.length === 2) {
           doc.text(lines[0], currentX + header.width/2, startY + (headerHeight + subHeaderHeight)/2 - 2, { align: 'center' });
           doc.text(lines[1], currentX + header.width/2, startY + (headerHeight + subHeaderHeight)/2 + 2, { align: 'center' });
         } else {
@@ -608,9 +613,7 @@ export default function StockList() {
           if (qtyDisponible > 0) {
             totalValueForGlobalCump += stock.valeur * qtyDisponible * factor;
             totalQuantityForGlobalCump += qtyDisponible;
-          }
-          if (qtyCommercialisable > 0) {
-            grandTotalValue += stock.valeur * qtyCommercialisable * factor;
+            grandTotalValue += stock.valeur * qtyDisponible * factor;
           }
         }
         
@@ -730,7 +733,7 @@ export default function StockList() {
     doc.save(`stock_report_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
- const exportCommercialisableToPDF = () => {
+const exportCommercialisableToPDF = () => {
   const doc = new jsPDF('landscape', 'mm', 'a4');
 
   const styles = {
@@ -775,7 +778,7 @@ export default function StockList() {
   const titleY = 50;
   doc.setFont('helvetica','bold').setFontSize(styles.headerFontSize)
      .setTextColor(0)
-     .text("STOCK COMMERCIALISABLE", w/2, titleY, { align:'center' })
+     .text("STOCK DISPONIBLE", w/2, titleY, { align:'center' })
      .setDrawColor(0,102,204).setLineWidth(0.5)
      .line(m, titleY+3, w-m, titleY+3);
 
@@ -830,7 +833,7 @@ export default function StockList() {
     }
   });
 
-  doc.save(`stock_commercialisable_${new Date().toISOString().slice(0,10)}.pdf`);
+  doc.save(`stock_disponible_${new Date().toISOString().slice(0,10)}.pdf`);
 };
 
 
@@ -871,7 +874,7 @@ const exportToExcel = async () => {
     if (stock.valeur != null) {
       const factor = conversionRates[displayCurrency] 
                    / conversionRates[stock.monnaie || 'USD'];
-      grp.totalValue += stock.valeur * qtyCommercialisable * factor;
+      grp.totalValue += stock.valeur * qtyDisponible * factor;
       // Pour le calcul du CUMP, on utilise la quantité disponible
       grp.totalValueForCump += stock.valeur * qtyDisponible * factor;
       grp.totalQuantityForCump += qtyDisponible;
@@ -993,7 +996,7 @@ const exportToExcel = async () => {
   });
 
   // En-têtes des totaux (fusionnées verticalement)
-  const totalHeaders = ['Total Comm.', 'Total Disp.', 'Cartons Comm.', `Valeur (${displayCurrency})`];
+  const totalHeaders = ['Total Comm.', 'Total Disp.', 'Cartons Comm.', `Valeur stock disponible (${displayCurrency})`];
   totalHeaders.forEach(header => {
     ws.mergeCells(2, col, 3, col);
     const totalCell = ws.getCell(2, col);
@@ -1136,9 +1139,7 @@ const exportToExcel = async () => {
       if (qtyDisponible > 0) {
         totalValueForGlobalCump += stock.valeur * qtyDisponible * factor;
         totalQuantityForGlobalCump += qtyDisponible;
-      }
-      if (qtyCommercialisable > 0) {
-        grandTotalValue += stock.valeur * qtyCommercialisable * factor;
+        grandTotalValue += stock.valeur * qtyDisponible * factor;
       }
     }
     
@@ -1394,7 +1395,7 @@ const exportToExcel = async () => {
                 size="md"
                 leftIcon={<PrinterIcon className="h-4 w-4" />}
               >
-                Télécharger Stock Commercialisable
+                Télécharger Stock Disponible
               </Button>
               <Button
                 onClick={exportToExcelStylePDF}
@@ -1550,11 +1551,11 @@ const exportToExcel = async () => {
                   );
                 })}
               </tbody>
-              {/* Ajout du pied de tableau pour afficher la "Valeur du stock commercialisable" */}
+              {/* Ajout du pied de tableau pour afficher la "Valeur du stock disponible" */}
               <tfoot>
                 <tr>
                   <td colSpan={numColumns - 2} className="text-right font-bold bg-white px-4 py-3 border border-gray-400">
-                    Valeur du stock commercialisable :
+                    Valeur du stock disponible :
                   </td>
                   <td colSpan={2} className="bg-red-600 text-white text-center font-bold px-4 py-3 border border-gray-400">
                     <strong>{formatNumber(totalValueInDisplay.toFixed(2))} {getCurrencyLabel()}</strong>
