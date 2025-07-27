@@ -526,107 +526,171 @@ export default function StockList() {
 
     // Fonction pour dessiner la ligne de totaux
     const drawTotalsRow = (y) => {
-      const rowHeight = 10;
-      let currentX = margin;
-      
-      // Calcul des totaux
-      let grandTotalCommercialisable = 0;
-      let grandTotalDisponible = 0;
-      let grandTotalCartons = 0;
-      let grandTotalValue = 0;
-      let totalValueForGlobalCump = 0;
-      let totalQuantityForGlobalCump = 0;
-      const depotTotals = {};
-      
-      uniqueDepots.forEach(depot => {
-        depotTotals[depot] = { commercialisable: 0, disponible: 0 };
-      });
-      
-      filtered.forEach(stock => {
-        const qtyDisponible = stock.quantiteKg || 0;
-        const qtyCommercialisable = stock.quantiteCommercialisableKg || 0;
-        grandTotalDisponible += qtyDisponible;
-        grandTotalCommercialisable += qtyCommercialisable;
-        
-        const article = getArticleForStock(stock, articles);
-        grandTotalCartons += getCartonQuantityFromKg(qtyCommercialisable, article);
-        
-        if (stock.valeur != null) {
-          const factor = conversionRates[displayCurrency] / conversionRates[stock.monnaie || 'USD'];
-          if (qtyDisponible > 0) {
-            totalValueForGlobalCump += stock.valeur * qtyDisponible * factor;
-            totalQuantityForGlobalCump += qtyDisponible;
-          }
-          if (qtyCommercialisable > 0) {
-            grandTotalValue += stock.valeur * qtyCommercialisable * factor;
-          }
-        }
-        
-        const depotName = stock.depot?.intitule || '';
-        if (depotName && depotTotals[depotName]) {
-          depotTotals[depotName].commercialisable += qtyCommercialisable;
-          depotTotals[depotName].disponible += qtyDisponible;
-        }
-      });
-      
-      const globalCumpTotal = totalQuantityForGlobalCump > 0 ? (totalValueForGlobalCump / totalQuantityForGlobalCump) : 0;
-      
-      // Fond vert pour la ligne de totaux
-      doc.setFillColor(146, 208, 80);
-      doc.rect(margin, y, tableWidth, rowHeight, 'F');
-      
-      // Bordure épaisse en haut
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.5);
-      doc.line(margin, y, margin + tableWidth, y);
-      
-      // Bordures de la ligne
-      doc.setLineWidth(0.3);
-      doc.rect(margin, y, tableWidth, rowHeight);
-      
-      // Texte "TOTAUX"
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text('TOTAUX', currentX + 2, y + rowHeight/2 + 1, { align: 'left' });
-      doc.line(currentX + articleWidth, y, currentX + articleWidth, y + rowHeight);
-      currentX += articleWidth;
-      
-      // CUMP total
-      doc.setFontSize(8);  // Taille réduite pour le CUMP
-      doc.text(pdfNumberDecimal(globalCumpTotal), currentX + cumpWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
-      doc.line(currentX + cumpWidth, y, currentX + cumpWidth, y + rowHeight);
-      currentX += cumpWidth;
-      
-      // Totaux par dépôt
-      doc.setFontSize(10);  // Retour à la taille normale
-      uniqueDepots.forEach(depot => {
-        doc.text(pdfNumber(depotTotals[depot].commercialisable), currentX + depotColumnWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
-        doc.line(currentX + depotColumnWidth, y, currentX + depotColumnWidth, y + rowHeight);
-        
-        doc.text(pdfNumber(depotTotals[depot].disponible), currentX + depotPairWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
-        doc.line(currentX + depotPairWidth, y, currentX + depotPairWidth, y + rowHeight);
-        
-        currentX += depotPairWidth;
-      });
-      
-      // Grands totaux
-      doc.text(pdfNumber(grandTotalCommercialisable), currentX + totalCommWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
-      doc.line(currentX + totalCommWidth, y, currentX + totalCommWidth, y + rowHeight);
-      currentX += totalCommWidth;
-      
-      doc.text(pdfNumber(grandTotalDisponible), currentX + totalDispWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
-      doc.line(currentX + totalDispWidth, y, currentX + totalDispWidth, y + rowHeight);
-      currentX += totalDispWidth;
-      
-      doc.text(pdfNumber(grandTotalCartons), currentX + cartonsWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
-      doc.line(currentX + cartonsWidth, y, currentX + cartonsWidth, y + rowHeight);
-      currentX += cartonsWidth;
-      
-      doc.text(pdfNumber(grandTotalValue), currentX + valueWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
-      
-      return y + rowHeight;
-    };
+  const rowHeight = 10;
+  let currentX = margin;
+  
+  // Calcul des totaux
+  let grandTotalCommercialisable = 0;
+  let grandTotalDisponible = 0;
+  let grandTotalCartons = 0;
+  let grandTotalValue = 0;
+  let totalValueForGlobalCump = 0;
+  let totalQuantityForGlobalCump = 0;
+  const depotTotals = {};
+  
+  uniqueDepots.forEach(depot => {
+    depotTotals[depot] = { commercialisable: 0, disponible: 0 };
+  });
+  
+  filtered.forEach(stock => {
+    const qtyDisponible = stock.quantiteKg || 0;
+    const qtyCommercialisable = stock.quantiteCommercialisableKg || 0;
+    grandTotalDisponible += qtyDisponible;
+    grandTotalCommercialisable += qtyCommercialisable;
+    
+    const article = getArticleForStock(stock, articles);
+    grandTotalCartons += getCartonQuantityFromKg(qtyCommercialisable, article);
+    
+    if (stock.valeur != null) {
+      const factor = conversionRates[displayCurrency] / conversionRates[stock.monnaie || 'USD'];
+      if (qtyDisponible > 0) {
+        totalValueForGlobalCump += stock.valeur * qtyDisponible * factor;
+        totalQuantityForGlobalCump += qtyDisponible;
+      }
+      if (qtyCommercialisable > 0) {
+        grandTotalValue += stock.valeur * qtyCommercialisable * factor;
+      }
+    }
+    
+    const depotName = stock.depot?.intitule || '';
+    if (depotName && depotTotals[depotName]) {
+      depotTotals[depotName].commercialisable += qtyCommercialisable;
+      depotTotals[depotName].disponible += qtyDisponible;
+    }
+  });
+  
+  const globalCumpTotal = totalQuantityForGlobalCump > 0 ? (totalValueForGlobalCump / totalQuantityForGlobalCump) : 0;
+  
+  // Fond vert pour la ligne de totaux
+  doc.setFillColor(146, 208, 80);
+  doc.rect(margin, y, tableWidth, rowHeight, 'F');
+  
+  // Bordure épaisse en haut
+  doc.setDrawColor(0, 0, 0);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, margin + tableWidth, y);
+  
+  // Bordures de la ligne
+  doc.setLineWidth(0.3);
+  doc.rect(margin, y, tableWidth, rowHeight);
+  
+  // Texte "TOTAUX"
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('TOTAUX', currentX + 2, y + rowHeight/2 + 1, { align: 'left' });
+  doc.line(currentX + articleWidth, y, currentX + articleWidth, y + rowHeight);
+  currentX += articleWidth;
+  
+  // CUMP total
+  doc.setFontSize(8);
+  const cumpText = pdfNumberDecimal(globalCumpTotal);
+  // Vérifier que le texte ne déborde pas
+  const cumpTextWidth = doc.getTextWidth(cumpText);
+  if (cumpTextWidth > cumpWidth - 2) {
+    doc.setFontSize(7);
+  }
+  doc.text(cumpText, currentX + cumpWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
+  doc.line(currentX + cumpWidth, y, currentX + cumpWidth, y + rowHeight);
+  currentX += cumpWidth;
+  
+  // Totaux par dépôt
+  doc.setFontSize(8);
+  uniqueDepots.forEach(depot => {
+    const commValue = depotTotals[depot].commercialisable;
+    const dispValue = depotTotals[depot].disponible;
+    
+    // Commercialisable
+    const commText = pdfNumber(commValue);
+    const commTextWidth = doc.getTextWidth(commText);
+    if (commTextWidth > depotColumnWidth - 3) {
+      doc.setFontSize(7);
+      doc.text(commText, currentX + depotColumnWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
+      doc.setFontSize(8);
+    } else {
+      doc.text(commText, currentX + depotColumnWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
+    }
+    doc.line(currentX + depotColumnWidth, y, currentX + depotColumnWidth, y + rowHeight);
+    
+    // Disponible
+    const dispText = pdfNumber(dispValue);
+    const dispTextWidth = doc.getTextWidth(dispText);
+    if (dispTextWidth > depotColumnWidth - 3) {
+      doc.setFontSize(7);
+      doc.text(dispText, currentX + depotPairWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
+      doc.setFontSize(8);
+    } else {
+      doc.text(dispText, currentX + depotPairWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
+    }
+    doc.line(currentX + depotPairWidth, y, currentX + depotPairWidth, y + rowHeight);
+    
+    currentX += depotPairWidth;
+  });
+  
+  // Grands totaux avec gestion du débordement
+  doc.setFontSize(8);
+  
+  // Total Commercialisable
+  const totalCommText = pdfNumber(grandTotalCommercialisable);
+  const totalCommTextWidth = doc.getTextWidth(totalCommText);
+  if (totalCommTextWidth > totalCommWidth - 3) {
+    doc.setFontSize(7);
+    doc.text(totalCommText, currentX + totalCommWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
+    doc.setFontSize(8);
+  } else {
+    doc.text(totalCommText, currentX + totalCommWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
+  }
+  doc.line(currentX + totalCommWidth, y, currentX + totalCommWidth, y + rowHeight);
+  currentX += totalCommWidth;
+  
+  // Total Disponible
+  const totalDispText = pdfNumber(grandTotalDisponible);
+  const totalDispTextWidth = doc.getTextWidth(totalDispText);
+  if (totalDispTextWidth > totalDispWidth - 3) {
+    doc.setFontSize(7);
+    doc.text(totalDispText, currentX + totalDispWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
+    doc.setFontSize(8);
+  } else {
+    doc.text(totalDispText, currentX + totalDispWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
+  }
+  doc.line(currentX + totalDispWidth, y, currentX + totalDispWidth, y + rowHeight);
+  currentX += totalDispWidth;
+  
+  // Cartons
+  const cartonsText = pdfNumber(grandTotalCartons);
+  const cartonsTextWidth = doc.getTextWidth(cartonsText);
+  if (cartonsTextWidth > cartonsWidth - 3) {
+    doc.setFontSize(7);
+    doc.text(cartonsText, currentX + cartonsWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
+    doc.setFontSize(8);
+  } else {
+    doc.text(cartonsText, currentX + cartonsWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
+  }
+  doc.line(currentX + cartonsWidth, y, currentX + cartonsWidth, y + rowHeight);
+  currentX += cartonsWidth;
+  
+  // Valeur totale
+  const valueText = pdfNumber(grandTotalValue);
+  const valueTextWidth = doc.getTextWidth(valueText);
+  if (valueTextWidth > valueWidth - 3) {
+    doc.setFontSize(7);
+    doc.text(valueText, currentX + valueWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
+  } else {
+    doc.text(valueText, currentX + valueWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
+  }
+  
+  return y + rowHeight;
+};
 
     // Commencer le rendu
     let currentY = 20;
