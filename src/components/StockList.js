@@ -268,7 +268,7 @@ export default function StockList() {
   // ------------------------------
   // Nouvelle fonction d'export PDF avec le même design que l'Excel
   // ------------------------------
-  const exportToExcelStylePDF = () => {
+const exportToExcelStylePDF = () => {
     // 1. Collecte des dépôts uniques (même logique que l'Excel)
     const depotsSet = new Set();
     filtered.forEach(s => {
@@ -333,49 +333,157 @@ export default function StockList() {
     });
 
     const w = doc.internal.pageSize.getWidth();
+    const h = doc.internal.pageSize.getHeight();
     const m = 10;
 
-    // --- HEADER ---
-    let y = 10;
+    // Fonction pour dessiner l'en-tête sur chaque page
+    const drawPageHeader = () => {
+      let y = 10;
+      
+      // Logo
+      doc.addImage(logoBase64, 'PNG', m, y+2, 30, 30);
+      
+      // Texte à droite du logo
+      const startX = m + 35;
+      const lineHeight = 4;
     
-    // Logo
-    doc.addImage(logoBase64, 'PNG', m, y+2, 30, 30);
+      doc.setFont('helvetica', 'bold').setFontSize(11)
+         .text('MSM SEAFOOD SARL', startX, y + 5);
     
-    // Texte à droite du logo
-    const startX = m + 35;
-    const lineHeight = 4;
-  
-    doc.setFont('helvetica', 'bold').setFontSize(11)
-       .text('MSM SEAFOOD SARL', startX, y + 5);
-  
-    doc.setFont('helvetica', 'normal').setFontSize(8);
-    y += lineHeight;
-    doc.text('Zone industrielle', startX, y + 5);
-    y += lineHeight;
-    doc.text('Dakhlet Nouâdhibou', startX, y + 5);
-    y += lineHeight;
-    doc.text('Mauritanie', startX, y + 5);
-    y += lineHeight;
-    doc.text('msmseafoodsarl@gmail.com', startX, y + 5);
-    y += lineHeight;
-    doc.text('Tél. : +222 46 00 89 08', startX, y + 5);
-  
-    // Date en haut à droite
-    const rightColumnX = w - 80;
-    doc.setFontSize(8)
-       .text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, rightColumnX, 15);
+      doc.setFont('helvetica', 'normal').setFontSize(8);
+      y += lineHeight;
+      doc.text('Zone industrielle', startX, y + 5);
+      y += lineHeight;
+      doc.text('Dakhlet Nouâdhibou', startX, y + 5);
+      y += lineHeight;
+      doc.text('Mauritanie', startX, y + 5);
+      y += lineHeight;
+      doc.text('msmseafoodsarl@gmail.com', startX, y + 5);
+      y += lineHeight;
+      doc.text('Tél. : +222 46 00 89 08', startX, y + 5);
+    
+      // Date en haut à droite
+      const rightColumnX = w - 80;
+      doc.setFontSize(8)
+         .text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, rightColumnX, 15);
 
-    // --- TITRE PRINCIPAL (ROUGE comme l'Excel) ---
-    const titleY = 45;
-    const titleHeight = 12;
-    doc.setFillColor(255, 0, 0) // Rouge
-       .rect(m, titleY - 3, w - 2*m, titleHeight, 'F')
-       .setFont('helvetica','bold').setFontSize(18)
-       .setTextColor(255, 255, 255) // Texte blanc
-       .text("ETAT DE STOCK", w / 2, titleY + 4, { align: 'center' });
+      // --- TITRE PRINCIPAL (ROUGE comme l'Excel) ---
+      const titleY = 45;
+      const titleHeight = 12;
+      doc.setFillColor(255, 0, 0) // Rouge
+         .rect(m, titleY - 3, w - 2*m, titleHeight, 'F')
+         .setFont('helvetica','bold').setFontSize(18)
+         .setTextColor(255, 255, 255) // Texte blanc
+         .text("ETAT DE STOCK", w / 2, titleY + 4, { align: 'center' });
+
+      return titleY + 20; // Retourner la position Y après le titre
+    };
+
+    // Fonction pour dessiner l'en-tête du tableau
+    const drawTableHeader = (startY) => {
+      // Dimensions du tableau
+      const tableX = m;
+      const tableWidth = w - 2*m;
+      const articleColWidth = 60;
+      const depotColWidth = (tableWidth - articleColWidth - 60) / uniqueDepots.length; // 60 pour colonne totaux
+      const totalColWidth = 60;
+      
+      // Hauteurs des lignes d'en-tête
+      const headerRowHeight = 20;
+      const subHeaderRowHeight = 15;
+      
+      let currentY = startY;
+      
+      // Dessiner l'en-tête principal manuellement
+      doc.setFillColor(31, 73, 125);
+      doc.rect(tableX, currentY, articleColWidth, headerRowHeight + subHeaderRowHeight, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold').setFontSize(10);
+      doc.text('Article', tableX + articleColWidth/2, currentY + (headerRowHeight + subHeaderRowHeight)/2, { align: 'center' });
+      
+      let currentX = tableX + articleColWidth;
+      
+      // En-têtes des dépôts avec divisions
+      uniqueDepots.forEach(depot => {
+        // Cellule principale du dépôt (partie haute)
+        doc.setFillColor(255, 255, 0);
+        doc.rect(currentX, currentY, depotColWidth, headerRowHeight, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold').setFontSize(9);
+        doc.text(depot, currentX + depotColWidth/2, currentY + headerRowHeight/2, { align: 'center' });
+        
+        // Divisions de la partie basse
+        const halfWidth = depotColWidth / 2;
+        
+        // Commercialisable
+        doc.setFillColor(255, 255, 0);
+        doc.rect(currentX, currentY + headerRowHeight, halfWidth, subHeaderRowHeight, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal').setFontSize(7);
+        doc.text('Commerc.', currentX + halfWidth/2, currentY + headerRowHeight + subHeaderRowHeight/2, { align: 'center' });
+        
+        // Disponible
+        doc.setFillColor(255, 255, 0);
+        doc.rect(currentX + halfWidth, currentY + headerRowHeight, halfWidth, subHeaderRowHeight, 'F');
+        doc.setTextColor(0, 0, 0);
+        doc.text('Dispon.', currentX + halfWidth + halfWidth/2, currentY + headerRowHeight + subHeaderRowHeight/2, { align: 'center' });
+        
+        currentX += depotColWidth;
+      });
+      
+      // Colonne totaux avec division similaire aux dépôts
+      doc.setFillColor(146, 208, 80);
+      doc.rect(currentX, currentY, totalColWidth, headerRowHeight, 'F');
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold').setFontSize(9);
+      doc.text('Totaux', currentX + totalColWidth/2, currentY + headerRowHeight/2, { align: 'center' });
+      
+      // Divisions de la partie basse pour totaux
+      const halfTotalWidth = totalColWidth / 2;
+      
+      // Total Commercialisable
+      doc.setFillColor(146, 208, 80);
+      doc.rect(currentX, currentY + headerRowHeight, halfTotalWidth, subHeaderRowHeight, 'F');
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal').setFontSize(7);
+      doc.text('Total C.', currentX + halfTotalWidth/2, currentY + headerRowHeight + subHeaderRowHeight/2, { align: 'center' });
+      
+      doc.setFillColor(146, 208, 80);
+      // Total Disponible
+      doc.rect(currentX + halfTotalWidth, currentY + headerRowHeight, halfTotalWidth, subHeaderRowHeight, 'F');
+      doc.setTextColor(0, 0, 0);
+      doc.text('Total D.', currentX + halfTotalWidth + halfTotalWidth/2, currentY + headerRowHeight + subHeaderRowHeight/2, { align: 'center' });
+      
+      // Bordures des en-têtes avec traits uniformes
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5); // Épaisseur uniforme et modérée
+      
+      // Bordures extérieures
+      doc.rect(tableX, currentY, tableWidth, headerRowHeight + subHeaderRowHeight);
+      
+      // Bordures verticales
+      currentX = tableX + articleColWidth;
+      uniqueDepots.forEach(() => {
+        doc.line(currentX, currentY, currentX, currentY + headerRowHeight + subHeaderRowHeight);
+        doc.line(currentX + depotColWidth/2, currentY + headerRowHeight, currentX + depotColWidth/2, currentY + headerRowHeight + subHeaderRowHeight);
+        currentX += depotColWidth;
+      });
+      doc.line(currentX, currentY, currentX, currentY + headerRowHeight + subHeaderRowHeight);
+      
+      // Division dans la colonne totaux
+      doc.line(currentX + totalColWidth/2, currentY + headerRowHeight, currentX + totalColWidth/2, currentY + headerRowHeight + subHeaderRowHeight);
+      
+      // Bordure horizontale de séparation
+      doc.line(tableX + articleColWidth, currentY + headerRowHeight, tableX + tableWidth, currentY + headerRowHeight);
+      
+      return currentY + headerRowHeight + subHeaderRowHeight;
+    };
+
+    // Première page - avec résumé
+    let currentY = drawPageHeader();
 
     // --- RÉSUMÉ DES TOTAUX ---
-    let summaryY = titleY + 25;
+    let summaryY = currentY + 5;
     
     // Calculer les totaux pour le résumé
     const totalQuantiteDisponible = filtered.reduce((acc, s) => acc + (s.quantiteKg || 0), 0);
@@ -437,157 +545,163 @@ export default function StockList() {
     doc.setFont('helvetica', 'normal')
        .text(`${pdfNumberDecimal(totalCartonsCommercializable)}`, col4X, summaryY + 14);
 
-    const startY = summaryY + 35;
-
-    // --- CONSTRUCTION DU TABLEAU AVEC EN-TÊTES DIVISÉS ---
+    currentY = summaryY + 35;
     
-    // Dimensions du tableau
-    const tableX = m;
-    const tableWidth = w - 2*m;
-    const articleColWidth = 60;
-    const depotColWidth = (tableWidth - articleColWidth - 60) / uniqueDepots.length; // 60 pour colonne totaux
-    const totalColWidth = 60;
-    
-    // Hauteurs des lignes d'en-tête
-    const headerRowHeight = 20;
-    const subHeaderRowHeight = 15;
-    
-    let currentY = startY;
-    
-    // Dessiner l'en-tête principal manuellement
-    doc.setFillColor(31, 73, 125);
-    doc.rect(tableX, currentY, articleColWidth, headerRowHeight + subHeaderRowHeight, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold').setFontSize(10);
-    doc.text('Article', tableX + articleColWidth/2, currentY + (headerRowHeight + subHeaderRowHeight)/2, { align: 'center' });
-    
-    let currentX = tableX + articleColWidth;
-    
-    // En-têtes des dépôts avec divisions
-    uniqueDepots.forEach(depot => {
-      // Cellule principale du dépôt (partie haute)
-      doc.setFillColor(255, 255, 0);
-      doc.rect(currentX, currentY, depotColWidth, headerRowHeight, 'F');
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'bold').setFontSize(9);
-      doc.text(depot, currentX + depotColWidth/2, currentY + headerRowHeight/2, { align: 'center' });
-      
-      // Divisions de la partie basse
-      const halfWidth = depotColWidth / 2;
-      
-      // Commercialisable
-      doc.setFillColor(255, 255, 0);
-      doc.rect(currentX, currentY + headerRowHeight, halfWidth, subHeaderRowHeight, 'F');
-      doc.setTextColor(0, 0, 0); // Assurer que le texte soit noir
-      doc.setFont('helvetica', 'normal').setFontSize(7);
-      doc.text('Commerc.', currentX + halfWidth/2, currentY + headerRowHeight + subHeaderRowHeight/2, { align: 'center' });
-      
-      // Disponible
-      doc.setFillColor(255, 255, 0);
-      doc.rect(currentX + halfWidth, currentY + headerRowHeight, halfWidth, subHeaderRowHeight, 'F');
-      doc.setTextColor(0, 0, 0); // Assurer que le texte soit noir
-      doc.text('Dispon.', currentX + halfWidth + halfWidth/2, currentY + headerRowHeight + subHeaderRowHeight/2, { align: 'center' });
-      
-      currentX += depotColWidth;
-    });
-    
-    // Colonne totaux avec division similaire aux dépôts
-    doc.setFillColor(146, 208, 80);
-    doc.rect(currentX, currentY, totalColWidth, headerRowHeight, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'bold').setFontSize(9);
-    doc.text('Totaux', currentX + totalColWidth/2, currentY + headerRowHeight/2, { align: 'center' });
-    
-    // Divisions de la partie basse pour totaux
-    const halfTotalWidth = totalColWidth / 2;
-    
-    // Total Commercialisable
-    doc.setFillColor(146, 208, 80);
-    doc.rect(currentX, currentY + headerRowHeight, halfTotalWidth, subHeaderRowHeight, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'normal').setFontSize(7);
-    doc.text('Total C.', currentX + halfTotalWidth/2, currentY + headerRowHeight + subHeaderRowHeight/2, { align: 'center' });
-    
-    doc.setFillColor(146, 208, 80);
-    // Total Disponible
-    doc.rect(currentX + halfTotalWidth, currentY + headerRowHeight, halfTotalWidth, subHeaderRowHeight, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.text('Total D.', currentX + halfTotalWidth + halfTotalWidth/2, currentY + headerRowHeight + subHeaderRowHeight/2, { align: 'center' });
-    
-    // Bordures des en-têtes
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.5);
-    
-    // Bordures extérieures
-    doc.rect(tableX, currentY, tableWidth, headerRowHeight + subHeaderRowHeight);
-    
-    // Bordures verticales
-    currentX = tableX + articleColWidth;
-    uniqueDepots.forEach(() => {
-      doc.line(currentX, currentY, currentX, currentY + headerRowHeight + subHeaderRowHeight);
-      doc.line(currentX + depotColWidth/2, currentY + headerRowHeight, currentX + depotColWidth/2, currentY + headerRowHeight + subHeaderRowHeight);
-      currentX += depotColWidth;
-    });
-    doc.line(currentX, currentY, currentX, currentY + headerRowHeight + subHeaderRowHeight);
-    
-    // Division dans la colonne totaux
-    doc.line(currentX + totalColWidth/2, currentY + headerRowHeight, currentX + totalColWidth/2, currentY + headerRowHeight + subHeaderRowHeight);
-    
-    // Bordure horizontale de séparation
-    doc.line(tableX + articleColWidth, currentY + headerRowHeight, tableX + tableWidth, currentY + headerRowHeight);
-    
-    currentY += headerRowHeight + subHeaderRowHeight;
+    // Dessiner l'en-tête du tableau
+    currentY = drawTableHeader(currentY);
 
     // --- RENDU DES DONNÉES ---
     const rowHeight = 12;
+    const pageBottom = h - 20; // Marge pour le numéro de page
     
-    groupedData.forEach((item, index) => {
-      const isEvenRow = index % 2 === 0;
-      
-      // Alternance de couleurs de fond
-      if (isEvenRow) {
-        doc.setFillColor(245, 245, 245);
-        doc.rect(tableX, currentY, tableWidth, rowHeight, 'F');
-      }
-      
-      // Colonne Article
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'normal').setFontSize(8);
-      doc.text(item.name, tableX + 2, currentY + rowHeight/2, { align: 'left' });
-      
-      // Colonnes des dépôts
-      currentX = tableX + articleColWidth;
-      uniqueDepots.forEach(depot => {
-        const kgCommercialisable = item.depots[depot]?.commercialisable || 0;
-        const kgDisponible = item.depots[depot]?.disponible || 0;
+    // Dimensions du tableau (pour usage dans le rendu des lignes)
+    const tableX = m;
+    const tableWidth = w - 2*m;
+    const articleColWidth = 60;
+    const depotColWidth = (tableWidth - articleColWidth - 60) / uniqueDepots.length;
+    const totalColWidth = 60;
+    
+    let currentRowIndex = 0;
+    
+    const drawDataRows = () => {
+      while (currentRowIndex < groupedData.length && currentY + rowHeight < pageBottom) {
+        const item = groupedData[currentRowIndex];
+        const isEvenRow = currentRowIndex % 2 === 0;
         
+        // Alternance de couleurs de fond
+        if (isEvenRow) {
+          doc.setFillColor(245, 245, 245);
+          doc.rect(tableX, currentY, tableWidth, rowHeight, 'F');
+        }
+        
+        // Colonne Article
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal').setFontSize(8);
+        doc.text(item.name, tableX + 2, currentY + rowHeight/2, { align: 'left' });
+        
+        // Colonnes des dépôts
+        let currentX = tableX + articleColWidth;
+        uniqueDepots.forEach(depot => {
+          const kgCommercialisable = item.depots[depot]?.commercialisable || 0;
+          const kgDisponible = item.depots[depot]?.disponible || 0;
+          
+          const halfWidth = depotColWidth / 2;
+          
+          // Commercialisable
+          doc.text(pdfNumber(kgCommercialisable), currentX + halfWidth - 2, currentY + rowHeight/2, { align: 'right' });
+          
+          // Disponible
+          doc.text(pdfNumber(kgDisponible), currentX + depotColWidth - 2, currentY + rowHeight/2, { align: 'right' });
+          
+          currentX += depotColWidth;
+        });
+        
+        // Colonne totaux (divisée comme les dépôts)
+        const halfTotalWidth = totalColWidth / 2;
+        
+        // Total commercialisable
+        doc.setFont('helvetica', 'normal').setFontSize(8);
+        doc.text(pdfNumber(item.totalKgCommercialisable), currentX + halfTotalWidth - 2, currentY + rowHeight/2, { align: 'right' });
+        
+        // Total disponible
+        doc.text(pdfNumber(item.totalKgDisponible), currentX + totalColWidth - 2, currentY + rowHeight/2, { align: 'right' });
+        
+        // Bordures des cellules avec traits uniformes
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.3); // Épaisseur uniforme et modérée pour les lignes de données
+        
+        // Bordures verticales
+        currentX = tableX;
+        doc.line(currentX, currentY, currentX, currentY + rowHeight); // Bordure gauche
+        currentX += articleColWidth;
+        
+        uniqueDepots.forEach(() => {
+          doc.line(currentX, currentY, currentX, currentY + rowHeight);
+          doc.line(currentX + depotColWidth/2, currentY, currentX + depotColWidth/2, currentY + rowHeight);
+          currentX += depotColWidth;
+        });
+        doc.line(currentX, currentY, currentX, currentY + rowHeight);
+        
+        // Division dans la colonne totaux
+        doc.line(currentX + totalColWidth/2, currentY, currentX + totalColWidth/2, currentY + rowHeight);
+        doc.line(currentX + totalColWidth, currentY, currentX + totalColWidth, currentY + rowHeight); // Bordure droite
+        
+        // Bordure horizontale
+        doc.line(tableX, currentY + rowHeight, tableX + tableWidth, currentY + rowHeight);
+        
+        currentY += rowHeight;
+        currentRowIndex++;
+      }
+    };
+
+    // Dessiner les premières lignes de données
+    drawDataRows();
+
+    // Vérifier s'il reste des données à afficher
+    while (currentRowIndex < groupedData.length) {
+      // Nouvelle page
+      doc.addPage();
+      currentY = drawPageHeader();
+      currentY = drawTableHeader(currentY);
+      drawDataRows();
+    }
+
+    // Ligne de totaux (sur la dernière page)
+    if (currentY + rowHeight < pageBottom) {
+      doc.setFillColor(146, 208, 80);
+      doc.rect(tableX, currentY, tableWidth, rowHeight, 'F');
+      
+      // Calcul des totaux
+      let grandTotalCommercialisable = 0, grandTotalDisponible = 0;
+      const depotTotals = {};
+      
+      groupedData.forEach(item => {
+        grandTotalCommercialisable += item.totalKgCommercialisable;
+        grandTotalDisponible += item.totalKgDisponible;
+        
+        uniqueDepots.forEach(depot => {
+          if (!depotTotals[depot]) {
+            depotTotals[depot] = { commercialisable: 0, disponible: 0 };
+          }
+          depotTotals[depot].commercialisable += item.depots[depot]?.commercialisable || 0;
+          depotTotals[depot].disponible += item.depots[depot]?.disponible || 0;
+        });
+      });
+      
+      // Affichage des totaux
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'bold').setFontSize(9);
+      doc.text('TOTAUX', tableX + 2, currentY + rowHeight/2, { align: 'left' });
+      
+      let currentX = tableX + articleColWidth;
+      uniqueDepots.forEach(depot => {
         const halfWidth = depotColWidth / 2;
         
-        // Commercialisable
-        doc.text(pdfNumber(kgCommercialisable), currentX + halfWidth - 2, currentY + rowHeight/2, { align: 'right' });
+        // Total commercialisable
+        doc.text(pdfNumber(depotTotals[depot].commercialisable), currentX + halfWidth - 2, currentY + rowHeight/2, { align: 'right' });
         
-        // Disponible
-        doc.text(pdfNumber(kgDisponible), currentX + depotColWidth - 2, currentY + rowHeight/2, { align: 'right' });
+        // Total disponible
+        doc.text(pdfNumber(depotTotals[depot].disponible), currentX + depotColWidth - 2, currentY + rowHeight/2, { align: 'right' });
         
         currentX += depotColWidth;
       });
       
-      // Colonne totaux (divisée comme les dépôts)
-      const halfTotalWidth = totalColWidth / 2;
+      // Grand total (divisé comme les autres colonnes)
+      const totalColHalfWidth = totalColWidth / 2;
       
       // Total commercialisable
-      doc.setFont('helvetica', 'normal').setFontSize(8);
-      doc.text(pdfNumber(item.totalKgCommercialisable), currentX + halfTotalWidth - 2, currentY + rowHeight/2, { align: 'right' });
+      doc.setFont('helvetica', 'bold').setFontSize(9);
+      doc.text(pdfNumber(grandTotalCommercialisable), currentX + totalColHalfWidth - 2, currentY + rowHeight/2, { align: 'right' });
       
       // Total disponible
-      doc.text(pdfNumber(item.totalKgDisponible), currentX + totalColWidth - 2, currentY + rowHeight/2, { align: 'right' });
+      doc.text(pdfNumber(grandTotalDisponible), currentX + totalColWidth - 2, currentY + rowHeight/2, { align: 'right' });
       
-      // Bordures des cellules
-      doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.2);
+      // Bordures finales avec traits uniformes
+      doc.setLineWidth(0.5); // Épaisseur modérée pour la ligne de totaux
+      currentX = tableX;
+      doc.line(currentX, currentY, currentX, currentY + rowHeight); // Bordure gauche
+      currentX += articleColWidth;
       
-      // Bordures verticales
-      currentX = tableX + articleColWidth;
       uniqueDepots.forEach(() => {
         doc.line(currentX, currentY, currentX, currentY + rowHeight);
         doc.line(currentX + depotColWidth/2, currentY, currentX + depotColWidth/2, currentY + rowHeight);
@@ -595,79 +709,12 @@ export default function StockList() {
       });
       doc.line(currentX, currentY, currentX, currentY + rowHeight);
       
-      // Division dans la colonne totaux
+      // Division finale dans la colonne totaux
       doc.line(currentX + totalColWidth/2, currentY, currentX + totalColWidth/2, currentY + rowHeight);
+      doc.line(currentX + totalColWidth, currentY, currentX + totalColWidth, currentY + rowHeight); // Bordure droite
       
-      // Bordure horizontale
       doc.line(tableX, currentY + rowHeight, tableX + tableWidth, currentY + rowHeight);
-      
-      currentY += rowHeight;
-    });
-    
-    // Ligne de totaux
-    const isEvenTotalRow = groupedData.length % 2 === 0;
-    doc.setFillColor(146, 208, 80);
-    doc.rect(tableX, currentY, tableWidth, rowHeight, 'F');
-    
-    // Calcul des totaux
-    let grandTotalCommercialisable = 0, grandTotalDisponible = 0;
-    const depotTotals = {};
-    
-    groupedData.forEach(item => {
-      grandTotalCommercialisable += item.totalKgCommercialisable;
-      grandTotalDisponible += item.totalKgDisponible;
-      
-      uniqueDepots.forEach(depot => {
-        if (!depotTotals[depot]) {
-          depotTotals[depot] = { commercialisable: 0, disponible: 0 };
-        }
-        depotTotals[depot].commercialisable += item.depots[depot]?.commercialisable || 0;
-        depotTotals[depot].disponible += item.depots[depot]?.disponible || 0;
-      });
-    });
-    
-    // Affichage des totaux
-    doc.setTextColor(0, 0, 0);
-    doc.setFont('helvetica', 'bold').setFontSize(9);
-    doc.text('TOTAUX', tableX + 2, currentY + rowHeight/2, { align: 'left' });
-    
-    currentX = tableX + articleColWidth;
-    uniqueDepots.forEach(depot => {
-      const halfWidth = depotColWidth / 2;
-      
-      // Total commercialisable
-      doc.text(pdfNumber(depotTotals[depot].commercialisable), currentX + halfWidth - 2, currentY + rowHeight/2, { align: 'right' });
-      
-      // Total disponible
-      doc.text(pdfNumber(depotTotals[depot].disponible), currentX + depotColWidth - 2, currentY + rowHeight/2, { align: 'right' });
-      
-      currentX += depotColWidth;
-    });
-    
-    // Grand total (divisé comme les autres colonnes)
-    const totalColHalfWidth = totalColWidth / 2;
-    
-    // Total commercialisable
-    doc.setFont('helvetica', 'bold').setFontSize(9);
-    doc.text(pdfNumber(grandTotalCommercialisable), currentX + totalColHalfWidth - 2, currentY + rowHeight/2, { align: 'right' });
-    
-    // Total disponible
-    doc.text(pdfNumber(grandTotalDisponible), currentX + totalColWidth - 2, currentY + rowHeight/2, { align: 'right' });
-    
-    // Bordures finales
-    doc.setLineWidth(0.5);
-    currentX = tableX + articleColWidth;
-    uniqueDepots.forEach(() => {
-      doc.line(currentX, currentY, currentX, currentY + rowHeight);
-      doc.line(currentX + depotColWidth/2, currentY, currentX + depotColWidth/2, currentY + rowHeight);
-      currentX += depotColWidth;
-    });
-    doc.line(currentX, currentY, currentX, currentY + rowHeight);
-    
-    // Division finale dans la colonne totaux
-    doc.line(currentX + totalColWidth/2, currentY, currentX + totalColWidth/2, currentY + rowHeight);
-    
-    doc.line(tableX, currentY + rowHeight, tableX + tableWidth, currentY + rowHeight);
+    }
 
     // Ajouter les numéros de page
     const totalPages = doc.internal.getNumberOfPages();
@@ -686,7 +733,7 @@ export default function StockList() {
   };
   
 
-  const exportCommercialisableToPDF = () => {
+ const exportCommercialisableToPDF = () => {
   const doc = new jsPDF('landscape', 'mm', 'a4');
 
   const styles = {
@@ -746,11 +793,14 @@ export default function StockList() {
     return acc;
   }, {});
 
-  const tableData = Object.values(agg).map(({ article, quantiteKg }) => ({
-    article: formatArticle(article),
-    commercialisableKg: pdfNumber(quantiteKg),
-    commercialisableCartons: pdfNumberDecimal(getCartonQuantityFromKg(quantiteKg, article))
-  }));
+  // Filtrer pour ne garder que les articles avec quantité > 0
+  const tableData = Object.values(agg)
+    .filter(({ quantiteKg }) => quantiteKg > 0)
+    .map(({ article, quantiteKg }) => ({
+      article: formatArticle(article),
+      commercialisableKg: pdfNumber(quantiteKg),
+      commercialisableCartons: pdfNumberDecimal(getCartonQuantityFromKg(quantiteKg, article))
+    }));
 
   const columns = [
     { header: 'Article', dataKey: 'article', width: 120 },
