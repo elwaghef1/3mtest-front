@@ -723,7 +723,7 @@ export default function StockList() {
   }, 0);
   let sy = 20;
   doc.setFont('helvetica','normal').setFontSize(8).setTextColor(60);
-  doc.text(`Commercialisable (Tonnes) : ${pdfNumber(totalT)} T`, rightX, sy);
+  doc.text(`Commercialisable (Tonnes) : ${totalT.toFixed(2)} T`, rightX, sy);
   sy += 5;
   doc.text(`Commercialisable (Cartons) : ${pdfNumberDecimal(totalCt)}`, rightX, sy);
 
