@@ -336,8 +336,8 @@ const exportToExcelStylePDF = () => {
     const h = doc.internal.pageSize.getHeight();
     const m = 10;
 
-    // Fonction pour dessiner l'en-tête sur chaque page
-    const drawPageHeader = () => {
+    // Fonction pour dessiner l'en-tête uniquement sur la première page
+    const drawFirstPageHeader = () => {
       let y = 10;
       
       // Logo
@@ -479,8 +479,8 @@ const exportToExcelStylePDF = () => {
       return currentY + headerRowHeight + subHeaderRowHeight;
     };
 
-    // Première page - avec résumé
-    let currentY = drawPageHeader();
+    // Première page - avec en-tête complet et résumé
+    let currentY = drawFirstPageHeader();
 
     // --- RÉSUMÉ DES TOTAUX ---
     let summaryY = currentY + 5;
@@ -639,9 +639,9 @@ const exportToExcelStylePDF = () => {
 
     // Vérifier s'il reste des données à afficher
     while (currentRowIndex < groupedData.length) {
-      // Nouvelle page
+      // Nouvelle page sans en-tête complet
       doc.addPage();
-      currentY = drawPageHeader();
+      currentY = 20; // Commencer plus haut sur les pages suivantes
       currentY = drawTableHeader(currentY);
       drawDataRows();
     }
