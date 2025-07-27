@@ -268,7 +268,8 @@ export default function StockList() {
   // ------------------------------
   // Nouvelle fonction d'export PDF avec le même design que l'Excel
   // ------------------------------
-const exportToExcelStylePDF = () => {
+
+  const exportToExcelStylePDF = () => {
     // 1. Collecte des dépôts uniques
     const depotsSet = new Set();
     filtered.forEach(s => {
@@ -343,16 +344,16 @@ const exportToExcelStylePDF = () => {
     const margin = 10;
     const tableWidth = pageWidth - 2 * margin;
     
-    // Calcul optimisé des largeurs de colonnes
+    // Calcul optimisé des largeurs de colonnes (avec les nouvelles valeurs)
     const numDepots = uniqueDepots.length;
-    const fixedColumnsWidth = 50 + 25 + 20 + 20 + 20 + 30; // Article + CUMP + Total Comm + Total Disp + Cartons + Valeur
+    const articleWidth = 45;  // Réduit de 50 à 45
+    const cumpWidth = 15;     // Réduit de 25 à 15
+    const fixedColumnsWidth = articleWidth + cumpWidth + 20 + 20 + 20 + 30; // Article + CUMP + Total Comm + Total Disp + Cartons + Valeur
     const availableForDepots = tableWidth - fixedColumnsWidth;
     const depotPairWidth = availableForDepots / numDepots; // Largeur pour chaque paire commerc/dispo
     const depotColumnWidth = depotPairWidth / 2; // Largeur individuelle
     
     // Largeurs finales
-    const articleWidth = 50;
-    const cumpWidth = 25;
     const totalCommWidth = 20;
     const totalDispWidth = 20;
     const cartonsWidth = 20;
@@ -391,9 +392,9 @@ const exportToExcelStylePDF = () => {
       doc.setFillColor(31, 73, 125);
       doc.rect(currentX, startY, cumpWidth, headerHeight + subHeaderHeight, 'F');
       doc.setTextColor(255, 255, 255);
-      doc.setFontSize(9);
+      doc.setFontSize(7);  // Réduit la taille pour s'adapter à la largeur plus petite
       doc.text('CUMP(kg)', currentX + cumpWidth/2, startY + (headerHeight + subHeaderHeight)/2 - 2, { align: 'center' });
-      doc.setFontSize(8);
+      doc.setFontSize(6);
       doc.text(`(${getCurrencyLabel()})`, currentX + cumpWidth/2, startY + (headerHeight + subHeaderHeight)/2 + 2, { align: 'center' });
       doc.rect(currentX, startY, cumpWidth, headerHeight + subHeaderHeight);
       currentX += cumpWidth;
@@ -415,8 +416,8 @@ const exportToExcelStylePDF = () => {
         doc.rect(currentX + depotColumnWidth, startY + headerHeight, depotColumnWidth, subHeaderHeight, 'F');
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text('Commerc.', currentX + depotColumnWidth/2, startY + headerHeight + subHeaderHeight/2, { align: 'center' });
-        doc.text('Disponible', currentX + depotColumnWidth + depotColumnWidth/2, startY + headerHeight + subHeaderHeight/2, { align: 'center' });
+        doc.text('Com.', currentX + depotColumnWidth/2, startY + headerHeight + subHeaderHeight/2, { align: 'center' });
+        doc.text('Dis.', currentX + depotColumnWidth + depotColumnWidth/2, startY + headerHeight + subHeaderHeight/2, { align: 'center' });
         doc.rect(currentX, startY + headerHeight, depotColumnWidth, subHeaderHeight);
         doc.rect(currentX + depotColumnWidth, startY + headerHeight, depotColumnWidth, subHeaderHeight);
         
@@ -478,18 +479,20 @@ const exportToExcelStylePDF = () => {
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      const articleText = item.name.length > 25 ? item.name.substring(0, 25) + '...' : item.name;
+      const articleText = item.name.length > 23 ? item.name.substring(0, 23) + '...' : item.name;  // Ajusté pour la nouvelle largeur
       doc.text(articleText, currentX + 2, y + rowHeight/2 + 1, { align: 'left' });
       doc.line(currentX + articleWidth, y, currentX + articleWidth, y + rowHeight);
       currentX += articleWidth;
       
       // CUMP(kg)
       doc.setFont('helvetica', 'normal');
-      doc.text(pdfNumberDecimal(item.cumpPerKg), currentX + cumpWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
+      doc.setFontSize(7);  // Taille réduite pour s'adapter
+      doc.text(pdfNumberDecimal(item.cumpPerKg), currentX + cumpWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
       doc.line(currentX + cumpWidth, y, currentX + cumpWidth, y + rowHeight);
       currentX += cumpWidth;
       
       // Données par dépôt
+      doc.setFontSize(8);  // Retour à la taille normale
       uniqueDepots.forEach(depot => {
         const kgComm = item.depots[depot]?.commercialisable || 0;
         const kgDisp = item.depots[depot]?.disponible || 0;
@@ -590,11 +593,13 @@ const exportToExcelStylePDF = () => {
       currentX += articleWidth;
       
       // CUMP total
-      doc.text(pdfNumberDecimal(globalCumpTotal), currentX + cumpWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
+      doc.setFontSize(8);  // Taille réduite pour le CUMP
+      doc.text(pdfNumberDecimal(globalCumpTotal), currentX + cumpWidth - 1, y + rowHeight/2 + 1, { align: 'right' });
       doc.line(currentX + cumpWidth, y, currentX + cumpWidth, y + rowHeight);
       currentX += cumpWidth;
       
       // Totaux par dépôt
+      doc.setFontSize(10);  // Retour à la taille normale
       uniqueDepots.forEach(depot => {
         doc.text(pdfNumber(depotTotals[depot].commercialisable), currentX + depotColumnWidth - 2, y + rowHeight/2 + 1, { align: 'right' });
         doc.line(currentX + depotColumnWidth, y, currentX + depotColumnWidth, y + rowHeight);
@@ -670,7 +675,6 @@ const exportToExcelStylePDF = () => {
     // Sauvegarder le PDF
     doc.save(`stock_report_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
-  
 
  const exportCommercialisableToPDF = () => {
   const doc = new jsPDF('landscape', 'mm', 'a4');
