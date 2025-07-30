@@ -778,7 +778,7 @@ const exportCommercialisableToPDF = () => {
   const titleY = 50;
   doc.setFont('helvetica','bold').setFontSize(styles.headerFontSize)
      .setTextColor(0)
-     .text("STOCK DISPONIBLE", w/2, titleY, { align:'center' })
+     .text("STOCK COMMERCIALISABLE", w/2, titleY, { align:'center' })
      .setDrawColor(0,102,204).setLineWidth(0.5)
      .line(m, titleY+3, w-m, titleY+3);
 
@@ -1395,7 +1395,7 @@ const exportToExcel = async () => {
                 size="md"
                 leftIcon={<PrinterIcon className="h-4 w-4" />}
               >
-                Télécharger Stock Disponible
+                Télécharger Stock Commercialisable
               </Button>
               <Button
                 onClick={exportToExcelStylePDF}
