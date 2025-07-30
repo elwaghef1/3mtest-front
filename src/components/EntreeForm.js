@@ -292,12 +292,18 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
             <div className="space-y-2">
               <label className="block text-lg font-semibold text-gray-800">
                 Dépôt *
+                {initialEntree && (
+                  <span className="text-sm font-normal text-gray-500 ml-2">
+                    (Non modifiable en édition)
+                  </span>
+                )}
               </label>
               <select
-                className="w-full border-2 border-gray-300 rounded-lg shadow-sm p-4 text-lg focus:ring-3 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border-2 border-gray-300 rounded-lg shadow-sm p-4 text-lg focus:ring-3 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                 value={depotId}
                 onChange={(e) => setDepotId(e.target.value)}
                 required
+                disabled={!!initialEntree}
               >
                 <option value="">-- Choisir un dépôt --</option>
                 {depots.map((d) => (
