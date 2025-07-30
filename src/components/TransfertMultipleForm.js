@@ -200,7 +200,12 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
     for (const item of validItems) {
       const quantite = parseFloat(item.quantiteKg);
       if (quantite > item.stockDisponible) {
-        setErrorMessage(`Quantité insuffisante pour l'article sélectionné. Stock disponible: ${item.stockDisponible} Kg`);
+        const selectedArticle = articles.find(a => a._id === item.article);
+        const articleName = selectedArticle ? 
+          [selectedArticle.reference, selectedArticle.specification, selectedArticle.taille, selectedArticle.typeCarton]
+            .filter(Boolean).join(' - ') : 
+          'Article inconnu';
+        setErrorMessage(`Quantité insuffisante pour l'article "${articleName}". Stock disponible: ${item.stockDisponible} Kg`);
         setLoading(false);
         return;
       }
