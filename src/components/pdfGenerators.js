@@ -3334,7 +3334,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
     const row = 29 + index;
     const lineNumber = `${index + 1}.0`;
     // Numéro de ligne (colonne C)
-    setCellStyle(`C${row}`, {fontSize: 9, bold: true, hAlign: 'center'}).value = lineNumber;
+    // setCellStyle(`C${row}`, {fontSize: 9, bold: true, hAlign: 'center'}).value = lineNumber;
     // Description (colonne D à G fusionnées)
     let description = article.reference || 'POISSON CONGELE';
     // Ajouter la spécification si elle existe
@@ -3386,7 +3386,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   setCellStyle('F38', {fontSize: 11, bold: true, hAlign: 'right'}).value = 'TOTAL';
   setCellStyle('H38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalColis;
   setCellStyle('I38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalNet.toFixed(0);
-  setCellStyle('J38', {fontSize: 11, bold: true, hAlign: 'left'}).value = `P'':`;
+  setCellStyle('J38', {fontSize: 11, bold: true, hAlign: 'left'}).value = ``;
   setCellStyle('K38', {fontSize: 11, bold: true, hAlign: 'center'}).value = finalTotalBrut.toFixed(1);
   // Draw a top border above totals row (D38 to K38)
   ['D38','E38','F38','G38','H38','I38','J38','K38'].forEach(cellRef => {
