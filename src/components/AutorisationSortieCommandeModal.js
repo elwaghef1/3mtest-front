@@ -41,7 +41,7 @@ const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
     if (!article) return 'Article non défini';
     const parts = [
       article.reference,
-      article.intitule,
+      // article.intitule,
       article.specification,
       article.taille,
       article.typeCarton
