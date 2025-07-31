@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from '../api/axios';
 import CommandeForm from './CommandeForm';
 import CommandeDetails from './CommandeDetails';
+import AutorisationSortieCommandeModal from './AutorisationSortieCommandeModal';
 import Button from './Button';
 import LivraisonPartielleModal from './LivraisonPartielleModal';
 import BatchHistoryModal from './BatchHistoryModal';
@@ -15,7 +16,8 @@ import {
   PencilIcon,
   InformationCircleIcon,
   TruckIcon,
-  TrashIcon
+  TrashIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/solid';
 import {
   ArrowPathIcon,
@@ -75,6 +77,10 @@ const CommandeList = () => {
   // États pour le modal d'historique des batches
   const [showBatchHistoryModal, setShowBatchHistoryModal] = useState(false);
   const [selectedCommandeForBatchHistory, setSelectedCommandeForBatchHistory] = useState(null);
+
+  // États pour le modal d'autorisation de sortie
+  const [showAutorisationModal, setShowAutorisationModal] = useState(false);
+  const [selectedCommandeForAutorisation, setSelectedCommandeForAutorisation] = useState(null);
 
   // États pour la suppression de commandes
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -490,6 +496,17 @@ const CommandeList = () => {
   const handleCloseBatchHistoryModal = () => {
     setShowBatchHistoryModal(false);
     setSelectedCommandeForBatchHistory(null);
+  };
+
+  // Fonctions pour le modal d'autorisation de sortie
+  const handleShowAutorisationModal = (cmd) => {
+    setSelectedCommandeForAutorisation(cmd);
+    setShowAutorisationModal(true);
+  };
+
+  const handleCloseAutorisationModal = () => {
+    setShowAutorisationModal(false);
+    setSelectedCommandeForAutorisation(null);
   };
 
   // Fonctions pour la suppression de commandes
@@ -1236,6 +1253,15 @@ const CommandeList = () => {
                           Modifier
                         </Button>
                         <Button
+                          onClick={() => handleShowAutorisationModal(commande)}
+                          variant="primary"
+                          size="md"
+                          icon={<DocumentTextIcon className="h-4 w-4" />}
+                          title="Générer autorisation de sortie"
+                          className="font-semibold min-w-[40px]"
+                        >
+                        </Button>
+                        <Button
                           onClick={() => handleShowLivraisonPartielle(commande)}
                           variant="success"
                           size="md"
@@ -1291,9 +1317,6 @@ const CommandeList = () => {
                     </th>
                     <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                       Statut
-                    </th>
-                    <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Paiement
                     </th>
                     <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
                       Livraisons
@@ -1357,9 +1380,6 @@ const CommandeList = () => {
                         </div>
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap">
-                        {getPaymentBadge(commande.statutDePaiement)}
-                      </td>
-                      <td className="px-3 py-4 whitespace-nowrap">
                         {renderLivraisonInfo(commande._id)}
                       </td>
                       <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -1387,6 +1407,16 @@ const CommandeList = () => {
                             disabled={!canEditCommande(commande)}
                           >
                             {/* Modifier */}
+                          </Button>
+                          {/* Bouton d'autorisation de sortie */}
+                          <Button
+                            onClick={() => handleShowAutorisationModal(commande)}
+                            variant="primary"
+                            size="md"
+                            icon={<DocumentTextIcon className="h-4 w-4" />}
+                            title="Générer autorisation de sortie"
+                            className="font-semibold min-w-[40px]"
+                          >
                           </Button>
                           {/* Bouton de livraison avec indication si désactivé */}
                           <Button
@@ -1466,14 +1496,22 @@ const CommandeList = () => {
       )}
 
       {/* Modal d'historique des batches */}
-      {/* {showBatchHistoryModal && selectedCommandeForBatchHistory && (
+      {showBatchHistoryModal && selectedCommandeForBatchHistory && (
         <BatchHistoryModal
           commande={selectedCommandeForBatchHistory}
           onClose={handleCloseBatchHistoryModal}
           formatCurrency={formatCurrency}
           formatNumber={formatNumber}
         />
-      )} */}
+      )}
+
+      {/* Modal d'autorisation de sortie */}
+      {showAutorisationModal && selectedCommandeForAutorisation && (
+        <AutorisationSortieCommandeModal
+          commande={selectedCommandeForAutorisation}
+          onClose={handleCloseAutorisationModal}
+        />
+      )}
 
       {/* Modal de confirmation de suppression */}
       {showDeleteModal && commandeToDelete && (

@@ -608,7 +608,7 @@ const LivraisonPartielleModal = ({
           nombreArticles: itemsALivrer.length,
           nombreLotsUtilises: itemsALivrer.reduce((sum, item) => sum + item.distributionLots.length, 0)
         },
-        devise: commande.devise || 'EUR'
+        devise: commande.currency || 'EUR'
       };
 
       // Préparer les données pour l'API (structure originale)
