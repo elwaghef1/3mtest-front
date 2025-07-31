@@ -43,6 +43,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
     numeroBooking: '',
     cargo: [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }], // Modifié pour accepter un tableau de cargos avec informations conteneur
     noBonDeCommande: '',
+    BL: '',
     client: '',
     statutBonDeCommande: 'EN_COURS', // EN_COURS ou LIVREE
     statutDePaiement: 'NON_PAYE',    // Calculé automatiquement
@@ -159,6 +160,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
               ? [{ nom: initialCommande.cargo, noDeConteneur: initialCommande.noDeConteneur || '', areDeConteneur: initialCommande.areDeConteneur || '', poidsCarton: initialCommande.poidsCarton || '', noPlomb: initialCommande.noPlomb || '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }] 
               : [{ nom: '', noDeConteneur: '', areDeConteneur: '', poidsCarton: '', noPlomb: '', refNemb: '', refEmb: '', numeroFactureSMCP: '', dateCertification: '' }]),
         noBonDeCommande: initialCommande.noBonDeCommande || '',
+        BL: initialCommande.BL || '',
         client: initialCommande.client?._id || '',
         bank: initialCommande.bank?._id || '',
         statutBonDeCommande: initialCommande.statutBonDeCommande || 'EN_COURS',
@@ -439,6 +441,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
         updatedData.destination = '';
         updatedData.numerosOP = [''];
         updatedData.noBonDeCommande = '';
+        updatedData.BL = '';
         updatedData.responsableDeStockInforme = 'NON';
         updatedData.inspecteurInforme = 'NON';
         updatedData.declaration = 'ETABLIE';
@@ -915,6 +918,21 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                   placeholder="Saisissez le numéro de bon de commande"
                   className={getInputClass(formData.noBonDeCommande)}
                   value={formData.noBonDeCommande}
+                  onChange={handleChange}
+                />
+              </div>
+            )}
+
+            {/* B/L - Masqué pour commande locale */}
+            {formData.typeCommande !== 'LOCALE' && (
+              <div className="flex flex-col">
+                <label className="mb-1 text-sm font-medium text-gray-700">B/L</label>
+                <input
+                  name="BL"
+                  type="text"
+                  placeholder="Saisissez le numéro de B/L (Bill of Lading)"
+                  className={getInputClass(formData.BL)}
+                  value={formData.BL}
                   onChange={handleChange}
                 />
               </div>

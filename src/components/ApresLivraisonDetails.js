@@ -108,6 +108,7 @@ function ApresLivraisonDetails({ commande, onClose }) {
     { label: 'Booking', value: commande.numeroBooking },
     { label: 'Numéro OP', value: commande.numeroOP },
     { label: 'No Bon de Commande', value: commande.noBonDeCommande },
+    { label: 'B/L', value: commande.BL },
     { label: 'Destination', value: commande.destination },
     {
       label: 'Date Prévue de Chargement',

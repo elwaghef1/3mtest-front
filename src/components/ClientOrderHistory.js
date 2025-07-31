@@ -738,6 +738,10 @@ const ClientOrderHistory = () => {
                             <td className="py-2 px-3 bg-orange-100 font-semibold border">N° Bon Commande</td>
                             <td className="py-2 px-3 border">{selectedCommande.noBonDeCommande || '-'}</td>
                           </tr>
+                          <tr className="border-b border-gray-300">
+                            <td className="py-2 px-3 bg-orange-100 font-semibold border">B/L</td>
+                            <td className="py-2 px-3 border">{selectedCommande.BL || '-'}</td>
+                          </tr>
                         </tbody>
                       </table>
                     </div>

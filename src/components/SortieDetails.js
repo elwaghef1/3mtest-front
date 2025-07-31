@@ -143,6 +143,10 @@ const SortieDetails = ({ sortie, onClose }) => {
               <span className="ml-2 font-medium">{sortie?.commande?.noBonDeCommande || '—'}</span>
             </div>
             <div>
+              <span className="text-gray-600">B/L:</span>
+              <span className="ml-2 font-medium">{sortie?.commande?.BL || '—'}</span>
+            </div>
+            <div>
               <span className="text-gray-600">Client:</span>
               <span className="ml-2 font-medium">{sortie?.commande?.client?.raisonSociale || '—'}</span>
             </div>

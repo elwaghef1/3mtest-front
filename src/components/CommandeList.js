@@ -662,6 +662,7 @@ const CommandeList = () => {
     const data = filtered.map(cmd => ({
       'Référence': cmd.reference,
       'No BC': cmd.noBonDeCommande || '',
+      'B/L': cmd.BL || '',
       'Client': cmd.client?.raisonSociale || '',
       'Articles': formatItemsSummary(cmd.items),
       'Type': cmd.typeCommande === 'LOCALE' ? 'LOCALE' : 'EXPORT',
@@ -1319,6 +1320,9 @@ const CommandeList = () => {
                           )}
                           {commande.noBonDeCommande && (
                             <div className="text-xs text-gray-500 truncate">BC: {commande.noBonDeCommande}</div>
+                          )}
+                          {commande.BL && (
+                            <div className="text-xs text-gray-500 truncate">B/L: {commande.BL}</div>
                           )}
                           {commande.numeroBooking && (
                             <div className="text-xs text-gray-500 truncate">Booking: {commande.numeroBooking}</div>

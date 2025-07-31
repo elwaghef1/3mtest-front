@@ -284,6 +284,7 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
     // Masquer certains champs pour les commandes locales
     ...(commande.typeCommande !== 'LOCALE' ? [
       { label: 'No Bon de Commande', value: commande.noBonDeCommande },
+      { label: 'B/L', value: commande.BL },
       { label: 'Numéro Booking', value: commande.numeroBooking },
       { label: 'Numéros OP', value: commande.numerosOP && commande.numerosOP.length > 0 ? commande.numerosOP.join(', ') : 'N/A' },
     ] : []),
