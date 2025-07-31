@@ -2272,18 +2272,18 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
 // Fonction pour générer l'autorisation de sortie PDF
 export const generateAutorisationSortiePDF = (autorisationData) => {
   const doc = new jsPDF({
-  orientation: 'portrait',
-  unit: 'mm',
-  format: 'a4',
-  compress: true    // active la compression Flate des objets
-});
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    compress: true
+  });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const marginLeft = 10;
   const marginRight = 10;
 
   // =============================
-  // 1. En-tête avec logo (même style que les autres PDF)
+  // 1. En-tête avec logo
   // =============================
   doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
 
@@ -2324,89 +2324,172 @@ export const generateAutorisationSortiePDF = (autorisationData) => {
   });
   doc.text(`Date: ${today}`, marginLeft, infoY);
 
-  // Dépôt
-  infoY += 7;
-  doc.setFont(undefined, 'bold');
-  doc.text(`Dépôt: ${autorisationData.depot?.intitule || 'N/A'}`, marginLeft, infoY);
-  doc.setFont(undefined, 'normal');
-  if (autorisationData.depot?.location) {
-    infoY += 5;
-    doc.text(`Localisation: ${autorisationData.depot.location}`, marginLeft, infoY);
-  }
-
   // Numéro unique pour l'autorisation
   const numeroAutorisation = `AS${Date.now().toString().slice(-8)}`;
   doc.text(`N° Autorisation: ${numeroAutorisation}`, pageWidth - marginRight, 60, { align: 'right' });
 
-  // =============================
-  // 4. Tableau des articles
-  // =============================
-  const tableStartY = infoY + 15;
-  
-  const tableColumnHeaders = [
-    "Article",
-    "Taille",
-    "Quantité (Cartons)",
-    "Quantité (Kg)"
-  ];
+  // Informations commande
+  infoY += 10;
+  doc.setFont(undefined, 'bold');
+  doc.text(`Commande N°: ${autorisationData.commande?.reference || 'N/A'}`, marginLeft, infoY);
+  infoY += 5;
+  doc.setFont(undefined, 'normal');
+  doc.text(`Client: ${autorisationData.commande?.client?.raisonSociale || autorisationData.commande?.client?.nom || 'N/A'}`, marginLeft, infoY);
 
-  const tableRows = autorisationData.articles.map(item => {
-    const articleName = [
-      item.article?.reference,
-      item.article?.specification,
-      item.article?.taille
-    ].filter(Boolean).join(' - ');
+  // =============================
+  // 4. Table unique avec colonne dépôt
+  // =============================
+  let tableStartY = infoY + 15;
 
-    return [
-      articleName || 'Article inconnu',
-      item.article?.taille || '-',
-      item.quantiteCarton?.toString() || '0',
-      item.quantiteKg?.toFixed(1) || '0.0'
+  if (autorisationData.articlesParDepot) {
+    // Nouveau format avec dépôts multiples - Table unique
+    const depots = Object.values(autorisationData.articlesParDepot);
+    
+    // En-têtes de la table avec colonne dépôt
+    const tableColumnHeaders = [
+      "Article",
+      "Spécification", 
+      "Taille",
+      "Dépôt",
+      "Cartons",
+      "Kg"
     ];
-  });
 
-  // Calcul des totaux
-  const totalCartons = autorisationData.articles.reduce((sum, item) => sum + (item.quantiteCarton || 0), 0);
-  const totalKg = autorisationData.articles.reduce((sum, item) => sum + (item.quantiteKg || 0), 0);
+    // Créer toutes les lignes pour tous les dépôts
+    const tableRows = [];
+    let totalCartons = 0;
+    let totalKg = 0;
 
-  // Ajouter ligne de total
-  tableRows.push([
-    { content: "TOTAL", colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: totalCartons.toString(), styles: { halign: 'center', fontStyle: 'bold' } },
-    { content: totalKg.toFixed(1), styles: { halign: 'center', fontStyle: 'bold' } }
-  ]);
+    depots.forEach(depotData => {
+      depotData.articles.forEach(item => {
+        const articleName = [
+          item.article?.reference,
+          item.article?.intitule
+        ].filter(Boolean).join(' - ');
 
-  doc.autoTable({
-    head: [tableColumnHeaders],
-    body: tableRows,
-    startY: tableStartY,
-    margin: { left: marginLeft, right: marginRight },
-    styles: {
-      fontSize: 9,
-      cellPadding: 4,
-    },
-    headStyles: {
-      fillColor: [41, 128, 185],
-      textColor: 255,
-      fontStyle: 'bold',
-    },
-    alternateRowStyles: {
-      fillColor: [245, 245, 245],
-    },
-    columnStyles: {
-      0: { cellWidth: 70 }, // Article (élargie)
-      1: { cellWidth: 30, halign: 'center' }, // Taille (élargie)
-      2: { cellWidth: 40, halign: 'center' }, // Cartons (élargie)
-      3: { cellWidth: 40, halign: 'center' }, // Kg (élargie)
-    },
-  });
+        const depotName = depotData.depot?.intitule || depotData.depot?.nom || 'Dépôt non défini';
+        const cartons = item.quantiteCarton || 0;
+        const kg = item.quantiteKg || 0;
+
+        totalCartons += cartons;
+        totalKg += kg;
+
+        tableRows.push([
+          articleName || 'Article inconnu',
+          item.article?.specification || '-',
+          item.article?.taille || '-',
+          depotName,
+          cartons.toString(),
+          kg.toFixed(1)
+        ]);
+      });
+    });
+
+    // Ajouter ligne de total général
+    tableRows.push([
+      { content: "TOTAL GÉNÉRAL", colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: totalCartons.toString(), styles: { halign: 'center', fontStyle: 'bold' } },
+      { content: totalKg.toFixed(1), styles: { halign: 'center', fontStyle: 'bold' } }
+    ]);
+
+    doc.autoTable({
+      head: [tableColumnHeaders],
+      body: tableRows,
+      startY: tableStartY,
+      margin: { left: marginLeft, right: marginRight },
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+      columnStyles: {
+        0: { cellWidth: 50 },  // Article
+        1: { cellWidth: 40 },  // Spécification
+        2: { cellWidth: 20, halign: 'center' },  // Taille
+        3: { cellWidth: 40 },  // Dépôt
+        4: { cellWidth: 20, halign: 'center' },  // Cartons
+        5: { cellWidth: 20, halign: 'center' },  // Kg
+      },
+    });
+  } else {
+    // Ancien format de compatibilité (un seul dépôt)
+    const depotName = autorisationData.depot?.intitule || autorisationData.depot?.nom || 'N/A';
+    
+    const tableColumnHeaders = [
+      "Article",
+      "Spécification",
+      "Taille",
+      "Dépôt",
+      "Cartons",
+      "Kg"
+    ];
+
+    const tableRows = autorisationData.articles.map(item => {
+      const articleName = [
+        item.article?.reference,
+        item.article?.intitule
+      ].filter(Boolean).join(' - ');
+
+      return [
+        articleName || 'Article inconnu',
+        item.article?.specification || '-',
+        item.article?.taille || '-',
+        depotName,
+        item.quantiteCarton?.toString() || '0',
+        item.quantiteKg?.toFixed(1) || '0.0'
+      ];
+    });
+
+    const totalCartons = autorisationData.articles.reduce((sum, item) => sum + (item.quantiteCarton || 0), 0);
+    const totalKg = autorisationData.articles.reduce((sum, item) => sum + (item.quantiteKg || 0), 0);
+
+    tableRows.push([
+      { content: "TOTAL", colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: totalCartons.toString(), styles: { halign: 'center', fontStyle: 'bold' } },
+      { content: totalKg.toFixed(1), styles: { halign: 'center', fontStyle: 'bold' } }
+    ]);
+
+    doc.autoTable({
+      head: [tableColumnHeaders],
+      body: tableRows,
+      startY: tableStartY,
+      margin: { left: marginLeft, right: marginRight },
+      styles: {
+        fontSize: 8,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+      columnStyles: {
+        0: { cellWidth: 50 },  // Article
+        1: { cellWidth: 40 },  // Spécification
+        2: { cellWidth: 20, halign: 'center' },  // Taille
+        3: { cellWidth: 40 },  // Dépôt
+        4: { cellWidth: 20, halign: 'center' },  // Cartons
+        5: { cellWidth: 20, halign: 'center' },  // Kg
+      },
+    });
+  }
 
   // =============================
   // 5. Ajouter le tampon/logo en bas à droite si disponible
   // =============================
   if (sortieStamp64) {
     try {
-      const stampY = doc.lastAutoTable.finalY + 18; // 50px sous le tableau (18mm ≈ 50px)
+      const stampY = doc.lastAutoTable.finalY + 18;
       doc.addImage(sortieStamp64, 'PNG', pageWidth - marginRight - 40, stampY, 35, 25);
     } catch (error) {
       console.warn('Impossible d\'ajouter le tampon:', error);
@@ -2416,7 +2499,10 @@ export const generateAutorisationSortiePDF = (autorisationData) => {
   // =============================
   // 6. Sauvegarde
   // =============================
-  const fileName = `autorisation_sortie_${numeroAutorisation}_${autorisationData.depot?.code || 'depot'}.pdf`;
+  const depotNames = autorisationData.articlesParDepot 
+    ? Object.values(autorisationData.articlesParDepot).map(d => d.depot?.code || 'depot').join('_')
+    : (autorisationData.depot?.code || 'depot');
+  const fileName = `autorisation_sortie_${numeroAutorisation}_${depotNames}.pdf`;
   doc.save(fileName);
 };
 

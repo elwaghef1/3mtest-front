@@ -12,16 +12,9 @@ import {
 
 const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
   // États pour les données
-  const [depots, setDepots] = useState([]);
-  const [selectedDepot, setSelectedDepot] = useState('');
   const [selectedArticles, setSelectedArticles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // Charger les dépôts au montage
-  useEffect(() => {
-    fetchDepots();
-  }, []);
 
   // Initialiser les articles de la commande
   useEffect(() => {
@@ -30,21 +23,11 @@ const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
     }
   }, [commande]);
 
-  const fetchDepots = async () => {
-    try {
-      const response = await axios.get('/depots');
-      setDepots(response.data);
-    } catch (error) {
-      console.error('Erreur lors du chargement des dépôts:', error);
-      setError('Erreur lors du chargement des dépôts');
-    }
-  };
-
   const initializeArticlesFromCommande = () => {
     const articlesFromCommande = commande.items.map((item, index) => ({
       stockId: `commande_${index}`, // ID unique pour identifier l'item
       article: item.article,
-      depot: null, // À sélectionner par l'utilisateur
+      depot: item.depot, // Utiliser directement le dépôt de l'article
       quantiteDisponible: item.quantiteKg, // Utiliser la quantité de la commande
       quantiteCarton: calculateCartonsFromKg(item.quantiteKg, item),
       quantiteKg: item.quantiteKg,
@@ -64,17 +47,6 @@ const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
       article.typeCarton
     ].filter(Boolean);
     return parts.join(' - ');
-  };
-
-  const handleDepotChange = (depotId) => {
-    setSelectedDepot(depotId);
-    const selectedDepotObj = depots.find(d => d._id === depotId);
-    
-    // Mettre à jour tous les articles avec le dépôt sélectionné
-    setSelectedArticles(prev => prev.map(item => ({
-      ...item,
-      depot: selectedDepotObj
-    })));
   };
 
   const handleQuantiteCartonChange = (index, value) => {
@@ -105,17 +77,30 @@ const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
       return;
     }
 
-    if (!selectedDepot) {
-      setError('Veuillez sélectionner un dépôt');
+    // Vérifier que tous les articles ont un dépôt
+    const articlesWithoutDepot = selectedArticles.filter(item => !item.depot);
+    if (articlesWithoutDepot.length > 0) {
+      setError('Certains articles n\'ont pas de dépôt défini');
       return;
     }
 
-    const selectedDepotObj = depots.find(d => d._id === selectedDepot);
+    // Grouper les articles par dépôt pour l'autorisation
+    const articlesParDepot = selectedArticles.reduce((acc, item) => {
+      const depotId = item.depot._id || item.depot;
+      if (!acc[depotId]) {
+        acc[depotId] = {
+          depot: item.depot,
+          articles: []
+        };
+      }
+      acc[depotId].articles.push(item);
+      return acc;
+    }, {});
     
     const autorisationData = {
-      depot: selectedDepotObj,
+      articlesParDepot,
       date: new Date(),
-      articles: selectedArticles,
+      articles: selectedArticles, // Garder la liste complète pour compatibilité
       commande: {
         numero: commande.numeroCommande,
         client: commande.client,
@@ -157,26 +142,6 @@ const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
 
         {/* Contenu principal */}
         <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(95vh - 140px)' }}>
-          {/* Sélection du dépôt */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Sélectionner le dépôt *
-            </label>
-            <select
-              value={selectedDepot}
-              onChange={(e) => handleDepotChange(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">-- Choisir un dépôt --</option>
-              {depots.map(depot => (
-                <option key={depot._id} value={depot._id}>
-                  {depot.intitule} ({depot.code})
-                  {depot.location && ` - ${depot.location}`}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Articles de la commande */}
           <div className="bg-blue-50 p-4 rounded-lg">
             <h3 className="text-lg font-semibold mb-4">
@@ -196,8 +161,13 @@ const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
                         <div className="font-medium text-sm">
                           {formatArticleName(item.article)}
                         </div>
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-gray-600 mt-1">
                           Quantité commande: {item.quantiteDisponible} kg
+                        </div>
+                        {/* Affichage du dépôt */}
+                        <div className="text-xs font-medium text-blue-600 mt-1 bg-blue-50 px-2 py-1 rounded inline-block">
+                          📍 {item.depot?.intitule || item.depot?.nom || 'Dépôt non défini'} 
+                          {item.depot?.code && ` (${item.depot.code})`}
                         </div>
                       </div>
                       <button
@@ -263,11 +233,17 @@ const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
                     {selectedArticles.reduce((sum, item) => sum + (item.quantiteKg || 0), 0).toFixed(2)}
                   </span>
                 </div>
-                <div>
-                  <span className="text-gray-600">Dépôt:</span>
-                  <span className="ml-2 font-semibold">
-                    {selectedDepot ? depots.find(d => d._id === selectedDepot)?.intitule : 'Non sélectionné'}
-                  </span>
+                <div className="col-span-2">
+                  <span className="text-gray-600">Dépôts concernés:</span>
+                  <div className="ml-2 text-sm">
+                    {[...new Set(selectedArticles.map(item => 
+                      item.depot?.intitule || item.depot?.nom || 'Non défini'
+                    ))].map(depotName => (
+                      <span key={depotName} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs mr-2 mt-1">
+                        {depotName}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -287,7 +263,7 @@ const AutorisationSortieCommandeModal = ({ commande, onClose }) => {
             onClick={handleGeneratePDF}
             variant="primary"
             size="lg"
-            disabled={selectedArticles.length === 0 || !selectedDepot}
+            disabled={selectedArticles.length === 0}
             icon={<DocumentArrowDownIcon className="h-5 w-5" />}
           >
             Générer Autorisation PDF
