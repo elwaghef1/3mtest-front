@@ -930,7 +930,7 @@ const CommandeForm = ({ onClose, onCommandeCreated, initialCommande: propInitial
                 <input
                   name="BL"
                   type="text"
-                  placeholder="Saisissez le numéro de B/L (Bill of Lading)"
+                  placeholder="Saisissez le numéro de B/L"
                   className={getInputClass(formData.BL)}
                   value={formData.BL}
                   onChange={handleChange}

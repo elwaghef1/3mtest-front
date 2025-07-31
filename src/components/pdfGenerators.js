@@ -1059,7 +1059,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           doc.setFont(undefined, 'normal');
           doc.text('Référence documentaire : B/L : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text('GMU0114274', cell.x + 53, y);
+          doc.text(commande.BL, cell.x + 53, y);
         }
       }
     }
