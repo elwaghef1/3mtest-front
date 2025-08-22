@@ -24,7 +24,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
       quantiteKg: '',
       quantiteCarton: 0,
       availableLots: [],
-      selectedLot: '',
+      selectedLots: [], // Multi-lots avec quantités
       stockDisponible: 0,
     }
   ]);
@@ -106,7 +106,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
       const newItems = [...items];
       newItems[index].availableLots = filtered;
       newItems[index].stockDisponible = found ? found.quantiteCommercialisableKg || 0 : 0;
-      newItems[index].selectedLot = '';
+      newItems[index].selectedLots = [];
       setItems(newItems);
     } catch (err) {
       console.error('Erreur lors du chargement des lots :', err);
@@ -164,7 +164,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
         quantiteKg: '',
         quantiteCarton: 0,
         availableLots: [],
-        selectedLot: '',
+        selectedLots: [],
         stockDisponible: 0,
       }
     ]);
@@ -189,7 +189,7 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
       const newItems = items.map(item => ({
         ...item,
         availableLots: [],
-        selectedLot: '',
+        selectedLots: [],
         stockDisponible: 0,
       }));
       setItems(newItems);
@@ -198,11 +198,66 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
 
   // Formattage du libellé de lot
   const formatLotLabel = (lot, articleId) => {
-    const sum = lot.items
-      .filter((i) => i.article && i.article._id === articleId)
-      .reduce((acc, i) => acc + (i.quantiteRestante || 0), 0);
+    if (!lot || !articleId) return 'Lot inconnu';
+    
+    // Filtrer pour obtenir seulement les items de l'article spécifique
+    const articleItems = lot.items.filter((i) => 
+      i.article && String(i.article._id) === String(articleId)
+    );
+    
+    // Calculer la quantité disponible pour cet article spécifique
+    const quantiteDisponiblePourArticle = articleItems.reduce((acc, i) => 
+      acc + (i.quantiteRestante || 0), 0
+    );
 
-    return `${lot.batchNumber} (${sum} Kg dispo)`;
+    // Afficher clairement que c'est pour cet article spécifique
+    return `${lot.batchNumber} (${quantiteDisponiblePourArticle} Kg pour cet article)`;
+  };
+
+  // Ajouter un lot à la sélection
+  const addLotToSelection = (itemIndex) => {
+    const newItems = [...items];
+    newItems[itemIndex].selectedLots.push({
+      lotId: '',
+      quantiteKg: '',
+    });
+    setItems(newItems);
+  };
+
+  // Supprimer un lot de la sélection
+  const removeLotFromSelection = (itemIndex, lotIndex) => {
+    const newItems = [...items];
+    newItems[itemIndex].selectedLots = newItems[itemIndex].selectedLots.filter((_, i) => i !== lotIndex);
+    setItems(newItems);
+  };
+
+  // Mettre à jour un lot sélectionné
+  const handleLotSelectionChange = (itemIndex, lotIndex, field, value) => {
+    const newItems = [...items];
+    newItems[itemIndex].selectedLots[lotIndex][field] = value;
+    setItems(newItems);
+  };
+
+  // Calculer la quantité totale des lots sélectionnés
+  const getTotalQuantityFromLots = (itemIndex) => {
+    return items[itemIndex].selectedLots.reduce((total, lot) => {
+      return total + (parseFloat(lot.quantiteKg) || 0);
+    }, 0);
+  };
+
+  // Obtenir la quantité disponible pour un lot spécifique
+  const getAvailableQuantityForLot = (itemIndex, lotId) => {
+    const item = items[itemIndex];
+    const lot = item.availableLots.find(l => l._id === lotId);
+    if (!lot || !item.article) return 0;
+    
+    // Filtrer strictement par article spécifique
+    const articleItems = lot.items.filter((i) => 
+      i.article && String(i.article._id) === String(item.article)
+    );
+    
+    // Retourner la quantité disponible pour cet article uniquement
+    return articleItems.reduce((acc, i) => acc + (i.quantiteRestante || 0), 0);
   };
 
   // Gestion de la soumission - Étape 1 : Validation et préparation des données
@@ -225,16 +280,16 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
         (item.quantiteKg && parseFloat(item.quantiteKg) > 0) ||
         (item.quantiteCarton && parseFloat(item.quantiteCarton) > 0)
       ) &&
-      item.selectedLot
+      item.selectedLots && item.selectedLots.length > 0
     );
 
     if (validItems.length === 0) {
-      setErrorMessage("Au moins un article avec une quantité (kg ou cartons) et un lot doit être spécifié.");
+      setErrorMessage("Au moins un article avec une quantité (kg ou cartons) et des lots doivent être spécifiés.");
       setLoading(false);
       return;
     }
 
-    // Vérifier les quantités par rapport aux stocks disponibles
+    // Vérifier les quantités par rapport aux stocks disponibles et validation des lots
     for (const item of validItems) {
       // S'assurer qu'on a une quantité en kg, soit directement soit par conversion
       let quantiteKg = parseFloat(item.quantiteKg) || 0;
@@ -250,6 +305,47 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
             .filter(Boolean).join(' - ') : 
           'Article inconnu';
         setErrorMessage(`Quantité insuffisante pour l'article "${articleName}". Stock disponible: ${item.stockDisponible} Kg`);
+        setLoading(false);
+        return;
+      }
+
+      // Vérifier que tous les lots sélectionnés ont une quantité et un lotId
+      for (const lotSelection of item.selectedLots) {
+        if (!lotSelection.lotId || !lotSelection.quantiteKg || parseFloat(lotSelection.quantiteKg) <= 0) {
+          const selectedArticle = articles.find(a => a._id === item.article);
+          const articleName = selectedArticle ? 
+            [selectedArticle.reference, selectedArticle.specification, selectedArticle.taille]
+              .filter(Boolean).join(' – ') : 
+            'Article inconnu';
+          setErrorMessage(`Tous les lots sélectionnés pour l'article "${articleName}" doivent avoir une quantité valide.`);
+          setLoading(false);
+          return;
+        }
+
+        // Vérifier que la quantité demandée pour ce lot ne dépasse pas la quantité disponible
+        const availableForLot = getAvailableQuantityForLot(items.indexOf(item), lotSelection.lotId);
+        if (parseFloat(lotSelection.quantiteKg) > availableForLot) {
+          const selectedLot = item.availableLots.find(l => l._id === lotSelection.lotId);
+          const selectedArticle = articles.find(a => a._id === item.article);
+          const articleName = selectedArticle ? 
+            [selectedArticle.reference, selectedArticle.specification, selectedArticle.taille]
+              .filter(Boolean).join(' – ') : 
+            'Article inconnu';
+          setErrorMessage(`Quantité demandée (${lotSelection.quantiteKg}kg) supérieure à la quantité disponible (${availableForLot}kg) dans le lot ${selectedLot?.batchNumber || 'inconnu'} pour l'article "${articleName}".`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Vérifier que la somme des quantités des lots correspond à la quantité totale
+      const totalFromLots = getTotalQuantityFromLots(items.indexOf(item));
+      if (Math.abs(totalFromLots - quantiteKg) > 0.01) {
+        const selectedArticle = articles.find(a => a._id === item.article);
+        const articleName = selectedArticle ? 
+          [selectedArticle.reference, selectedArticle.specification, selectedArticle.taille]
+            .filter(Boolean).join(' – ') : 
+          'Article inconnu';
+        setErrorMessage(`La somme des quantités des lots sélectionnés (${totalFromLots}kg) ne correspond pas à la quantité totale demandée (${quantiteKg}kg) pour l'article "${articleName}".`);
         setLoading(false);
         return;
       }
@@ -274,7 +370,10 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
         return {
           article: item.article,
           quantiteKg: quantiteKg,
-          selectedLotId: item.selectedLot,
+          selectedLots: item.selectedLots.map(lot => ({
+            lotId: lot.lotId,
+            quantiteKg: parseFloat(lot.quantiteKg),
+          })),
         };
       }),
     };
@@ -484,11 +583,11 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                 </div>
               </div>
 
-              {/* Deuxième ligne : Quantité (kg) et Lot */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Deuxième ligne : Quantité (kg) */}
+              <div className="grid grid-cols-1 gap-6">
                 <div className="space-y-1">
                   <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
-                    ⚖️ Quantité à transférer (Kg)
+                    ⚖️ Quantité totale à transférer (Kg)
                   </label>
                   <input
                     type="number"
@@ -497,37 +596,109 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                     value={item.quantiteKg}
                     onChange={(e) => handleItemChange(index, 'quantiteKg', e.target.value)}
                   />
-                </div>
-                {item.availableLots.length > 0 ? (
-                  <div className="space-y-1">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Lot (Batch Number) *
-                    </label>
-                    <select
-                      className="w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-2 focus:ring-blue-500"
-                      value={item.selectedLot}
-                      onChange={(e) => handleItemChange(index, 'selectedLot', e.target.value)}
-                      required
-                    >
-                      <option value="">-- Choisir un lot --</option>
-                      {item.availableLots.map((lot) => (
-                        <option key={lot._id} value={lot._id}>
-                          {formatLotLabel(lot, item.article)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <label className="block text-sm font-medium text-gray-700 text-gray-400">
-                      Lot (Batch Number) *
-                    </label>
-                    <div className="w-full border border-gray-200 rounded-md shadow-sm p-3 bg-gray-100 text-gray-500 text-center">
-                      Sélectionnez d'abord un article et un dépôt de départ
+                  {item.selectedLots.length > 0 && (
+                    <div className="mt-2">
+                      <span className="text-sm text-blue-600">
+                        Quantité totale des lots sélectionnés: {getTotalQuantityFromLots(index).toFixed(2)} Kg
+                      </span>
+                      {Math.abs(getTotalQuantityFromLots(index) - (parseFloat(item.quantiteKg) || 0)) > 0.01 && (
+                        <span className="text-sm text-red-600 block">
+                          ⚠️ La somme des lots ne correspond pas à la quantité totale
+                        </span>
+                      )}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
+
+              {/* Section des lots multiples */}
+              {item.availableLots.length > 0 && (
+                <div className="mt-6 space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Sélection des lots (Batch Numbers) *
+                    </label>
+                    <Button
+                      type="button"
+                      variant="info"
+                      size="sm"
+                      onClick={() => addLotToSelection(index)}
+                    >
+                      + Ajouter un lot
+                    </Button>
+                  </div>
+
+                  {item.selectedLots.length === 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                      <p className="text-sm text-yellow-800">
+                        🔔 Cliquez sur "Ajouter un lot" pour sélectionner les lots à transférer avec leurs quantités spécifiques.
+                      </p>
+                    </div>
+                  )}
+
+                  {item.selectedLots.map((lotSelection, lotIndex) => (
+                    <div key={lotIndex} className="p-4 border border-blue-200 rounded-md bg-blue-50">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Lot (Batch Number)
+                          </label>
+                          <select
+                            className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-blue-500"
+                            value={lotSelection.lotId}
+                            onChange={(e) => handleLotSelectionChange(index, lotIndex, 'lotId', e.target.value)}
+                            required
+                          >
+                            <option value="">-- Choisir un lot --</option>
+                            {item.availableLots.map((lot) => (
+                              <option key={lot._id} value={lot._id}>
+                                {formatLotLabel(lot, item.article)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Quantité de ce lot (Kg)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-blue-500"
+                            value={lotSelection.quantiteKg}
+                            onChange={(e) => handleLotSelectionChange(index, lotIndex, 'quantiteKg', e.target.value)}
+                            placeholder="Quantité en kg"
+                            required
+                          />
+                          {lotSelection.lotId && (
+                            <p className="text-xs text-gray-600">
+                              💡 Disponible pour cet article: {getAvailableQuantityForLot(index, lotSelection.lotId)} Kg
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          type="button"
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removeLotFromSelection(index, lotIndex)}
+                        >
+                          Supprimer ce lot
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {item.availableLots.length === 0 && (
+                <div className="mt-6 p-4 bg-gray-100 border border-gray-200 rounded-md">
+                  <p className="text-sm text-gray-600 text-center">
+                    Sélectionnez d'abord un article et un dépôt de départ pour voir les lots disponibles
+                  </p>
+                </div>
+              )}
 
               {/* Bouton de suppression */}
               {items.length > 1 && (
@@ -636,23 +807,40 @@ function TransfertForm({ onClose, onTransfertCreated, initialTransfert }) {
                 <div className="space-y-3">{/*Augmenté l'espacement entre les articles*/}
                   {transfertData.items.map((item, index) => {
                     const article = articles.find(a => a._id === item.article);
-                    const lot = items.find(i => i.article === item.article)?.availableLots?.find(l => l._id === item.selectedLotId);
                     const articleName = article ? [article.reference, article.specification, article.taille].filter(Boolean).join(' – ') : 'Article inconnu';
                     
                     // Calculer la quantité en cartons
                     const quantiteCartons = article ? convertKgToCarton(item.quantiteKg, article) : 0;
                     
                     return (
-                      <div key={index} className="flex justify-between items-center p-4 bg-white rounded border shadow-sm">{/*Augmenté le padding et ajouté shadow*/}
-                        <div className="flex-1">
-                          <div className="font-medium text-base">{articleName}</div>{/*Augmenté la taille de police*/}
-                          <div className="text-sm text-gray-600 mt-1">{/*Augmenté la taille de police et ajouté margin*/}
-                            Lot : {lot?.batchNumber || 'Lot inconnu'}
+                      <div key={index} className="p-4 bg-white rounded border shadow-sm">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <div className="font-medium text-base">{articleName}</div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="font-semibold text-blue-600 text-lg">{item.quantiteKg} Kg</div>
+                            <div className="text-sm text-gray-500">{quantiteCartons.toFixed(2)} Cartons</div>
                           </div>
                         </div>
-                        <div className="text-right ml-4">{/*Ajouté margin-left pour plus d'espace*/}
-                          <div className="font-semibold text-blue-600 text-lg">{item.quantiteKg} Kg</div>{/*Augmenté la taille de police*/}
-                          <div className="text-sm text-gray-500">{quantiteCartons.toFixed(2)} Cartons</div>
+                        
+                        {/* Détail des lots */}
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-gray-700">Lots sélectionnés :</div>
+                          {item.selectedLots.map((lotSelection, lotIdx) => {
+                            const originalItem = items.find(i => i.article === item.article);
+                            const lot = originalItem?.availableLots?.find(l => l._id === lotSelection.lotId);
+                            return (
+                              <div key={lotIdx} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
+                                <span>
+                                  📦 {lot?.batchNumber || 'Lot inconnu'}
+                                </span>
+                                <span className="font-medium text-blue-600">
+                                  {lotSelection.quantiteKg} Kg
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
