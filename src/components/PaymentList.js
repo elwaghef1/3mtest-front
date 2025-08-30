@@ -21,6 +21,7 @@ function PaymentList() {
   const [selectedClient, setSelectedClient] = useState('');
   const [searchRef, setSearchRef] = useState('');
   const [selectedCurrency, setSelectedCurrency] = useState('');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -117,9 +118,12 @@ function PaymentList() {
     if (selectedCurrency) {
       result = result.filter(cmd => cmd.currency === selectedCurrency);
     }
+    if (selectedPaymentStatus) {
+      result = result.filter(cmd => cmd.statutDePaiement === selectedPaymentStatus);
+    }
     setFiltered(result);
     setCurrentPage(1);  // Réinitialiser à la première page à chaque nouveau filtre
-  }, [commandes, selectedClient, searchRef, selectedCurrency]);
+  }, [commandes, selectedClient, searchRef, selectedCurrency, selectedPaymentStatus]);
 
   // Calculer les statistiques par devise à chaque changement de la liste filtrée
   useEffect(() => {
@@ -172,6 +176,7 @@ function PaymentList() {
     setSelectedClient('');
     setSearchRef('');
     setSelectedCurrency('');
+    setSelectedPaymentStatus('');
   };
 
   // Liste des devises disponibles dans les commandes (pour alimenter le <select>)
@@ -286,7 +291,7 @@ function PaymentList() {
 
       {/* Filtres de recherche */}
       <div className="bg-white p-4 rounded-lg shadow-sm border mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
             <select
@@ -325,6 +330,19 @@ function PaymentList() {
                   {currency}
                 </option>
               ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">État de Paiement</label>
+            <select
+              className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
+              value={selectedPaymentStatus}
+              onChange={(e) => setSelectedPaymentStatus(e.target.value)}
+            >
+              <option value="">Tous les états</option>
+              <option value="PAYE">Payé</option>
+              <option value="PARTIELLEMENT_PAYE">Partiellement payé</option>
+              <option value="NON_PAYE">Non payé</option>
             </select>
           </div>
           <div className="flex items-end">
