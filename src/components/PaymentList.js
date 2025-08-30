@@ -9,8 +9,12 @@ import {
   XCircleIcon,
   InformationCircleIcon,
 } from '@heroicons/react/24/solid';
-import { ArrowPathIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, DocumentArrowDownIcon, PrinterIcon } from '@heroicons/react/24/outline';
 import Pagination from './Pagination';
+import moment from 'moment';
+import 'moment/locale/fr';
+
+moment.locale('fr');
 
 const CommandeDetails = React.lazy(() => import('./CommandeDetails'));
 
@@ -223,12 +227,196 @@ function PaymentList() {
     setShowDetails(false);
   };
 
+  // Fonction de formatage pour PDF (évite les problèmes d'espaces)
+  const formatCurrencyForPDF = (value, currency = 'EUR') => {
+    const numValue = parseFloat(value) || 0;
+    if (currency === 'MRU') {
+      return `${numValue.toFixed(0)} MRU`;
+    } else if (currency === 'USD') {
+      return `$${numValue.toFixed(2)}`;
+    } else {
+      return `${numValue.toFixed(2)} EUR`;
+    }
+  };
+
+  // Fonction d'export PDF de l'état des paiements
+  const exportPaymentsToPDF = async () => {
+    try {
+      const jsPDFModule = await import('jspdf');
+      const jsPDF = jsPDFModule.default;
+      await import('jspdf-autotable');
+      const { default: logoBase64 } = await import('./logoBase64');
+      
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true
+      });
+      
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const marginLeft = 10;
+      const marginRight = 10;
+      
+      // En-tête MSM identique aux factures
+      doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
+      
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      let headerY = 15;
+      const infoX = marginLeft + 25;
+      doc.text("MSM Seafood", infoX, headerY);
+      headerY += 5;
+      doc.text("Zone idustrielle,", infoX, headerY);
+      headerY += 5;
+      doc.text("Dakhlet Nouâdhibou", infoX, headerY);
+      headerY += 5;
+      doc.text("msmseafoodsarl@gmail.com", infoX, headerY);
+      
+      // Titre principal
+      doc.setFontSize(12);
+      doc.setFont(undefined, 'bold');
+      doc.text('ÉTAT DES PAIEMENTS', pageWidth / 2, 20, { align: 'center' });
+      
+      // Date d'édition
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'normal');
+      const today2 = new Intl.DateTimeFormat('fr-FR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }).format(new Date()).replace(/(\d+)/, (match) => {
+        const day = parseInt(match);
+        return day === 1 ? '1er' : match;
+      }).toUpperCase();
+      doc.text(`Nouadhibou, ${today2}`, pageWidth - marginRight, 32, { align: 'right' });
+      
+      // Déterminer le client sélectionné
+      const selectedClientInfo = selectedClient ? 
+        clients.find(c => c._id === selectedClient) : null;
+      
+      if (selectedClientInfo) {
+        doc.text(`Client: ${selectedClientInfo.raisonSociale}`, 20, 42);
+      }
+      
+      let currentY = selectedClientInfo ? 50 : 43;
+      
+      // Résumé par devise - position plus haute et design amélioré
+      if (Object.keys(statisticsByCurrency).length > 0) {
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('RESUME PAR DEVISE', 20, currentY);
+        currentY += 8;
+        
+        // Ligne de séparation
+        doc.setLineWidth(0.5);
+        doc.line(20, currentY, pageWidth - 20, currentY);
+        currentY += 5;
+        
+        doc.setFontSize(8);
+        doc.setFont(undefined, 'normal');
+        
+        Object.entries(statisticsByCurrency)
+          .sort(([a], [b]) => a.localeCompare(b))
+          .forEach(([currency, stats]) => {
+            // En-tête de devise
+            doc.setFont(undefined, 'bold');
+            doc.text(`Devise: ${currency}`, 25, currentY);
+            doc.setFont(undefined, 'normal');
+            currentY += 4;
+            
+            // Détails alignés
+            doc.text(`  • Commandes: ${stats.totalCommandes}`, 30, currentY);
+            doc.text(`Total: ${formatCurrencyForPDF(stats.montantTotal, currency)}`, 80, currentY);
+            currentY += 4;
+            
+            doc.text(`  • Payé: ${formatCurrencyForPDF(stats.montantPaye, currency)}`, 30, currentY);
+            doc.text(`Reliquat: ${formatCurrencyForPDF(stats.reliquat, currency)}`, 80, currentY);
+            currentY += 6;
+          });
+        
+        currentY += 5;
+      }
+      
+      // Tableau des commandes
+      doc.setFontSize(11);
+      doc.setFont(undefined, 'bold');
+      doc.text('DETAIL DES COMMANDES', 20, currentY);
+      currentY += 3;
+      
+      // Ligne de séparation
+      doc.setLineWidth(0.5);
+      doc.line(20, currentY, pageWidth - 20, currentY);
+      currentY += 2;
+      
+      const tableData = filtered.map(cmd => [
+        cmd.reference,
+        cmd.client?.raisonSociale || '—',
+        formatCurrencyForPDF(cmd.prixTotal, cmd.currency),
+        formatCurrencyForPDF(cmd.montantPaye, cmd.currency), 
+        formatCurrencyForPDF((cmd.prixTotal || 0) - (cmd.montantPaye || 0), cmd.currency),
+        cmd.currency || 'EUR',
+        cmd.statutDePaiement ? cmd.statutDePaiement.replace(/_/g, ' ') : 'Inconnu'
+      ]);
+      
+      doc.autoTable({
+        head: [['Référence', 'Client', 'Montant Total', 'Montant Payé', 'Reliquat', 'Devise', 'État Paiement']],
+        body: tableData,
+        startY: currentY + 5,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [71,85,105] },
+        columnStyles: {
+          2: { halign: 'right' }, // Montant Total
+          3: { halign: 'right' }, // Montant Payé  
+          4: { halign: 'right' }, // Reliquat
+          5: { halign: 'center' }, // Devise
+          6: { halign: 'center' }  // État Paiement
+        }
+      });
+      
+      // Total général en bas si plusieurs devises
+      if (Object.keys(statisticsByCurrency).length > 1) {
+        const finalY = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(12);
+        doc.text('Total Général (toutes devises)', 20, finalY);
+        
+        doc.setFontSize(10);
+        let totalY = finalY + 8;
+        Object.entries(statisticsByCurrency).forEach(([currency, stats]) => {
+          doc.text(`Reliquat total ${currency}: ${formatCurrencyForPDF(stats.reliquat, currency)}`, 30, totalY);
+          totalY += 6;
+        });
+      }
+      
+      // Sauvegarde
+      const fileName = selectedClientInfo 
+        ? `etat_paiements_${selectedClientInfo.raisonSociale.replace(/[^a-zA-Z0-9]/g, '_')}_${moment().format('YYYY-MM-DD')}.pdf`
+        : `etat_paiements_${moment().format('YYYY-MM-DD')}.pdf`;
+        
+      doc.save(fileName);
+      
+    } catch (err) {
+      console.error("Erreur lors de l'export PDF :", err);
+      alert("Erreur lors de la génération du PDF");
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6">
       {/* Titre de la page */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold mb-2">Gestion des Paiements</h1>
+        </div>
+        <div className="flex space-x-2 mt-4 md:mt-0">
+          <Button
+            onClick={exportPaymentsToPDF}
+            variant="primary"
+            leftIcon={<PrinterIcon className="h-4 w-4" />}
+            className="whitespace-nowrap"
+          >
+            Export PDF
+          </Button>
         </div>
       </div>
 

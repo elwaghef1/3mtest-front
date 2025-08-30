@@ -223,6 +223,30 @@ const ClientOrderHistory = () => {
     }
   };
 
+  // Déterminer la devise principale du client
+  const getClientMainCurrency = () => {
+    const commandesLivrees = filteredCommandes.filter(c => c.statutBonDeCommande === 'LIVREE');
+    if (commandesLivrees.length === 0) return 'EUR';
+    
+    // Si toutes les commandes sont locales (MRU)
+    const allLocal = commandesLivrees.every(c => c.typeCommande === 'LOCALE' || c.currency === 'MRU');
+    if (allLocal) return 'MRU';
+    
+    // Sinon, prendre la devise la plus fréquente (EUR/USD)
+    const currencyCount = {};
+    commandesLivrees.forEach(c => {
+      const currency = c.currency || 'EUR';
+      currencyCount[currency] = (currencyCount[currency] || 0) + 1;
+    });
+    
+    // Retourner la devise la plus utilisée (excluant MRU si pas toutes locales)
+    const sortedCurrencies = Object.entries(currencyCount)
+      .filter(([curr]) => curr !== 'MRU')
+      .sort(([,a], [,b]) => b - a);
+    
+    return sortedCurrencies.length > 0 ? sortedCurrencies[0][0] : 'EUR';
+  };
+
   // Export PDF – importation dynamique de jsPDF et autoTable uniquement au clic
   const exportToPDF = async () => {
     try {
@@ -236,13 +260,16 @@ const ClientOrderHistory = () => {
         doc.setFontSize(12);
         doc.text(`Client: ${client.raisonSociale}`, 20, 35);
       }
+      
+      const mainCurrency = getClientMainCurrency();
+      
       // Statistiques principales dans le PDF
       doc.setFontSize(14);
       doc.text('Statistiques (Commandes Livrées Uniquement)', 20, 65);
       doc.setFontSize(10);
       doc.text(`Commandes livrées: ${statistics.commandesLivrees}`, 20, 75);
-      doc.text(`Montant total (livrées): ${formatNumberForExport(statistics.montantTotal)} €`, 20, 82);
-      doc.text(`Reliquat général (livrées): ${formatNumberForExport(statistics.reliquatGeneral)} €`, 20, 89);
+      doc.text(`Montant total (livrées): ${formatCurrencyForExport(statistics.montantTotal, mainCurrency)}`, 20, 82);
+      doc.text(`Reliquat général (livrées): ${formatCurrencyForExport(statistics.reliquatGeneral, mainCurrency)}`, 20, 89);
       
       // Filtrer uniquement les commandes livrées pour le tableau
       const commandesLivrees = filteredCommandes.filter(c => c.statutBonDeCommande === 'LIVREE');
