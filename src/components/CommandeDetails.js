@@ -85,13 +85,15 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
       return new Intl.NumberFormat('fr-FR', {
         style: 'currency',
         currency: currencyCode,
-        minimumFractionDigits: 2,
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3,
       }).format(value || 0);
     } catch (error) {
       // Fallback pour MRU ou autres devises non supportées
       if (currency === 'MRU') {
         return `${new Intl.NumberFormat('fr-FR', {
-          minimumFractionDigits: 2,
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
         }).format(value || 0)} MRU`;
       }
       return `${value || 0} ${currency}`;
@@ -291,8 +293,8 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
     { label: 'Client', value: commande.client?.raisonSociale },
     { label: 'Statut BC', value: commande.statutBonDeCommande, badge: getStatusColor(commande.statutBonDeCommande) },
     { label: 'Statut Paiement', value: commande.statutDePaiement, badge: getStatusColor(commande.statutDePaiement) },
-    { label: 'Montant Payé', value: commande.montantPaye ? `${commande.montantPaye} ${commande.currency}` : null },
-    { label: 'Reliquat', value: commande.reliquat ? `${commande.reliquat} ${commande.currency}` : null },
+    { label: 'Montant Payé', value: commande.montantPaye ? formatCurrencyFunc(commande.montantPaye, commande.currency) : null },
+    { label: 'Reliquat', value: commande.reliquat ? formatCurrencyFunc(commande.reliquat, commande.currency) : null },
     { label: 'Devise', value: commande.currency },
     ...(commande.typeCommande !== 'LOCALE' ? [
       { label: 'Destination', value: commande.destination },
@@ -375,10 +377,10 @@ function CommandeDetails({ commande, onClose, formatCurrency, formatNumber }) {
                     {item.quantiteKg || '—'}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-gray-700 whitespace-nowrap">
-                    {item.prixUnitaire || '—'}
+                    {item.prixUnitaire ? formatCurrencyFunc(item.prixUnitaire, commande.currency) : '—'}
                   </td>
                   <td className="border border-gray-300 px-2 py-1 text-xs text-gray-700 text-right whitespace-nowrap">
-                    {item.prixTotal || '—'}
+                    {item.prixTotal ? formatCurrencyFunc(item.prixTotal, commande.currency) : '—'}
                   </td>
                 </tr>
               ))

@@ -604,7 +604,8 @@ const formatCurrency = (value, currency = 'EUR') => {
   return new Intl.NumberFormat('fr-FR', {
     style: 'currency',
     currency,
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
   }).format(value || 0);
 };
 

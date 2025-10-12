@@ -13,9 +13,9 @@ const formatCurrencyForPDF = (value, currency = 'EUR') => {
   if (currency === 'MRU') {
     return `${numValue.toFixed(0)} MRU`;
   } else if (currency === 'USD') {
-    return `$${numValue.toFixed(2)}`;
+    return `$${numValue.toFixed(3)}`;
   } else {
-    return `€${numValue.toFixed(2)}`;
+    return `€${numValue.toFixed(3)}`;
   }
 };
 
@@ -323,8 +323,8 @@ const formatPrice = (value, currency = 'EUR') => {
   const numValue = parseFloat(value) || 0;
   // Formater avec virgule puis remplacer par espace
   const formattedNumber = numValue.toLocaleString('en-US', { 
-    minimumFractionDigits: 2, 
-    maximumFractionDigits: 2 
+    minimumFractionDigits: 3, 
+    maximumFractionDigits: 3 
   }).replace(/,/g, ' ');
   
   if (currency === 'MRU') {
@@ -1694,8 +1694,8 @@ export const generateCommandeDetailsPDF = (commande) => {
   const tableData = Object.values(groupedItems).map(groupedItem => [
     formatArticle(groupedItem.article),
     groupedItem.totalQuantite.toString(),
-    `${groupedItem.prixUnitaire} ${commande.currency || 'EUR'}`,
-    `${groupedItem.totalPrix.toFixed(2)} ${commande.currency || 'EUR'}`
+    formatCurrencyForPDF(groupedItem.prixUnitaire, commande.currency),
+    formatCurrencyForPDF(groupedItem.totalPrix, commande.currency)
   ]);
 
   doc.autoTable({
@@ -1724,7 +1724,7 @@ export const generateCommandeDetailsPDF = (commande) => {
   const finalY = doc.lastAutoTable.finalY + 10;
   doc.setFont(undefined, 'bold');
   doc.setFontSize(12);
-  const totalText = `TOTAL: ${commande.prixTotal.toFixed(2) || '0'} ${commande.currency || 'EUR'}`;
+  const totalText = `TOTAL: ${formatCurrencyForPDF(commande.prixTotal || 0, commande.currency)}`;
   doc.text(totalText, pageWidth - marginRight, finalY, { align: 'right' });
 
   // Pied de page

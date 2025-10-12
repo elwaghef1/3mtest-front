@@ -111,13 +111,15 @@ const CommandeList = () => {
       return new Intl.NumberFormat('fr-FR', {
         style: 'currency',
         currency: currencyCode,
-        minimumFractionDigits: 2,
+        minimumFractionDigits: 3,
+        maximumFractionDigits: 3,
       }).format(value || 0);
     } catch (error) {
       // Fallback pour MRU ou autres devises non supportées
       if (currency === 'MRU') {
         return `${new Intl.NumberFormat('fr-FR', {
-          minimumFractionDigits: 2,
+          minimumFractionDigits: 3,
+          maximumFractionDigits: 3,
         }).format(value || 0)} MRU`;
       }
       return `${value || 0} ${currency}`;

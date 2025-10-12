@@ -2,6 +2,17 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import logoBase64 from '../components/logoBase64';
 
+// Fonction pour formater une devise avec 3 décimales
+const formatCurrency = (value, currency = 'EUR') => {
+  const numValue = parseFloat(value) || 0;
+  return new Intl.NumberFormat('fr-FR', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(numValue);
+};
+
 export const generatePartialDeliveryInvoice = (commande, itemsLivres, infoLivraison, detailsBatches) => {
   const doc = new jsPDF();
   
@@ -123,13 +134,13 @@ export const generatePartialDeliveryInvoice = (commande, itemsLivres, infoLivrai
   
   doc.setFontSize(12);
   doc.setTextColor(...primaryColor);
-  doc.text(`Total livré: ${totalLivre.toFixed(2)} ${commande.currency || 'EUR'}`, 150, currentY);
+  doc.text(`Total livré: ${formatCurrency(totalLivre, commande.currency)}`, 150, currentY);
   
   // Informations sur le reste de la commande
   doc.setFontSize(10);
   doc.setTextColor(...secondaryColor);
-  doc.text(`Montant total commande: ${commande.prixTotal || 0} ${commande.currency || 'EUR'}`, 15, currentY + 15);
-  doc.text(`Montant restant à livrer: ${((commande.prixTotal || 0) - totalLivre).toFixed(2)} ${commande.currency || 'EUR'}`, 15, currentY + 20);
+  doc.text(`Montant total commande: ${formatCurrency(commande.prixTotal || 0, commande.currency)}`, 15, currentY + 15);
+  doc.text(`Montant restant à livrer: ${formatCurrency((commande.prixTotal || 0) - totalLivre, commande.currency)}`, 15, currentY + 20);
   
   // Pied de page
   doc.setFontSize(8);
