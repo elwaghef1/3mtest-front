@@ -13,6 +13,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   // Champ "block" supprimé
   const [origine, setOrigine] = useState(''); // Par défaut vide
+  const [dateEntree, setDateEntree] = useState(new Date().toISOString().split('T')[0]); // Date par défaut aujourd'hui
   
   // Nouvelle option : nombre de jours de grâce avant que la location commence (par défaut 21)
   const [joursGracePeriod, setJoursGracePeriod] = useState(21);
@@ -99,6 +100,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
     if (initialEntree && articles.length > 0) {
       setDepotId(initialEntree.depot?._id || initialEntree.depot);
       setOrigine(initialEntree.origine || '');
+      setDateEntree(initialEntree.dateEntree ? new Date(initialEntree.dateEntree).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
       setJoursGracePeriod(initialEntree.joursGracePeriod || 21);
       
       // Récupération des données de calcul global
@@ -236,6 +238,7 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       const payload = {
         depot: depotId,
         origine,
+        dateEntree: new Date(dateEntree),
         joursGracePeriod,
         globalPriceCalculation: globalPriceCalculation.calculationData ? globalPriceCalculation : null,
         items: validItems.map((item) => {
@@ -286,9 +289,9 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
       )}
   
       <form onSubmit={handleSubmit} className="space-y-10">
-        {/* Sélection du dépôt et origine */}
+        {/* Sélection du dépôt, date, origine */}
         <div className="bg-blue-50 p-6 rounded-xl border border-blue-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="space-y-2">
               <label className="block text-lg font-semibold text-gray-800">
                 Dépôt *
@@ -312,6 +315,18 @@ function EntreeForm({ onClose, onEntreeCreated, initialEntree }) {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-lg font-semibold text-gray-800">
+                Date d'entrée *
+              </label>
+              <input
+                type="date"
+                className="w-full border-2 border-gray-300 rounded-lg shadow-sm p-4 text-lg focus:ring-3 focus:ring-blue-500 focus:border-blue-500"
+                value={dateEntree}
+                onChange={(e) => setDateEntree(e.target.value)}
+                required
+              />
             </div>
             <div className="space-y-2">
               <label className="block text-lg font-semibold text-gray-800">
