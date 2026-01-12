@@ -265,13 +265,13 @@ function PaymentList() {
       doc.setFont(undefined, 'normal');
       let headerY = 15;
       const infoX = marginLeft + 25;
-      doc.text("MSM Seafood", infoX, headerY);
+      doc.text("3M SEAFOOD", infoX, headerY);
       headerY += 5;
       doc.text("Zone idustrielle,", infoX, headerY);
       headerY += 5;
       doc.text("Dakhlet Nouâdhibou", infoX, headerY);
       headerY += 5;
-      doc.text("msmseafoodsarl@gmail.com", infoX, headerY);
+      doc.text("3mseafoodsarl@test.com", infoX, headerY);
       
       // Titre principal
       doc.setFontSize(12);

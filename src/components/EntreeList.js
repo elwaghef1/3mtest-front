@@ -267,7 +267,7 @@ function EntreeList() {
 
       const doc = new jsPDF('p', 'mm', 'a4');
       doc.addImage(logoBase64, 'PNG', 10, 10, 30, 30);
-      doc.setFont('helvetica', 'bold').setFontSize(18).text('MSM SEAFOOD', 45, 20);
+      doc.setFont('helvetica', 'bold').setFontSize(18).text('3M SEAFOOD', 45, 20);
       doc.setFont('helvetica', 'normal').setFontSize(12)
         .text('RC 576', 45, 28)
         .text('Agrément Sanitaire NO 02 133', 45, 34);
@@ -326,7 +326,7 @@ function EntreeList() {
     const lineHeight = 5;
   
     doc.setFont('helvetica', 'bold').setFontSize(12)
-       .text('MSM SEAFOOD SARL', startX, y + 5);
+       .text('3M SEAFOOD SARL', startX, y + 5);
   
     doc.setFont('helvetica', 'normal').setFontSize(9);
     y += lineHeight; // 16
@@ -336,9 +336,9 @@ function EntreeList() {
     y += lineHeight; // 22
     doc.text('Mauritanie', startX, y + 5);
     y += lineHeight; // 28
-    doc.text('msmseafoodsarl@gmail.com', startX, y + 5);
+    doc.text('3mseafoodsarl@test.com', startX, y + 5);
     y += lineHeight; // 40
-    doc.text('Tél. : +222 46 00 89 08', startX, y + 5);    // Date en haut à droite
+    doc.text('Tél. : + 222 XX XX XX XX', startX, y + 5);    // Date en haut à droite
     doc.setFontSize(10)
        .text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, w - m, 15, { align: 'right' });
     doc.setFontSize(10)

@@ -754,9 +754,9 @@ const exportCommercialisableToPDF = () => {
   doc.addImage(logoBase64, 'PNG', m, y + 2, 30, 30);
   const startX = m + 35;
   const lh = 4;
-  doc.setFont('helvetica', 'bold').setFontSize(11).text('MSM SEAFOOD SARL', startX, y + 5);
+  doc.setFont('helvetica', 'bold').setFontSize(11).text('3M SEAFOOD SARL', startX, y + 5);
   doc.setFont('helvetica','normal').setFontSize(8);
-  ['Zone industrielle','Dakhlet Nouâdhibou','Mauritanie','msmseafoodsarl@gmail.com','Tél. : +222 46 00 89 08']
+  ['Zone industrielle','Dakhlet Nouâdhibou','Mauritanie','3mseafoodsarl@test.com','Tél. : + 222 XX XX XX XX']
     .forEach(line => { y += lh; doc.text(line, startX, y + 5); });
   const rightX = w - 80;
   doc.setFontSize(8).text(`Généré le : ${new Date().toLocaleDateString('fr-FR')}`, rightX, 15);

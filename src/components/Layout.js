@@ -15,7 +15,6 @@ import {
   BookOpenIcon,
   ArrowPathIcon,
   UserIcon,
-  Bars3Icon,
   CogIcon,
   ArrowDownTrayIcon, // Ajout de l'icône pour Sorties
   ExclamationTriangleIcon, // Ajout de l'icône pour Quantités Manquantes
@@ -65,17 +64,41 @@ const Layout = () => {
       <div className={`bg-gradient-to-b from-indigo-600 to-purple-600 text-white transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-20'}`}>
         <div className="flex items-center justify-between h-16 bg-indigo-700 px-4">
           <div className="flex items-center">
-            <ChartBarIcon className="h-8 w-8 text-white" />
-            {sidebarOpen && <h1 className="ml-2 text-xl font-bold">MSM SEAFOOD</h1>}
+            <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C7.58 2 4 5.58 4 10c0 2.03.76 3.87 2 5.28V18c0 .55.45 1 1 1h2v2c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-2h2c.55 0 1-.45 1-1v-2.72c1.24-1.41 2-3.25 2-5.28 0-4.42-3.58-8-8-8zm-2 15H8v-1h2v1zm0-3H8v-1h2v1zm4 3h-2v-1h2v1zm0-3h-2v-1h2v1zm2 0h-2v-1h2v1z"/>
+              <path d="M22 7c-1.5 0-3 .5-4.21 1.5C17.26 5.55 14.87 3.5 12 3.5c-1.5 0-2.87.5-4 1.32V3H6v2.18C4.16 6.75 3 9.22 3 12c0 1.74.5 3.37 1.36 4.75L3 18l1.5 1.5 1.25-1.25C7.13 19.37 9.44 20 12 20c5.24 0 9.5-3.8 9.5-8.5 0-.82-.12-1.61-.34-2.36.62-.09 1.22-.14 1.84-.14v-2zM12 18c-3.87 0-7-2.69-7-6s3.13-6 7-6c3.36 0 6.17 2.11 6.82 5h-1.32c-.65-2.33-2.87-4-5.5-4-3.04 0-5.5 2.24-5.5 5s2.46 5 5.5 5c1.63 0 3.09-.69 4.12-1.78l1.42 1.42C14.69 17.38 13.41 18 12 18z"/>
+            </svg>
+            {sidebarOpen && <h1 className="ml-2 text-xl font-bold">FISH TRACK</h1>}
           </div>
-          <Button
+          <button
             onClick={toggleSidebar}
-            variant="ghost"
-            size="sm"
-            className="text-white focus:outline-none"
+            className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-indigo-800/50 hover:bg-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/30 group"
+            aria-label={sidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
           >
-            <Bars3Icon className="h-6 w-6" />
-          </Button>
+            <div className="flex flex-col justify-center items-center w-6 h-6">
+              <span
+                className={`block h-0.5 w-5 bg-white rounded-full transition-all duration-300 ease-in-out ${
+                  sidebarOpen
+                    ? 'rotate-45 translate-y-[3px]'
+                    : 'group-hover:w-6'
+                }`}
+              />
+              <span
+                className={`block h-0.5 w-5 bg-white rounded-full my-1 transition-all duration-300 ease-in-out ${
+                  sidebarOpen
+                    ? 'opacity-0 scale-0'
+                    : 'group-hover:w-4'
+                }`}
+              />
+              <span
+                className={`block h-0.5 w-5 bg-white rounded-full transition-all duration-300 ease-in-out ${
+                  sidebarOpen
+                    ? '-rotate-45 -translate-y-[9px]'
+                    : 'group-hover:w-6'
+                }`}
+              />
+            </div>
+          </button>
         </div>
         <nav className="mt-6">
           {sidebarItems.map((item, index) => {
@@ -117,7 +140,7 @@ const Layout = () => {
         <header className="bg-white shadow-sm">
           <div className="flex justify-between items-center py-4 px-6">
             <h1 className="text-2xl font-semibold text-gray-900">
-              MSM SEAFOOD
+              3M SEAFOOD
             </h1>
             <div className="flex items-center space-x-2">
               <NotificationCenter />

@@ -48,11 +48,11 @@ export const generatePackingListPDF = (commande) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 5;
   doc.text("License: ABCD-1234", infoX, currentY);
   currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
 
   // =============================
   // 2. Date et client
@@ -192,8 +192,8 @@ export const generatePackingListPDF = (commande) => {
   // =============================
   const footerY = 280;
   doc.setFontSize(8);
-  doc.text("+222 46 00 89 08", marginLeft, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("+ 222 XX XX XX XX", marginLeft, footerY);
+  doc.text("3mseafoodsarl@test.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
 
   // Sauvegarde du PDF
@@ -218,11 +218,11 @@ export const generateBonDeCommandePDF = (commande) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 5;
   doc.text("License: ABCD-1234", infoX, currentY);
   currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("BON DE SORTIE", pageWidth / 2, 20, { align: 'center' });
@@ -301,8 +301,8 @@ export const generateBonDeCommandePDF = (commande) => {
 
   const footerY = 280;
   doc.setFontSize(8);
-  doc.text("+222 46 00 89 08", marginLeft, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("+ 222 XX XX XX XX", marginLeft, footerY);
+  doc.text("3mseafoodsarl@test.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
 
   doc.save(`bon_de_sortie_${commande.reference}.pdf`);
@@ -353,13 +353,13 @@ export const generateInvoicePDF = (commande) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 5;
   doc.text("Zone idustrielle,", infoX, currentY);
   currentY += 5;
   doc.text("Dakhlet Nouâdhibou", infoX, currentY);
   currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("COMMERCIAL INVOICE", pageWidth / 2, 20, { align: 'center' });
@@ -511,7 +511,7 @@ export const generateInvoicePDF = (commande) => {
       `SWIFT of intermediary: ${commande.bank.swiftIntermediaire || 'N/A'}`,
       `Beneficiary Bank: ${commande.bank.banque}`,
       `SWIFT of beneficiary bank: ${commande.bank.codeSwift}`,
-      `Beneficiary name: MSM SEAFOOD-SARL`,
+      `Beneficiary name: 3M SEAFOOD-SARL`,
       `Code IBAN: ${commande.bank.iban}`
     ];
     bankDetails.forEach((line, index) => {
@@ -523,7 +523,7 @@ export const generateInvoicePDF = (commande) => {
       "SWIFT of intermediary: N/A", 
       "Beneficiary Bank: Banque Populaire de Mauritanie",
       "SWIFT of beneficiary bank: BPMAMRMR",
-      "Beneficiary name: MSM SEAFOOD-SARL",
+      "Beneficiary name: 3M SEAFOOD-SARL",
       "Code IBAN: MR13...00270"
     ];
     bankDetails.forEach((line, index) => {
@@ -554,8 +554,8 @@ export const generateInvoicePDF = (commande) => {
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
   doc.setFontSize(8);
   doc.setFont(undefined, 'normal');
-  doc.text("+222 46 00 89 08", marginLeft, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("+ 222 XX XX XX XX", marginLeft, footerY);
+  doc.text("3mseafoodsarl@test.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
   doc.save(`invoice_${commande.reference}.pdf`);
 };
@@ -577,11 +577,11 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 5;
   doc.text("License: ABCD-1234", infoX, currentY);
   currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
   doc.setFontSize(12);
   doc.setFont(undefined, 'bold');
   doc.text("PROFORMA INVOICE", pageWidth / 2, 20, { align: 'center' });
@@ -729,7 +729,7 @@ export const generateProformaInvoicePDF = (commande) => {
       `SWIFT of intermediary: ${commande.bank.swiftIntermediaire || 'N/A'}`,
       `Beneficiary Bank: ${commande.bank.banque}`,
       `SWIFT of beneficiary bank: ${commande.bank.codeSwift}`,
-      `Beneficiary name: MSM SEAFOOD-SARL`,
+      `Beneficiary name: 3M SEAFOOD-SARL`,
       `Code IBAN: ${commande.bank.iban}`
     ];
     bankDetails.forEach((line, index) => {
@@ -741,7 +741,7 @@ export const generateProformaInvoicePDF = (commande) => {
       "SWIFT of intermediary: N/A", 
       "Beneficiary Bank: Banque Populaire de Mauritanie",
       "SWIFT of beneficiary bank: BPMAMRMR",
-      "Beneficiary name: MSM SEAFOOD-SARL",
+      "Beneficiary name: 3M SEAFOOD-SARL",
       "Code IBAN: MR13...00270"
     ];
     bankDetails.forEach((line, index) => {
@@ -772,8 +772,8 @@ export const generateProformaInvoicePDF = (commande) => {
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
   doc.setFontSize(8);
   doc.setFont(undefined, 'normal');
-  doc.text("+222 46 00 89 08", marginLeft, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("+ 222 XX XX XX XX", marginLeft, footerY);
+  doc.text("3mseafoodsarl@test.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
   doc.save(`invoice_${commande.reference}.pdf`);
 };
@@ -801,7 +801,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
   const { 
     cargo = {}, 
     articles = [], 
-    agreementName = 'MSM SEAFOOD – 02.133',
+    agreementName = '3M SEAFOOD – 02.133',
     lieuEmbarquement = 'MS FRIGO – 02.133', // Lieu d'embarquement éditable
     productionDate = '',
     expirationDate = '',
@@ -924,7 +924,7 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           doc.setFont(undefined, 'normal');
           doc.text('Nom : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text('SMCP P/CT MSM SEAFOOD.', cell.x + 18, y);
+          doc.text('SMCP P/CT 3M SEAFOOD.', cell.x + 18, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
@@ -1002,13 +1002,13 @@ export const generateCertificatePDF = (certificateData, commande, containerIndex
           doc.setFont(undefined, 'normal');
           doc.text('Nom de l\'EIS ou du navire : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text((agreementName || 'MSM SEAFOOD – 02.133').split(' – ')[0] || 'MSM SEAFOOD', cell.x + 50, y);
+          doc.text((agreementName || '3M SEAFOOD – 02.133').split(' – ')[0] || '3M SEAFOOD', cell.x + 50, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
           doc.text('Agrément ou immatriculation : ', cell.x + 5, y);
           doc.setFont(undefined, 'bold');
-          doc.text((agreementName || 'MSM SEAFOOD – 02.133').split(' – ')[1] || '02-133', cell.x + 55, y);
+          doc.text((agreementName || '3M SEAFOOD – 02.133').split(' – ')[1] || '02-133', cell.x + 55, y);
           
           y += 5;
           doc.setFont(undefined, 'normal');
@@ -1344,13 +1344,13 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 5;
   doc.text("Zone industrielle,", infoX, currentY);
   currentY += 5;
   doc.text("Dakhlet Nouâdhibou", infoX, currentY);
   currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
 
   // Date en haut à droite
   const today = new Intl.DateTimeFormat('fr-FR', {
@@ -1584,8 +1584,8 @@ export const generateBonDeSortiePDF = (commande, historiqueData) => {
   doc.setFont(undefined, 'normal');
   doc.setLineWidth(0.2);
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
-  doc.text("+222 46 00 89 08", marginLeft, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("+ 222 XX XX XX XX", marginLeft, footerY);
+  doc.text("3mseafoodsarl@test.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone industrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
 
   // Sauvegarde du PDF
@@ -1610,13 +1610,13 @@ export const generateCommandeDetailsPDF = (commande) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 5;
   doc.text("Zone idustrielle,", infoX, currentY);
   currentY += 5;
   doc.text("Dakhlet Nouâdhibou", infoX, currentY);
   currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
 
   // Titre principal
   doc.setFontSize(14);
@@ -1733,8 +1733,8 @@ export const generateCommandeDetailsPDF = (commande) => {
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
   doc.setFontSize(8);
   doc.setFont(undefined, 'normal');
-  doc.text("+222 46 00 89 08", marginLeft, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("+ 222 XX XX XX XX", marginLeft, footerY);
+  doc.text("3mseafoodsarl@test.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", pageWidth - marginRight, footerY, { align: 'right' });
 
   doc.save(`details_commande_${commande.reference}.pdf`);
@@ -1756,7 +1756,7 @@ export const generateVGMPDF = (vgmData, commande) => {
   const tableWidth = pageWidth - marginLeft - marginRight - 10; // Largeur commune pour les deux tableaux
   
   // =============================
-  // 1. En-tête MSM Seafood
+  // 1. En-tête 3M SEAFOOD
   // =============================
   doc.setLineHeightFactor(1.0);
   doc.addImage(logoBase64, 'PNG', marginLeft, 10, 20, 20);
@@ -1764,13 +1764,13 @@ export const generateVGMPDF = (vgmData, commande) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 5;
   doc.text("Zone industrielle,", infoX, currentY);
   currentY += 5;
   doc.text("Dakhlet Nouâdhibou", infoX, currentY);
   currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
   
   // =============================
   // 2. Titre et informations client
@@ -1980,7 +1980,7 @@ export const generateVGMPDF = (vgmData, commande) => {
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
   doc.setFontSize(8);
   doc.setFont(undefined, 'normal');
-  doc.text("MSM Seafood", marginLeft, footerY);
+  doc.text("3M SEAFOOD", marginLeft, footerY);
   doc.text("Zone industrielle, Dakhlet Nouâdhibou", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Tel +222 36 20 03 08", pageWidth - marginRight, footerY, { align: 'right' });
   
@@ -2015,9 +2015,9 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
   doc.setFont(undefined, 'normal');
   let y = 15;
   const infoX = margin.left + 25;
-  doc.text("MSM Seafood", infoX, y); y += 5;
+  doc.text("3M SEAFOOD", infoX, y); y += 5;
   doc.text("License: ABCD-1234", infoX, y); y += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, y);
+  doc.text("3mseafoodsarl@test.com", infoX, y);
 
   // 2. Date et infos client
   const todayFR = new Intl.DateTimeFormat('fr-FR', {
@@ -2261,8 +2261,8 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
   doc.line(margin.left, footerY - 5, pageWidth - margin.right, footerY - 5);
   doc.setFontSize(8);
   doc.setFont(undefined, 'normal');
-  doc.text("+222 46 00 89 08", margin.left, footerY);
-  doc.text("msmseafoodsarl@gmail.com", pageWidth / 2, footerY, { align: 'center' });
+  doc.text("+ 222 XX XX XX XX", margin.left, footerY);
+  doc.text("3mseafoodsarl@test.com", pageWidth / 2, footerY, { align: 'center' });
   doc.text("Zone industrielle, Dakhlet Nouâdhibou", pageWidth - margin.right, footerY, { align: 'right' });
 
   // Enregistrement
@@ -2291,13 +2291,13 @@ export const generateAutorisationSortiePDF = (autorisationData) => {
   doc.setFont(undefined, 'normal');
   let currentY = 15;
   const infoX = marginLeft + 25;
-  doc.text("MSM Seafood", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 5;
   doc.text("Zone industrielle,", infoX, currentY);
   currentY += 5;
   doc.text("Dakhlet Nouâdhibou", infoX, currentY);
   currentY += 5;
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
 
   // =============================
   // 2. Titre principal
@@ -2539,13 +2539,13 @@ export const generateCertificationRequestPDF = (commande) => {
   doc.text("Nom et adresse de l'expéditeur:", marginLeft, currentY);
   doc.setFont(undefined, 'normal');
   currentY += 5;
-  doc.text("Nom: MSM SEAFOOD SARL", marginLeft + 5, currentY);
+  doc.text("Nom: 3M SEAFOOD SARL", marginLeft + 5, currentY);
   currentY += 4;
   doc.text("Adresse: Zone industrielle, Dakhlet Nouâdhibou, Mauritanie", marginLeft + 5, currentY);
   currentY += 4;
-  doc.text("P.O: MSM SEAFOOD SARL", marginLeft + 5, currentY);
+  doc.text("P.O: 3M SEAFOOD SARL", marginLeft + 5, currentY);
   currentY += 4;
-  doc.text("Tél: +222 46 00 89 08", marginLeft + 5, currentY);
+  doc.text("Tél: + 222 XX XX XX XX", marginLeft + 5, currentY);
 
   // =============================
   // 3. Informations du transporteur
@@ -2677,7 +2677,7 @@ export const generateCertificationRequestPDF = (commande) => {
   doc.setFont(undefined, 'bold');
   doc.text("Signature de l'exportateur:", marginLeft, currentY);
   doc.setFont(undefined, 'normal');
-  doc.text("MSM SEAFOOD SARL", marginLeft, currentY + 10);
+  doc.text("3M SEAFOOD SARL", marginLeft, currentY + 10);
   
   // Ligne de signature
   doc.setLineWidth(0.3);
@@ -2716,9 +2716,9 @@ export const generateCertificationRequestPDF = (commande) => {
   doc.line(marginLeft, footerY - 5, pageWidth - marginRight, footerY - 5);
   doc.setFontSize(8);
   doc.setFont(undefined, 'normal');
-  doc.text("MSM SEAFOOD SARL", marginLeft, footerY);
+  doc.text("3M SEAFOOD SARL", marginLeft, footerY);
   doc.text("Zone industrielle, Dakhlet Nouâdhibou, Mauritanie", pageWidth / 2, footerY, { align: 'center' });
-  doc.text("+222 46 00 89 08", pageWidth - marginRight, footerY, { align: 'right' });
+  doc.text("+ 222 XX XX XX XX", pageWidth - marginRight, footerY, { align: 'right' });
 
   // Sauvegarde du PDF
   doc.save(`demande_certification_${commande.reference}.pdf`);
@@ -2745,13 +2745,13 @@ export const generateBonDeTransfertPDF = (transfer) => {
   doc.setFont(undefined, 'bold');
   let currentY = 15;
   const infoX = marginLeft + 30;
-  doc.text("MSM SEAFOOD", infoX, currentY);
+  doc.text("3M SEAFOOD", infoX, currentY);
   currentY += 6;
   doc.setFontSize(9);
   doc.setFont(undefined, 'normal');
-  doc.text("msmseafoodsarl@gmail.com", infoX, currentY);
+  doc.text("3mseafoodsarl@test.com", infoX, currentY);
   currentY += 4;
-  doc.text("+222 46 00 89 08", infoX, currentY);
+  doc.text("+ 222 XX XX XX XX", infoX, currentY);
   currentY += 4;
   doc.text("Zone idustrielle, Dakhlet Nouâdhibou", infoX, currentY);
 
@@ -3103,7 +3103,7 @@ export const generateCertificatOrigineExcel = (certificateData, commande) => {
   setCellStyle('E4', {fontSize: 10, bold: true, underline: false, hAlign: 'left'}).value = `PO : ${poText}`;
 
   // Exporter (Expéditeur) info (merged C5:H6)
-  const exporterText = "SMCP  BP: 259, Nouadhibou, Mauritanie, P/C MSM SEAFOOD SARL.";
+  const exporterText = "SMCP  BP: 259, Nouadhibou, Mauritanie, P/C 3M SEAFOOD SARL.";
   setCellStyle('C5', {fontSize: 10, bold: true, underline: false, hAlign: 'left', vAlign: 'top', wrap: true}).value = exporterText;
 
   // Intermediate party (if any) on merged C7:I7 (e.g., client)
