@@ -182,7 +182,7 @@ export const generatePackingListPDF = (commande) => {
     const signatureX = pageWidth - marginRight - signatureWidth - 10;
     const signatureY = signatureLineY + 5;
     
-    doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
+    // doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
   } catch (error) {
     console.warn('Erreur lors de l\'ajout de la signature:', error);
   }
@@ -294,7 +294,7 @@ export const generateBonDeCommandePDF = (commande) => {
     const signatureX = pageWidth - marginRight - signatureWidth - 10;
     const signatureY = signatureLineY + 5;
     
-    doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
+    // doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
   } catch (error) {
     console.warn('Erreur lors de l\'ajout de la signature:', error);
   }
@@ -545,7 +545,7 @@ export const generateInvoicePDF = (commande) => {
     const stampX = pageWidth - marginRight - stampWidth - 10;
     const stampY = signatureY + 10;
     
-    doc.addImage(stampBase64, 'PNG', stampX, stampY, stampWidth, stampHeight);
+    // doc.addImage(stampBase64, 'PNG', stampX, stampY, stampWidth, stampHeight);
   } catch (error) {
     console.warn('Erreur lors de l\'ajout du tampon:', error);
   }
@@ -763,7 +763,7 @@ export const generateProformaInvoicePDF = (commande) => {
     const stampX = pageWidth - marginRight - stampWidth - 10;
     const stampY = signatureY + 10;
     
-    doc.addImage(stampBase64, 'PNG', stampX, stampY, stampWidth, stampHeight);
+    // doc.addImage(stampBase64, 'PNG', stampX, stampY, stampWidth, stampHeight);
   } catch (error) {
     console.warn('Erreur lors de l\'ajout du tampon:', error);
   }
@@ -2244,7 +2244,7 @@ export const generatePackingListFromFormPDF = (commande, containerData) => {
     const signatureX = pageWidth - margin.right - signatureWidth;
     const signatureY = visaY + 5;
     
-    doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
+    // doc.addImage(stampBase64, 'PNG', signatureX, signatureY, signatureWidth, signatureHeight);
   } catch (error) {
     console.warn('Erreur lors de l\'ajout de la signature:', error);
   }

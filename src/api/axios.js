@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const instance = axios.create({
     // baseURL: 'https://msm-shj5.vercel.app/api'
-    baseURL: 'http://localhost:5008/api'
+    baseURL: 'https://3mtest-back.vercel.app/api'
     // baseURL: 'https://fish-back-ff020bcec824.herokuapp.com/api'
 });
 
