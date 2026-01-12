@@ -16,10 +16,45 @@ import {
   ArrowPathIcon,
   UserIcon,
   CogIcon,
-  ArrowDownTrayIcon, // Ajout de l'icône pour Sorties
-  ExclamationTriangleIcon, // Ajout de l'icône pour Quantités Manquantes
+  ArrowDownTrayIcon,
+  ExclamationTriangleIcon,
+  ArrowRightOnRectangleIcon,
 } from '@heroicons/react/24/outline';
 import NotificationCenter from './NotificationCenter';
+
+// Logo Chinchard
+const FishLogo = ({ className = "h-8 w-8" }) => (
+  <svg className={className} viewBox="0 0 100 50" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <path d="M95 25 C90 18, 75 10, 55 10 C40 10, 25 14, 15 20 L5 15 L8 25 L5 35 L15 30 C25 36, 40 40, 55 40 C75 40, 90 32, 95 25 Z" />
+    <path d="M45 10 Q50 4, 58 8 L55 12 Q50 10, 45 12 Z" opacity="0.9"/>
+    <path d="M50 40 Q52 46, 58 44 L56 40 Z" opacity="0.9"/>
+    <path d="M5 15 L-2 8 L2 18 L0 25 L2 32 L-2 42 L5 35 L8 25 Z" />
+    <circle cx="80" cy="24" r="4" fill="currentColor" opacity="0.3"/>
+    <circle cx="80" cy="24" r="2.5" fill="white"/>
+    <path d="M20 25 Q35 23, 50 24 Q65 25, 78 24" stroke="currentColor" strokeWidth="0.8" fill="none" opacity="0.4"/>
+    <path d="M72 20 Q74 25, 72 30" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.3"/>
+  </svg>
+);
+
+// Bulles animées pour le sidebar
+const SidebarBubbles = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    {[...Array(8)].map((_, i) => (
+      <div
+        key={i}
+        className="absolute rounded-full bg-white/10 animate-float"
+        style={{
+          width: `${Math.random() * 20 + 5}px`,
+          height: `${Math.random() * 20 + 5}px`,
+          left: `${Math.random() * 100}%`,
+          bottom: `-10%`,
+          animationDelay: `${Math.random() * 8}s`,
+          animationDuration: `${Math.random() * 15 + 10}s`,
+        }}
+      />
+    ))}
+  </div>
+);
 
 const Layout = () => {
   const { logout, hasFilledSchoolInfo, isAuthenticated } = useContext(AuthContext);
@@ -46,12 +81,11 @@ const Layout = () => {
     { title: 'Etats de stock', icon: ChartBarIcon, link: '/dashboard' },
     { title: 'Clients', icon: UserGroupIcon, link: '/clients' },
     { title: 'Commandes', icon: ClipboardDocumentCheckIcon, link: '/commandes' },
-    // { title: 'Quantités Manquantes', icon: ExclamationTriangleIcon, link: '/quantites-manquantes' }, // Disabled - replaced with automatic notifications
     { title: 'Plan avant chargement', icon: TruckIcon, link: '/plan-chargement' },
     { title: 'Plan après chargement', icon: TruckIcon, link: '/apres-livraison' },
     { title: 'Dépôts', icon: BuildingStorefrontIcon, link: '/depots' },
     { title: 'Entrées', icon: InboxIcon, link: '/entrees' },
-    { title: 'Sorties', icon: ArrowDownTrayIcon, link: '/sorties' },  // Nouvel élément ajouté
+    { title: 'Sorties', icon: ArrowDownTrayIcon, link: '/sorties' },
     { title: 'Paiements', icon: CreditCardIcon, link: '/paiements' },
     { title: "Liste d'articles", icon: BookOpenIcon, link: '/articles' },
     { title: 'Transferts', icon: ArrowPathIcon, link: '/transferts' },
@@ -61,18 +95,32 @@ const Layout = () => {
   return (
     <div className="flex h-screen bg-gradient-to-br from-indigo-100 via-purple-100 to-pink-100">
       {/* Sidebar */}
-      <div className={`bg-gradient-to-b from-indigo-600 to-purple-600 text-white transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-20'}`}>
-        <div className="flex items-center justify-between h-16 bg-indigo-700 px-4">
-          <div className="flex items-center">
-            <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C7.58 2 4 5.58 4 10c0 2.03.76 3.87 2 5.28V18c0 .55.45 1 1 1h2v2c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-2h2c.55 0 1-.45 1-1v-2.72c1.24-1.41 2-3.25 2-5.28 0-4.42-3.58-8-8-8zm-2 15H8v-1h2v1zm0-3H8v-1h2v1zm4 3h-2v-1h2v1zm0-3h-2v-1h2v1zm2 0h-2v-1h2v1z"/>
-              <path d="M22 7c-1.5 0-3 .5-4.21 1.5C17.26 5.55 14.87 3.5 12 3.5c-1.5 0-2.87.5-4 1.32V3H6v2.18C4.16 6.75 3 9.22 3 12c0 1.74.5 3.37 1.36 4.75L3 18l1.5 1.5 1.25-1.25C7.13 19.37 9.44 20 12 20c5.24 0 9.5-3.8 9.5-8.5 0-.82-.12-1.61-.34-2.36.62-.09 1.22-.14 1.84-.14v-2zM12 18c-3.87 0-7-2.69-7-6s3.13-6 7-6c3.36 0 6.17 2.11 6.82 5h-1.32c-.65-2.33-2.87-4-5.5-4-3.04 0-5.5 2.24-5.5 5s2.46 5 5.5 5c1.63 0 3.09-.69 4.12-1.78l1.42 1.42C14.69 17.38 13.41 18 12 18z"/>
-            </svg>
-            {sidebarOpen && <h1 className="ml-2 text-xl font-bold">FISH TRACK</h1>}
+      <div className={`relative bg-gradient-to-b from-indigo-600 via-purple-600 to-blue-700 text-white transition-all duration-300 ease-in-out ${sidebarOpen ? 'w-64' : 'w-20'} overflow-hidden`}>
+        {/* Bulles animées */}
+        <SidebarBubbles />
+
+        {/* Vague décorative en bas */}
+        <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
+          <svg viewBox="0 0 400 80" className="w-full opacity-10">
+            <path fill="white" d="M0,40 Q50,20 100,40 T200,40 T300,40 T400,40 L400,80 L0,80 Z"/>
+          </svg>
+        </div>
+
+        {/* Header avec logo */}
+        <div className="relative z-10 flex items-center justify-between h-16 bg-indigo-700/50 backdrop-blur-sm px-4 border-b border-white/10">
+          <div className="flex items-center group">
+            <div className="transform group-hover:scale-110 transition-transform duration-300">
+              <FishLogo className="h-8 w-8 text-white drop-shadow-lg" />
+            </div>
+            {sidebarOpen && (
+              <h1 className="ml-3 text-xl font-bold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200">
+                Fish Track
+              </h1>
+            )}
           </div>
           <button
             onClick={toggleSidebar}
-            className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-indigo-800/50 hover:bg-indigo-800 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/30 group"
+            className="relative w-10 h-10 flex items-center justify-center rounded-lg bg-white/10 hover:bg-white/20 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-white/30 group"
             aria-label={sidebarOpen ? "Fermer le menu" : "Ouvrir le menu"}
           >
             <div className="flex flex-col justify-center items-center w-6 h-6">
@@ -100,7 +148,9 @@ const Layout = () => {
             </div>
           </button>
         </div>
-        <nav className="mt-6">
+
+        {/* Navigation */}
+        <nav className="relative z-10 mt-4 px-2">
           {sidebarItems.map((item, index) => {
             const isActive = location.pathname === item.link;
             const Icon = item.icon;
@@ -108,49 +158,62 @@ const Layout = () => {
               <Link
                 key={index}
                 to={item.link}
-                className={`flex items-center px-6 py-3 text-white hover:bg-indigo-700 transition-colors duration-200 ${isActive ? 'bg-indigo-700' : ''}`}
+                className={`flex items-center px-4 py-3 mb-1 rounded-xl text-white transition-all duration-200 group
+                  ${isActive
+                    ? 'bg-white/20 backdrop-blur-sm shadow-lg'
+                    : 'hover:bg-white/10 hover:translate-x-1'
+                  }`}
               >
-                <Icon className={`h-5 w-5 mr-3 ${isActive ? 'text-yellow-300' : 'text-white'}`} />
-                {sidebarOpen && <span>{item.title}</span>}
+                <Icon className={`h-5 w-5 transition-all duration-200 ${
+                  isActive
+                    ? 'text-yellow-300 drop-shadow-glow'
+                    : 'text-white/80 group-hover:text-white group-hover:scale-110'
+                }`} />
+                {sidebarOpen && (
+                  <span className={`ml-3 font-medium transition-all duration-200 ${
+                    isActive ? 'text-white' : 'text-white/80 group-hover:text-white'
+                  }`}>
+                    {item.title}
+                  </span>
+                )}
+                {isActive && sidebarOpen && (
+                  <div className="ml-auto w-2 h-2 rounded-full bg-yellow-300 animate-pulse" />
+                )}
               </Link>
             );
           })}
         </nav>
-        <div className={`absolute bottom-0 ${sidebarOpen ? 'w-64' : 'w-20'} p-4`}>
-          {sidebarOpen && (
-            <div className="flex justify-center space-x-2 mb-4">
-              {/* Boutons de changement de langue */}
-              {/* <button onClick={() => changeLanguage('fr')} className="px-3 py-1 bg-indigo-800 rounded-md text-sm font-medium hover:bg-indigo-700">FR</button> */}
-              {/* <button onClick={() => changeLanguage('ar')} className="px-3 py-1 bg-indigo-800 rounded-md text-sm font-medium hover:bg-indigo-700">AR</button> */}
-            </div>
-          )}
-          <Button
+
+        {/* Bouton déconnexion */}
+        <div className={`absolute bottom-0 left-0 right-0 z-10 p-4 bg-gradient-to-t from-indigo-900/50 to-transparent`}>
+          <button
             onClick={handleLogout}
-            variant="danger"
-            size="sm"
-            className={`w-full ${!sidebarOpen && 'px-2'}`}
+            className={`w-full flex items-center justify-center px-4 py-3 rounded-xl
+              bg-red-500/80 hover:bg-red-500 backdrop-blur-sm
+              text-white font-medium
+              transition-all duration-200 hover:scale-[1.02] hover:shadow-lg
+              ${!sidebarOpen && 'px-2'}`}
           >
-            {sidebarOpen ? 'Déconnexion' : <CogIcon className="h-5 w-5 mx-auto" />}
-          </Button>
+            <ArrowRightOnRectangleIcon className="h-5 w-5" />
+            {sidebarOpen && <span className="ml-2">Déconnexion</span>}
+          </button>
         </div>
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white shadow-sm">
+        <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50">
           <div className="flex justify-between items-center py-4 px-6">
-            <h1 className="text-2xl font-semibold text-gray-900">
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
               3M SEAFOOD
             </h1>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <NotificationCenter />
-              {/* Boutons de changement de langue */}
-              {/* <button onClick={() => changeLanguage('fr')} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md text-sm font-medium hover:bg-indigo-200">FR</button> */}
-              {/* <button onClick={() => changeLanguage('ar')} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-md text-sm font-medium hover:bg-indigo-200">AR</button> */}
-              <Button 
-                onClick={handleLogout} 
+              <Button
+                onClick={handleLogout}
                 variant="primary"
                 size="sm"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700"
               >
                 Déconnexion
               </Button>
